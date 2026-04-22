@@ -355,10 +355,12 @@ export function PublicDashboard() {
             </Card>
           ) : (
             filteredProposals.map((proposal) => {
-              const relevant = proposal.implementations.filter(
-                (i) => i.status !== "NOT_RELEVANT"
-              );
+              const allImpls = proposal.implementations;
+              const notRelevant = allImpls.filter((i) => i.status === "NOT_RELEVANT").length;
+              const relevant = allImpls.filter((i) => i.status !== "NOT_RELEVANT");
               const done = relevant.filter((i) => i.status === "COMPLETED").length;
+              const inProg = relevant.filter((i) => i.status === "IN_PROGRESS").length;
+              const notAnswered = relevant.filter((i) => i.status === "NOT_STARTED").length;
               const total = relevant.length;
               const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
@@ -398,9 +400,12 @@ export function PublicDashboard() {
                         )}
                       </div>
                       <div className="flex items-center gap-3 shrink-0">
-                        <div className="text-right">
+                        <div className="text-right space-y-0.5">
                           <p className="text-lg font-bold text-gray-900">{pct}%</p>
-                          <p className="text-xs text-gray-400">{done}/{total} หน่วยงาน</p>
+                          <p className="text-xs text-green-600">เสร็จ {done}/{total}</p>
+                          {inProg > 0 && <p className="text-xs text-yellow-600">กำลังทำ {inProg}</p>}
+                          {notAnswered > 0 && <p className="text-xs text-gray-400">ยังไม่ตอบ {notAnswered}</p>}
+                          {notRelevant > 0 && <p className="text-xs text-slate-400">ไม่เกี่ยวข้อง {notRelevant}</p>}
                         </div>
                         {expandedProposal === proposal.id ? (
                           <ChevronUp size={18} className="text-gray-400" />

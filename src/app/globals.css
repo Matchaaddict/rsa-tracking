@@ -10,3 +10,17 @@ body {
   color: var(--foreground);
   font-family: "Sarabun", Arial, sans-serif;
 }
+
+@media print {
+  @page {
+    size: A4;
+    margin: 1.5cm;
+  }
+  body {
+    background: white;
+    font-size: 11px;
+  }
+  .print\:hidden { display: none !important; }
+  .print\:break-before-page { break-before: page; }
+  .print\:break-inside-avoid { break-inside: avoid; }
+}

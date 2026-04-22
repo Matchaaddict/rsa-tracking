@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { Button } from "./ui/button";
-import { ShieldCheck, Building2, LayoutDashboard } from "lucide-react";
+import { ShieldCheck, Building2, LayoutDashboard, FileBarChart2 } from "lucide-react";
 
 export function Navbar() {
   const { data: session } = useSession();
@@ -26,6 +26,12 @@ export function Navbar() {
               <Button variant="ghost" size="sm" className="gap-2">
                 <LayoutDashboard size={16} />
                 <span className="hidden sm:inline">แดชบอร์ด</span>
+              </Button>
+            </Link>
+            <Link href="/report">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <FileBarChart2 size={16} />
+                <span className="hidden sm:inline">รายงาน</span>
               </Button>
             </Link>
 
