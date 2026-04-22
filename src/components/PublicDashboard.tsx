@@ -93,6 +93,7 @@ export function PublicDashboard() {
   const [selectedFestival, setSelectedFestival] = useState<string>("all");
   const [expandedProposal, setExpandedProposal] = useState<string | null>(null);
   const [expandedAgency, setExpandedAgency] = useState<string | null>(null);
+  const [expandedSubCommittees, setExpandedSubCommittees] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<"proposals" | "agencies">("proposals");
 
   useEffect(() => {
@@ -103,6 +104,14 @@ export function PublicDashboard() {
         setLoading(false);
       });
   }, []);
+
+  function toggleSC(id: string) {
+    setExpandedSubCommittees((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
 
   if (loading) {
     return (
@@ -353,108 +362,152 @@ export function PublicDashboard() {
                 ยังไม่มีข้อเสนอ
               </CardContent>
             </Card>
-          ) : (
-            filteredProposals.map((proposal) => {
-              const allImpls = proposal.implementations;
-              const notRelevant = allImpls.filter((i) => i.status === "NOT_RELEVANT").length;
-              const relevant = allImpls.filter((i) => i.status !== "NOT_RELEVANT");
-              const done = relevant.filter((i) => i.status === "COMPLETED").length;
-              const inProg = relevant.filter((i) => i.status === "IN_PROGRESS").length;
-              const notAnswered = relevant.filter((i) => i.status === "NOT_STARTED").length;
-              const total = relevant.length;
-              const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+          ) : (() => {
+            // Group proposals by sub-committee
+            const scMap = new Map<string, { sc: SubCommittee; proposals: Proposal[] }>();
+            filteredProposals.forEach((p) => {
+              p.subCommittees.forEach(({ subCommittee }) => {
+                if (!scMap.has(subCommittee.id)) {
+                  scMap.set(subCommittee.id, { sc: subCommittee, proposals: [] });
+                }
+                scMap.get(subCommittee.id)!.proposals.push(p);
+              });
+            });
+
+            return Array.from(scMap.values()).map(({ sc, proposals }) => {
+              // Aggregate stats for this SC group
+              const scDone = proposals.reduce(
+                (a, p) => a + p.implementations.filter((i) => i.status === "COMPLETED").length, 0
+              );
+              const scTotal = proposals.reduce(
+                (a, p) => a + p.implementations.filter((i) => i.status !== "NOT_RELEVANT").length, 0
+              );
+              const scPct = scTotal > 0 ? Math.round((scDone / scTotal) * 100) : 0;
+              const isOpen = expandedSubCommittees.has(sc.id);
 
               return (
-                <Card key={proposal.id}>
-                  <div
-                    className="px-6 py-4 cursor-pointer"
-                    onClick={() =>
-                      setExpandedProposal(
-                        expandedProposal === proposal.id ? null : proposal.id
-                      )
-                    }
+                <div key={sc.id} className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
+                  {/* SC Header */}
+                  <button
+                    onClick={() => toggleSC(sc.id)}
+                    className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors text-left"
                   >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-medium text-gray-400">
-                            ข้อ {proposal.orderNumber}
-                          </span>
-                          <Badge
-                            variant={
-                              proposal.festival.type === "NEW_YEAR" ? "default" : "warning"
-                            }
-                          >
-                            {FESTIVAL_TYPE_LABELS[proposal.festival.type]}{" "}
-                            {proposal.festival.year}
-                          </Badge>
-                          {proposal.subCommittees.map((sc) => (
-                            <Badge key={sc.subCommittee.id} variant="gray">
-                              {sc.subCommittee.name}
-                            </Badge>
-                          ))}
-                        </div>
-                        <p className="mt-1 font-medium text-gray-900">{proposal.title}</p>
-                        {proposal.description && (
-                          <p className="text-sm text-gray-500 mt-0.5">{proposal.description}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <div className="text-right space-y-0.5">
-                          <p className="text-lg font-bold text-gray-900">{pct}%</p>
-                          <p className="text-xs text-green-600">เสร็จ {done}/{total}</p>
-                          {inProg > 0 && <p className="text-xs text-yellow-600">กำลังทำ {inProg}</p>}
-                          {notAnswered > 0 && <p className="text-xs text-gray-400">ยังไม่ตอบ {notAnswered}</p>}
-                          {notRelevant > 0 && <p className="text-xs text-slate-400">ไม่เกี่ยวข้อง {notRelevant}</p>}
-                        </div>
-                        {expandedProposal === proposal.id ? (
-                          <ChevronUp size={18} className="text-gray-400" />
-                        ) : (
-                          <ChevronDown size={18} className="text-gray-400" />
-                        )}
+                    <div className="flex items-center gap-3">
+                      {isOpen
+                        ? <ChevronUp size={18} className="text-blue-500 shrink-0" />
+                        : <ChevronDown size={18} className="text-gray-400 shrink-0" />}
+                      <div>
+                        <p className="font-semibold text-gray-900">{sc.name}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{proposals.length} ข้อเสนอ</p>
                       </div>
                     </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-xl font-bold text-blue-600">{scPct}%</p>
+                      <p className="text-xs text-gray-400">เสร็จ {scDone}/{scTotal}</p>
+                    </div>
+                  </button>
 
-                    {/* Progress Bar */}
-                    <div className="mt-3 h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-green-500 rounded-full transition-all"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
+                  {/* SC Progress bar */}
+                  <div className="h-1 bg-gray-100">
+                    <div
+                      className="h-full bg-blue-500 transition-all"
+                      style={{ width: `${scPct}%` }}
+                    />
                   </div>
 
-                  {/* Expanded Detail */}
-                  {expandedProposal === proposal.id && proposal.implementations.length > 0 && (
-                    <div className="border-t border-gray-100 px-6 py-4 space-y-3">
-                      {proposal.implementations.map((impl) => (
-                        <div
-                          key={impl.id}
-                          className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-800">
-                              {impl.agency.name}
-                            </p>
-                            {impl.content ? (
-                              <p className="text-sm text-gray-600 mt-0.5">{impl.content}</p>
-                            ) : (
-                              <p className="text-sm text-gray-400 italic mt-0.5">ยังไม่ได้กรอกข้อมูล</p>
+                  {/* Proposals list */}
+                  {isOpen && (
+                    <div className="divide-y divide-gray-100">
+                      {proposals.map((proposal) => {
+                        const allImpls = proposal.implementations;
+                        const notRelevant = allImpls.filter((i) => i.status === "NOT_RELEVANT").length;
+                        const relevant = allImpls.filter((i) => i.status !== "NOT_RELEVANT");
+                        const done = relevant.filter((i) => i.status === "COMPLETED").length;
+                        const inProg = relevant.filter((i) => i.status === "IN_PROGRESS").length;
+                        const notAnswered = relevant.filter((i) => i.status === "NOT_STARTED").length;
+                        const total = relevant.length;
+                        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+                        const key = `${sc.id}-${proposal.id}`;
+
+                        return (
+                          <div key={key}>
+                            <div
+                              className="px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                              onClick={() =>
+                                setExpandedProposal(expandedProposal === key ? null : key)
+                              }
+                            >
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-xs font-medium text-gray-400">
+                                      ข้อ {proposal.orderNumber}
+                                    </span>
+                                    <Badge
+                                      variant={proposal.festival.type === "NEW_YEAR" ? "default" : "warning"}
+                                    >
+                                      {FESTIVAL_TYPE_LABELS[proposal.festival.type]} {proposal.festival.year}
+                                    </Badge>
+                                  </div>
+                                  <p className="mt-1 font-medium text-gray-900">{proposal.title}</p>
+                                  {proposal.description && (
+                                    <p className="text-sm text-gray-500 mt-0.5">{proposal.description}</p>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-3 shrink-0">
+                                  <div className="text-right space-y-0.5">
+                                    <p className="text-lg font-bold text-gray-900">{pct}%</p>
+                                    <p className="text-xs text-green-600">เสร็จ {done}/{total}</p>
+                                    {inProg > 0 && <p className="text-xs text-yellow-600">กำลังทำ {inProg}</p>}
+                                    {notAnswered > 0 && <p className="text-xs text-gray-400">ยังไม่ตอบ {notAnswered}</p>}
+                                    {notRelevant > 0 && <p className="text-xs text-slate-400">ไม่เกี่ยวข้อง {notRelevant}</p>}
+                                  </div>
+                                  {expandedProposal === key
+                                    ? <ChevronUp size={16} className="text-gray-400" />
+                                    : <ChevronDown size={16} className="text-gray-400" />}
+                                </div>
+                              </div>
+                              <div className="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-green-500 rounded-full transition-all"
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                            </div>
+
+                            {expandedProposal === key && allImpls.length > 0 && (
+                              <div className="bg-gray-50 px-6 py-4 space-y-2">
+                                {allImpls.map((impl) => (
+                                  <div
+                                    key={impl.id}
+                                    className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gray-100"
+                                  >
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium text-gray-800">{impl.agency.name}</p>
+                                      {impl.content ? (
+                                        <p className="text-sm text-gray-600 mt-0.5">{impl.content}</p>
+                                      ) : (
+                                        <p className="text-sm text-gray-400 italic mt-0.5">ยังไม่ได้กรอกข้อมูล</p>
+                                      )}
+                                    </div>
+                                    <span
+                                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0 ${STATUS_COLORS[impl.status as keyof typeof STATUS_COLORS]}`}
+                                    >
+                                      {STATUS_LABELS[impl.status as keyof typeof STATUS_LABELS]}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
                             )}
                           </div>
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0 ${STATUS_COLORS[impl.status]}`}
-                          >
-                            {STATUS_LABELS[impl.status]}
-                          </span>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
-                </Card>
+                </div>
               );
-            })
-          )}
+            });
+          })()}
         </div>
       )}
 
