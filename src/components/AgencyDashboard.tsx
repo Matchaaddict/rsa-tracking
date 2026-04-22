@@ -188,7 +188,7 @@ export function AgencyDashboard({ agencyName }: { agencyId: string; agencyName: 
                       สถานะการดำเนินงาน
                     </label>
                     <div className="flex gap-2 flex-wrap">
-                      {(["NOT_STARTED", "IN_PROGRESS", "COMPLETED"] as const).map((s) => (
+                      {(["NOT_STARTED", "IN_PROGRESS", "COMPLETED", "NOT_RELEVANT"] as const).map((s) => (
                         <button
                           key={s}
                           onClick={() =>
@@ -200,6 +200,8 @@ export function AgencyDashboard({ agencyName }: { agencyId: string; agencyName: 
                                 ? "bg-green-500 text-white border-green-500"
                                 : s === "IN_PROGRESS"
                                 ? "bg-yellow-500 text-white border-yellow-500"
+                                : s === "NOT_RELEVANT"
+                                ? "bg-slate-400 text-white border-slate-400"
                                 : "bg-gray-400 text-white border-gray-400"
                               : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
                           }`}
@@ -210,24 +212,26 @@ export function AgencyDashboard({ agencyName }: { agencyId: string; agencyName: 
                     </div>
                   </div>
 
-                  {/* Content */}
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 block mb-2">
-                      รายละเอียดผลการดำเนินงาน
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={form.content}
-                      onChange={(e) =>
-                        setForms((f) => ({
-                          ...f,
-                          [proposal.id]: { ...form, content: e.target.value },
-                        }))
-                      }
-                      placeholder="อธิบายผลการดำเนินงาน..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
-                    />
-                  </div>
+                  {/* Content — ซ่อนเมื่อเลือก ไม่เกี่ยวข้อง */}
+                  {form.status !== "NOT_RELEVANT" && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 block mb-2">
+                        รายละเอียดผลการดำเนินงาน
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={form.content}
+                        onChange={(e) =>
+                          setForms((f) => ({
+                            ...f,
+                            [proposal.id]: { ...form, content: e.target.value },
+                          }))
+                        }
+                        placeholder="อธิบายผลการดำเนินงาน..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
+                      />
+                    </div>
+                  )}
 
                   <div className="flex justify-end">
                     <Button

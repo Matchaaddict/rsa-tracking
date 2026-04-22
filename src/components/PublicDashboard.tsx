@@ -119,8 +119,9 @@ export function PublicDashboard() {
       ? data.proposals
       : data.proposals.filter((p) => p.festivalId === selectedFestival);
 
+  // ไม่นับ NOT_RELEVANT ใน total
   const totalImplementationsForFilter = filteredProposals.reduce(
-    (acc, p) => acc + p.implementations.length,
+    (acc, p) => acc + p.implementations.filter((i) => i.status !== "NOT_RELEVANT").length,
     0
   );
   const completedForFilter = filteredProposals.reduce(
@@ -138,7 +139,9 @@ export function PublicDashboard() {
 
   const agenciesWithDataForFilter = new Set(
     filteredProposals.flatMap((p) =>
-      p.implementations.filter((i) => i.content).map((i) => i.agencyId)
+      p.implementations
+        .filter((i) => i.content && i.status !== "NOT_RELEVANT")
+        .map((i) => i.agencyId)
     )
   ).size;
 
@@ -352,10 +355,11 @@ export function PublicDashboard() {
             </Card>
           ) : (
             filteredProposals.map((proposal) => {
-              const done = proposal.implementations.filter(
-                (i) => i.status === "COMPLETED"
-              ).length;
-              const total = proposal.implementations.length;
+              const relevant = proposal.implementations.filter(
+                (i) => i.status !== "NOT_RELEVANT"
+              );
+              const done = relevant.filter((i) => i.status === "COMPLETED").length;
+              const total = relevant.length;
               const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
               return (

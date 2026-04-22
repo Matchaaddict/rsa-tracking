@@ -367,7 +367,7 @@ export function ProposalManager() {
                                 </span>
                               </div>
                               <div className="flex gap-2 flex-wrap">
-                                {(["NOT_STARTED", "IN_PROGRESS", "COMPLETED"] as const).map((s) => (
+                                {(["NOT_STARTED", "IN_PROGRESS", "COMPLETED", "NOT_RELEVANT"] as const).map((s) => (
                                   <button
                                     key={s}
                                     onClick={() =>
@@ -379,6 +379,8 @@ export function ProposalManager() {
                                           ? "bg-green-500 text-white border-green-500"
                                           : s === "IN_PROGRESS"
                                           ? "bg-yellow-500 text-white border-yellow-500"
+                                          : s === "NOT_RELEVANT"
+                                          ? "bg-slate-400 text-white border-slate-400"
                                           : "bg-gray-400 text-white border-gray-400"
                                         : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
                                     }`}
