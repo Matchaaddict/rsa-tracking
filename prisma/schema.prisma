@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Admin {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  createdAt DateTime @default(now())
+}
+
+model Festival {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  type      String
+  year      Int
+  createdAt DateTime   @default(now())
+  proposals Proposal[]
+}
+
+model SubCommittee {
+  id          String                 @id @default(cuid())
+  name        String                 @unique
+  description String?
+  agencies    AgencySubCommittee[]
+  proposals   ProposalSubCommittee[]
+}
+
+model Agency {
+  id              String               @id @default(cuid())
+  name            String
+  username        String               @unique
+  password        String
+  subCommittees   AgencySubCommittee[]
+  implementations Implementation[]
+  createdAt       DateTime             @default(now())
+}
+
+model AgencySubCommittee {
+  agency         Agency       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId       String
+  subCommittee   SubCommittee @relation(fields: [subCommitteeId], references: [id], onDelete: Cascade)
+  subCommitteeId String
+
+  @@id([agencyId, subCommitteeId])
+}
+
+model Proposal {
+  id              String                 @id @default(cuid())
+  title           String
+  description     String?
+  festival        Festival               @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+  festivalId      String
+  orderNumber     Int
+  subCommittees   ProposalSubCommittee[]
+  implementations Implementation[]
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+}
+
+model ProposalSubCommittee {
+  proposal       Proposal     @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  proposalId     String
+  subCommittee   SubCommittee @relation(fields: [subCommitteeId], references: [id], onDelete: Cascade)
+  subCommitteeId String
+
+  @@id([proposalId, subCommitteeId])
+}
+
+model Implementation {
+  id         String   @id @default(cuid())
+  proposal   Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  proposalId String
+  agency     Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId   String
+  content    String?
+  status     String   @default("NOT_STARTED")
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
+
+  @@unique([proposalId, agencyId])
+}
