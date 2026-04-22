@@ -94,6 +94,7 @@ export function PublicDashboard() {
   const [expandedProposal, setExpandedProposal] = useState<string | null>(null);
   const [expandedAgency, setExpandedAgency] = useState<string | null>(null);
   const [expandedSubCommittees, setExpandedSubCommittees] = useState<Set<string>>(new Set());
+  const [expandedFestivals, setExpandedFestivals] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<"proposals" | "agencies">("proposals");
 
   useEffect(() => {
@@ -109,6 +110,14 @@ export function PublicDashboard() {
     setExpandedSubCommittees((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function toggleFestival(key: string) {
+    setExpandedFestivals((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
       return next;
     });
   }
@@ -415,95 +424,143 @@ export function PublicDashboard() {
                     />
                   </div>
 
-                  {/* Proposals list */}
-                  {isOpen && (
-                    <div className="divide-y divide-gray-100">
-                      {proposals.map((proposal) => {
-                        const allImpls = proposal.implementations;
-                        const notRelevant = allImpls.filter((i) => i.status === "NOT_RELEVANT").length;
-                        const relevant = allImpls.filter((i) => i.status !== "NOT_RELEVANT");
-                        const done = relevant.filter((i) => i.status === "COMPLETED").length;
-                        const inProg = relevant.filter((i) => i.status === "IN_PROGRESS").length;
-                        const notAnswered = relevant.filter((i) => i.status === "NOT_STARTED").length;
-                        const total = relevant.length;
-                        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-                        const key = `${sc.id}-${proposal.id}`;
+                  {/* Festival sub-groups inside each SC */}
+                  {isOpen && (() => {
+                    // Group proposals in this SC by festival
+                    const festMap = new Map<string, { festival: Festival; proposals: Proposal[] }>();
+                    proposals.forEach((p) => {
+                      if (!festMap.has(p.festivalId)) {
+                        festMap.set(p.festivalId, { festival: p.festival, proposals: [] });
+                      }
+                      festMap.get(p.festivalId)!.proposals.push(p);
+                    });
 
-                        return (
-                          <div key={key}>
-                            <div
-                              className="px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                              onClick={() =>
-                                setExpandedProposal(expandedProposal === key ? null : key)
-                              }
-                            >
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-xs font-medium text-gray-400">
-                                      ข้อ {proposal.orderNumber}
-                                    </span>
-                                    <Badge
-                                      variant={proposal.festival.type === "NEW_YEAR" ? "default" : "warning"}
-                                    >
-                                      {FESTIVAL_TYPE_LABELS[proposal.festival.type]} {proposal.festival.year}
-                                    </Badge>
-                                  </div>
-                                  <p className="mt-1 font-medium text-gray-900">{proposal.title}</p>
-                                  {proposal.description && (
-                                    <p className="text-sm text-gray-500 mt-0.5">{proposal.description}</p>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-3 shrink-0">
-                                  <div className="text-right space-y-0.5">
-                                    <p className="text-lg font-bold text-gray-900">{pct}%</p>
-                                    <p className="text-xs text-green-600">เสร็จ {done}/{total}</p>
-                                    {inProg > 0 && <p className="text-xs text-yellow-600">กำลังทำ {inProg}</p>}
-                                    {notAnswered > 0 && <p className="text-xs text-gray-400">ยังไม่ตอบ {notAnswered}</p>}
-                                    {notRelevant > 0 && <p className="text-xs text-slate-400">ไม่เกี่ยวข้อง {notRelevant}</p>}
-                                  </div>
-                                  {expandedProposal === key
-                                    ? <ChevronUp size={16} className="text-gray-400" />
-                                    : <ChevronDown size={16} className="text-gray-400" />}
-                                </div>
-                              </div>
-                              <div className="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-green-500 rounded-full transition-all"
-                                  style={{ width: `${pct}%` }}
-                                />
-                              </div>
+                    return Array.from(festMap.values()).map(({ festival, proposals: festProposals }) => {
+                      const festKey = `${sc.id}-${festival.id}`;
+                      const isFestOpen = expandedFestivals.has(festKey);
+
+                      const fDone = festProposals.reduce(
+                        (a, p) => a + p.implementations.filter((i) => i.status === "COMPLETED").length, 0
+                      );
+                      const fTotal = festProposals.reduce(
+                        (a, p) => a + p.implementations.filter((i) => i.status !== "NOT_RELEVANT").length, 0
+                      );
+                      const fPct = fTotal > 0 ? Math.round((fDone / fTotal) * 100) : 0;
+                      const festColor = festival.type === "NEW_YEAR" ? "text-blue-600" : "text-orange-500";
+                      const festBg = festival.type === "NEW_YEAR" ? "bg-blue-50 hover:bg-blue-100" : "bg-orange-50 hover:bg-orange-100";
+                      const festBar = festival.type === "NEW_YEAR" ? "bg-blue-400" : "bg-orange-400";
+
+                      return (
+                        <div key={festKey} className="border-t border-gray-100">
+                          {/* Festival header */}
+                          <button
+                            onClick={() => toggleFestival(festKey)}
+                            className={`w-full flex items-center justify-between px-6 py-3 transition-colors text-left ${festBg}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              {isFestOpen
+                                ? <ChevronUp size={15} className={festColor} />
+                                : <ChevronDown size={15} className="text-gray-400" />}
+                              <span className={`text-sm font-semibold ${festColor}`}>
+                                {FESTIVAL_TYPE_LABELS[festival.type]} {festival.year}
+                              </span>
+                              <span className="text-xs text-gray-400">{festProposals.length} ข้อ</span>
                             </div>
+                            <div className="text-right">
+                              <span className={`text-sm font-bold ${festColor}`}>{fPct}%</span>
+                              <span className="text-xs text-gray-400 ml-1">({fDone}/{fTotal})</span>
+                            </div>
+                          </button>
 
-                            {expandedProposal === key && allImpls.length > 0 && (
-                              <div className="bg-gray-50 px-6 py-4 space-y-2">
-                                {allImpls.map((impl) => (
-                                  <div
-                                    key={impl.id}
-                                    className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gray-100"
-                                  >
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-medium text-gray-800">{impl.agency.name}</p>
-                                      {impl.content ? (
-                                        <p className="text-sm text-gray-600 mt-0.5">{impl.content}</p>
-                                      ) : (
-                                        <p className="text-sm text-gray-400 italic mt-0.5">ยังไม่ได้กรอกข้อมูล</p>
-                                      )}
-                                    </div>
-                                    <span
-                                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0 ${STATUS_COLORS[impl.status as keyof typeof STATUS_COLORS]}`}
-                                    >
-                                      {STATUS_LABELS[impl.status as keyof typeof STATUS_LABELS]}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                          {/* Thin festival progress bar */}
+                          <div className="h-0.5 bg-gray-100">
+                            <div className={`h-full ${festBar} transition-all`} style={{ width: `${fPct}%` }} />
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
+
+                          {/* Proposals under this festival */}
+                          {isFestOpen && (
+                            <div className="divide-y divide-gray-100">
+                              {festProposals.map((proposal) => {
+                                const allImpls = proposal.implementations;
+                                const notRelevant = allImpls.filter((i) => i.status === "NOT_RELEVANT").length;
+                                const relevant = allImpls.filter((i) => i.status !== "NOT_RELEVANT");
+                                const done = relevant.filter((i) => i.status === "COMPLETED").length;
+                                const inProg = relevant.filter((i) => i.status === "IN_PROGRESS").length;
+                                const notAnswered = relevant.filter((i) => i.status === "NOT_STARTED").length;
+                                const total = relevant.length;
+                                const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+                                const proposalKey = `${sc.id}-${festival.id}-${proposal.id}`;
+
+                                return (
+                                  <div key={proposalKey}>
+                                    <div
+                                      className="px-8 py-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                                      onClick={() =>
+                                        setExpandedProposal(expandedProposal === proposalKey ? null : proposalKey)
+                                      }
+                                    >
+                                      <div className="flex items-start justify-between gap-4">
+                                        <div className="flex-1 min-w-0">
+                                          <span className="text-xs font-medium text-gray-400">ข้อ {proposal.orderNumber}</span>
+                                          <p className="mt-0.5 font-medium text-gray-900">{proposal.title}</p>
+                                          {proposal.description && (
+                                            <p className="text-sm text-gray-500 mt-0.5">{proposal.description}</p>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                          <div className="text-right space-y-0.5">
+                                            <p className="text-base font-bold text-gray-900">{pct}%</p>
+                                            <p className="text-xs text-green-600">เสร็จ {done}/{total}</p>
+                                            {inProg > 0 && <p className="text-xs text-yellow-600">กำลังทำ {inProg}</p>}
+                                            {notAnswered > 0 && <p className="text-xs text-gray-400">ยังไม่ตอบ {notAnswered}</p>}
+                                            {notRelevant > 0 && <p className="text-xs text-slate-400">ไม่เกี่ยวข้อง {notRelevant}</p>}
+                                          </div>
+                                          {expandedProposal === proposalKey
+                                            ? <ChevronUp size={15} className="text-gray-400" />
+                                            : <ChevronDown size={15} className="text-gray-400" />}
+                                        </div>
+                                      </div>
+                                      <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                        <div
+                                          className="h-full bg-green-500 rounded-full transition-all"
+                                          style={{ width: `${pct}%` }}
+                                        />
+                                      </div>
+                                    </div>
+
+                                    {expandedProposal === proposalKey && allImpls.length > 0 && (
+                                      <div className="bg-gray-50 px-8 py-3 space-y-2">
+                                        {allImpls.map((impl) => (
+                                          <div
+                                            key={impl.id}
+                                            className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gray-100"
+                                          >
+                                            <div className="flex-1 min-w-0">
+                                              <p className="text-sm font-medium text-gray-800">{impl.agency.name}</p>
+                                              {impl.content ? (
+                                                <p className="text-sm text-gray-600 mt-0.5">{impl.content}</p>
+                                              ) : (
+                                                <p className="text-sm text-gray-400 italic mt-0.5">ยังไม่ได้กรอกข้อมูล</p>
+                                              )}
+                                            </div>
+                                            <span
+                                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0 ${STATUS_COLORS[impl.status as keyof typeof STATUS_COLORS]}`}
+                                            >
+                                              {STATUS_LABELS[impl.status as keyof typeof STATUS_LABELS]}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               );
             });
