@@ -10,8 +10,8 @@ const sarabun = Sarabun({
 });
 
 export const metadata: Metadata = {
-  title: "ระบบติดตามข้อเสนอ | RSA",
-  description: "ระบบติดตามการดำเนินงานตามข้อเสนอจากที่ประชุม",
+  title: "ระบบติดตามข้อเสนอแนวทางฯ | RSAT",
+  description: "ระบบติดตามข้อเสนอแนวทางในการป้องกันและลดอุบัติเหตุทางถนนในช่วงการรณรงค์และภายหลังการรณรงค์ป้องกันและลดอุบัติเหตุทางถนน เทศกาล ฯ",
 };
 
 export default function RootLayout({

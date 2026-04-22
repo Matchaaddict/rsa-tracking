@@ -23,7 +23,7 @@ export function AdminPanel() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">แผงควบคุมแอดมิน</h1>
-        <p className="text-gray-500 mt-1">จัดการข้อมูลระบบติดตามข้อเสนอ</p>
+        <p className="text-gray-500 mt-1">จัดการข้อมูลระบบติดตามข้อเสนอแนวทางฯ (RSAT)</p>
       </div>
 
       {/* Tab Navigation */}
