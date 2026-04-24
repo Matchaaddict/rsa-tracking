@@ -163,6 +163,8 @@ async function main() {
     { key: "hero_label", value: "RSAT" },
     { key: "hero_title", value: "ระบบติดตามข้อเสนอแนวทางป้องกันและลดอุบัติเหตุทางถนน" },
     { key: "hero_subtitle", value: "ในช่วงการรณรงค์เทศกาล ฯ" },
+    { key: "site_page_title", value: "ระบบติดตามข้อเสนอแนวทางฯ | RSAT" },
+    { key: "site_footnote", value: "" },
   ];
   for (const cfg of siteDefaults) {
     await prisma.siteConfig.upsert({ where: { key: cfg.key }, update: {}, create: cfg });

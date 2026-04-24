@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { STATUS_LABELS, STATUS_COLORS, FESTIVAL_TYPE_LABELS } from "@/lib/utils";
-import { Loader2, Save, CheckCircle2 } from "lucide-react";
+import { Loader2, Save, CheckCircle2, FileText, MessageCircle } from "lucide-react";
+import { AgencyMessages } from "./AgencyMessages";
 
 interface Festival {
   id: string;
@@ -41,6 +42,7 @@ interface FormState {
 }
 
 export function AgencyDashboard({ agencyName }: { agencyId: string; agencyName: string }) {
+  const [activeTab, setActiveTab] = useState<"proposals" | "messages">("proposals");
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [forms, setForms] = useState<Record<string, FormState>>({});
@@ -101,11 +103,36 @@ export function AgencyDashboard({ agencyName }: { agencyId: string; agencyName: 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">กรอกผลการดำเนินงาน</h1>
+        <h1 className="text-2xl font-bold text-gray-900">ระบบรายงานผล</h1>
         <p className="text-gray-500 mt-1">
           หน่วยงาน: <span className="font-medium text-gray-700">{agencyName}</span>
         </p>
       </div>
+
+      {/* Tab navigation */}
+      <div className="border-b border-gray-200">
+        <nav className="flex gap-1">
+          <button
+            onClick={() => setActiveTab("proposals")}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "proposals" ? "border-emerald-600 text-emerald-600" : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <FileText size={15} /> กรอกผลการดำเนินงาน
+          </button>
+          <button
+            onClick={() => setActiveTab("messages")}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "messages" ? "border-emerald-600 text-emerald-600" : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <MessageCircle size={15} /> ถามแอดมิน
+          </button>
+        </nav>
+      </div>
+
+      {activeTab === "messages" && <AgencyMessages />}
+      {activeTab === "proposals" && (<>
 
       {/* Festival filter */}
       <div className="flex flex-wrap gap-2">
@@ -260,6 +287,7 @@ export function AgencyDashboard({ agencyName }: { agencyId: string; agencyName: 
           })}
         </div>
       )}
+      </>)}
     </div>
   );
 }

@@ -25,6 +25,7 @@ import {
   ChevronUp,
   Loader2,
 } from "lucide-react";
+import { FAQSection } from "./FAQSection";
 
 interface Festival {
   id: string;
@@ -760,6 +761,15 @@ export function PublicDashboard() {
         </div>
       )}
 
+      {/* FAQ */}
+      <FAQSection />
+
+      {/* Footnote */}
+      {data.siteConfig.site_footnote && (
+        <footer className="border-t border-gray-200 py-4 text-center">
+          <p className="text-xs text-gray-400 whitespace-pre-wrap">{data.siteConfig.site_footnote}</p>
+        </footer>
+      )}
     </div>
   );
 }

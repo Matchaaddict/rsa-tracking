@@ -37,6 +37,7 @@ model Agency {
   password        String
   subCommittees   AgencySubCommittee[]
   implementations Implementation[]
+  messages        AgencyMessage[]
   createdAt       DateTime             @default(now())
 }
 
@@ -89,4 +90,25 @@ model SiteConfig {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+model FAQ {
+  id        String   @id @default(cuid())
+  question  String
+  answer    String
+  orderNum  Int      @default(0)
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AgencyMessage {
+  id           String   @id @default(cuid())
+  agency       Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId     String
+  question     String
+  answer       String?
+  readByAdmin  Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }

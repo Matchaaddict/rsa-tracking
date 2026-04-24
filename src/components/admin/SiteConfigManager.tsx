@@ -6,9 +6,11 @@ import { Button } from "../ui/button";
 import { Loader2, Check, Globe } from "lucide-react";
 
 const FIELDS = [
-  { key: "hero_label", label: "ป้ายชื่อย่อ (บรรทัดบน)", placeholder: "เช่น RSAT" },
-  { key: "hero_title", label: "ชื่อระบบ / หัวข้อหลัก", placeholder: "ระบบติดตามข้อเสนอแนวทาง..." },
-  { key: "hero_subtitle", label: "คำอธิบายใต้หัวข้อ", placeholder: "ในช่วงการรณรงค์เทศกาล ฯ" },
+  { key: "site_page_title", label: "ชื่อแท็บเบราว์เซอร์", placeholder: "ระบบติดตามข้อเสนอแนวทางฯ | RSAT", textarea: false },
+  { key: "hero_label", label: "ป้ายชื่อย่อ (บรรทัดบน)", placeholder: "เช่น RSAT", textarea: false },
+  { key: "hero_title", label: "ชื่อระบบ / หัวข้อหลัก", placeholder: "ระบบติดตามข้อเสนอแนวทาง...", textarea: false },
+  { key: "hero_subtitle", label: "คำอธิบายใต้หัวข้อ", placeholder: "ในช่วงการรณรงค์เทศกาล ฯ", textarea: false },
+  { key: "site_footnote", label: "หมายเหตุท้ายหน้า (Footnote)", placeholder: "ข้อความท้ายหน้า เช่น สงวนสิทธิ์ / แหล่งข้อมูล ฯ", textarea: true },
 ];
 
 export function SiteConfigManager() {
@@ -51,13 +53,23 @@ export function SiteConfigManager() {
           {FIELDS.map((f) => (
             <div key={f.key}>
               <label className="text-sm font-medium text-gray-700 block mb-1">{f.label}</label>
-              <input
-                type="text"
-                value={values[f.key] ?? ""}
-                onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}
-                placeholder={f.placeholder}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              {f.textarea ? (
+                <textarea
+                  rows={3}
+                  value={values[f.key] ?? ""}
+                  onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}
+                  placeholder={f.placeholder}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+              ) : (
+                <input
+                  type="text"
+                  value={values[f.key] ?? ""}
+                  onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}
+                  placeholder={f.placeholder}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              )}
             </div>
           ))}
 
