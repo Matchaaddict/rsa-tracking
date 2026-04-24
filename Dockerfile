@@ -12,4 +12,4 @@ RUN npm run build
 
 EXPOSE 3000
 
-CMD sh -c "echo '=== Container boot ===' && echo PORT=${PORT:-3000} && echo DATABASE_URL=$DATABASE_URL && npx prisma migrate deploy && echo '=== Starting Next.js on 0.0.0.0:'${PORT:-3000}' ===' && exec node_modules/.bin/next start -H 0.0.0.0 -p ${PORT:-3000}"
+CMD sh -c "echo '=== Container boot ===' && echo PORT=${PORT:-3000} && echo DATABASE_URL=$DATABASE_URL && npx prisma migrate deploy && npx prisma db seed && echo '=== Starting Next.js on 0.0.0.0:'${PORT:-3000}' ===' && exec node_modules/.bin/next start -H 0.0.0.0 -p ${PORT:-3000}"
