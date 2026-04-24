@@ -194,99 +194,50 @@ export function PublicDashboard() {
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
       {/* Hero Banner */}
       <div className="relative overflow-hidden bg-gradient-to-br from-[#0f2460] via-[#1a3a8a] to-[#1e3a8a] rounded-3xl text-white shadow-2xl">
-        {/* Background pattern */}
-        <div className="absolute inset-0 opacity-10"
-          style={{ backgroundImage: "radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px), radial-gradient(circle at 60% 80%, white 1px, transparent 1px)", backgroundSize: "60px 60px, 80px 80px, 50px 50px" }} />
+        {/* Subtle background decoration */}
+        <svg className="absolute inset-0 w-full h-full opacity-[0.06]" viewBox="0 0 800 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <circle cx="650" cy="40" r="180" fill="white"/>
+          <circle cx="750" cy="200" r="120" fill="white"/>
+          <circle cx="580" cy="180" r="80" fill="white"/>
+        </svg>
 
-        <div className="relative flex flex-col lg:flex-row items-center gap-6 px-6 pt-8 pb-6">
-          {/* Left: text + ring + stats */}
-          <div className="flex-1 space-y-4">
-            <div className="flex items-center gap-3">
-              {/* Completion Ring */}
-              <svg width={100} height={100} viewBox="0 0 130 130" className="shrink-0">
-                <circle cx={65} cy={65} r={ringR} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={12} />
-                <circle cx={65} cy={65} r={ringR} fill="none"
-                  stroke="#34d399" strokeWidth={12}
-                  strokeDasharray={`${ringFilled} ${ringCirc}`}
-                  strokeLinecap="round"
-                  transform="rotate(-90 65 65)"
-                />
-                <text x={65} y={60} textAnchor="middle" fill="white" style={{ fontSize: 26, fontWeight: 700 }}>{overallPct}%</text>
-                <text x={65} y={78} textAnchor="middle" fill="rgba(255,255,255,0.6)" style={{ fontSize: 11 }}>ภาพรวม</text>
-              </svg>
-              <div>
-                <p className="text-blue-300 text-xs font-semibold tracking-widest uppercase">{data.siteConfig.hero_label ?? "RSAT"}</p>
-                <h1 className="text-lg sm:text-2xl font-bold leading-snug mt-0.5">
-                  {data.siteConfig.hero_title ?? "ระบบติดตามข้อเสนอแนวทางป้องกันและลดอุบัติเหตุทางถนน"}
-                </h1>
-                <p className="text-blue-300 text-sm mt-1">{data.siteConfig.hero_subtitle ?? "ในช่วงการรณรงค์เทศกาล ฯ"}</p>
-              </div>
-            </div>
-
-            {/* Stats grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {[
-                { label: "หน่วยงานกรอกข้อมูล", value: agenciesWithDataForFilter, icon: "🏢", color: "from-white/10 to-white/5" },
-                { label: "ข้อเสนอทั้งหมด", value: filteredProposals.length, icon: "📋", color: "from-white/10 to-white/5" },
-                { label: "ดำเนินการแล้ว", value: completedForFilter, icon: "✅", color: "from-emerald-500/20 to-emerald-600/10" },
-                { label: "กำลังดำเนินการ", value: inProgressForFilter, icon: "⚡", color: "from-amber-500/20 to-amber-600/10" },
-              ].map((s) => (
-                <div key={s.label} className={`bg-gradient-to-br ${s.color} rounded-2xl px-3 py-2.5 border border-white/10`}>
-                  <div className="text-xl mb-0.5">{s.icon}</div>
-                  <div className="text-2xl font-bold">{s.value}</div>
-                  <div className="text-blue-200 text-xs leading-tight mt-0.5">{s.label}</div>
-                </div>
-              ))}
+        <div className="relative px-6 pt-7 pb-6 space-y-5">
+          {/* Title row */}
+          <div className="flex items-center gap-4">
+            {/* Completion Ring */}
+            <svg width={88} height={88} viewBox="0 0 130 130" className="shrink-0">
+              <circle cx={65} cy={65} r={ringR} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={12} />
+              <circle cx={65} cy={65} r={ringR} fill="none"
+                stroke="#34d399" strokeWidth={12}
+                strokeDasharray={`${ringFilled} ${ringCirc}`}
+                strokeLinecap="round"
+                transform="rotate(-90 65 65)"
+              />
+              <text x={65} y={60} textAnchor="middle" fill="white" style={{ fontSize: 26, fontWeight: 700 }}>{overallPct}%</text>
+              <text x={65} y={78} textAnchor="middle" fill="rgba(255,255,255,0.6)" style={{ fontSize: 11 }}>ภาพรวม</text>
+            </svg>
+            <div>
+              <p className="text-blue-300 text-xs font-semibold tracking-widest uppercase">{data.siteConfig.hero_label ?? "RSAT"}</p>
+              <h1 className="text-lg sm:text-2xl font-bold leading-snug mt-0.5">
+                {data.siteConfig.hero_title ?? "ระบบติดตามข้อเสนอแนวทางป้องกันและลดอุบัติเหตุทางถนน"}
+              </h1>
+              <p className="text-blue-200 text-sm mt-1">{data.siteConfig.hero_subtitle ?? "ในช่วงการรณรงค์เทศกาล ฯ"}</p>
             </div>
           </div>
 
-          {/* Right: SVG Illustration */}
-          <div className="shrink-0 lg:w-64">
-            <svg viewBox="0 0 260 180" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full max-w-xs mx-auto">
-              {/* Glow */}
-              <ellipse cx="130" cy="95" rx="110" ry="75" fill="rgba(99,102,241,0.12)"/>
-              {/* Shield */}
-              <path d="M130 18 L192 48 L192 108 Q192 155 130 170 Q68 155 68 108 L68 48 Z"
-                fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5"/>
-              {/* Road */}
-              <path d="M25 158 Q90 130 130 115 Q170 100 235 115"
-                stroke="rgba(255,255,255,0.15)" strokeWidth="24" strokeLinecap="round"/>
-              <path d="M25 158 Q90 130 130 115 Q170 100 235 115"
-                stroke="rgba(30,58,138,0.6)" strokeWidth="20" strokeLinecap="round"/>
-              {/* Road center line */}
-              <path d="M40 155 Q100 130 130 116 Q165 103 220 113"
-                stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeDasharray="14 10" strokeLinecap="round"/>
-              {/* Car 1 */}
-              <g transform="translate(104,111) rotate(-7)">
-                <rect x="-18" y="-8" width="36" height="16" rx="6" fill="rgba(255,255,255,0.18)"/>
-                <rect x="-12" y="-16" width="26" height="12" rx="4" fill="rgba(255,255,255,0.22)"/>
-                <circle cx="-10" cy="8" r="4.5" fill="rgba(255,255,255,0.45)"/>
-                <circle cx="10" cy="8" r="4.5" fill="rgba(255,255,255,0.45)"/>
-                <rect x="-4" y="-15" width="8" height="4" rx="1" fill="rgba(147,197,253,0.5)"/>
-              </g>
-              {/* Car 2 */}
-              <g transform="translate(183,104) rotate(-3)">
-                <rect x="-13" y="-6" width="26" height="12" rx="4" fill="rgba(255,255,255,0.12)"/>
-                <rect x="-8" y="-12" width="18" height="9" rx="3" fill="rgba(255,255,255,0.15)"/>
-                <circle cx="-7" cy="7" r="3.5" fill="rgba(255,255,255,0.32)"/>
-                <circle cx="7" cy="7" r="3.5" fill="rgba(255,255,255,0.32)"/>
-              </g>
-              {/* Checkmark */}
-              <path d="M108 92 L124 108 L158 70"
-                stroke="#34d399" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round"/>
-              {/* Data nodes */}
-              <circle cx="88" cy="38" r="5" fill="rgba(52,211,153,0.35)" stroke="rgba(52,211,153,0.7)" strokeWidth="1.5"/>
-              <circle cx="130" cy="26" r="6" fill="rgba(52,211,153,0.45)" stroke="rgba(52,211,153,0.8)" strokeWidth="1.5"/>
-              <circle cx="172" cy="38" r="5" fill="rgba(52,211,153,0.35)" stroke="rgba(52,211,153,0.7)" strokeWidth="1.5"/>
-              <path d="M88 38 L130 26 L172 38" stroke="rgba(52,211,153,0.3)" strokeWidth="1.5"/>
-              {/* Decorative dots */}
-              <circle cx="45" cy="52" r="3" fill="rgba(255,255,255,0.15)"/>
-              <circle cx="58" cy="68" r="2" fill="rgba(255,255,255,0.1)"/>
-              <circle cx="205" cy="55" r="3" fill="rgba(255,255,255,0.15)"/>
-              <circle cx="218" cy="72" r="2" fill="rgba(255,255,255,0.1)"/>
-              <circle cx="44" cy="80" r="2" fill="rgba(255,255,255,0.08)"/>
-              <circle cx="216" cy="88" r="2" fill="rgba(255,255,255,0.08)"/>
-            </svg>
+          {/* Stats grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[
+              { label: "หน่วยงานกรอกข้อมูล", value: agenciesWithDataForFilter, color: "from-white/10 to-white/5" },
+              { label: "ข้อเสนอทั้งหมด", value: filteredProposals.length, color: "from-white/10 to-white/5" },
+              { label: "ดำเนินการแล้ว", value: completedForFilter, color: "from-emerald-500/20 to-emerald-600/10" },
+              { label: "กำลังดำเนินการ", value: inProgressForFilter, color: "from-amber-500/20 to-amber-600/10" },
+            ].map((s) => (
+              <div key={s.label} className={`bg-gradient-to-br ${s.color} rounded-xl px-3 py-2.5 border border-white/10`}>
+                <div className="text-2xl font-bold">{s.value}</div>
+                <div className="text-blue-200 text-xs leading-tight mt-0.5">{s.label}</div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
