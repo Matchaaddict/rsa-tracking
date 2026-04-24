@@ -1,10 +1,15 @@
 FROM node:24-slim
+
 RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
-COPY package*.json ./
+
+COPY package.json package-lock.json ./
 RUN npm ci
+
 COPY . .
 RUN npm run build
-ENV PORT=3000
+
 EXPOSE 3000
-CMD ["sh", "-c", "npx prisma migrate deploy && node_modules/.bin/next start -p 3000 2>&1"]
+
+CMD sh -c "echo '=== Container boot ===' && echo PORT=${PORT:-3000} && echo DATABASE_URL=$DATABASE_URL && npx prisma migrate deploy && echo '=== Starting Next.js on 0.0.0.0:'${PORT:-3000}' ===' && exec node_modules/.bin/next start -H 0.0.0.0 -p ${PORT:-3000}"
