@@ -321,7 +321,12 @@ export function PublicDashboard() {
             <div className="space-y-3">
               {rows.map((sc, idx) => (
                 <div key={sc.name} className="flex items-center gap-3">
-                  <div className="w-5 shrink-0 text-xs text-gray-400 text-right tabular-nums">
+                  <div className={`w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-xs font-bold ${
+                    sc.pct >= 70 ? "bg-emerald-100 text-emerald-700" :
+                    sc.pct >= 40 ? "bg-blue-100 text-blue-700" :
+                    sc.pct > 0   ? "bg-amber-100 text-amber-700" :
+                                   "bg-gray-100 text-gray-400"
+                  }`}>
                     {idx + 1}
                   </div>
                   <div className="w-28 sm:w-44 shrink-0">
@@ -336,7 +341,7 @@ export function PublicDashboard() {
                           sc.pct > 0   ? "bg-gradient-to-r from-amber-400 to-amber-500" :
                                          "bg-gray-200"
                         }`}
-                        style={{ width: `${Math.max(sc.pct, sc.pct > 0 ? 4 : 0)}%` }}
+                        style={{ width: `${sc.pct > 0 ? Math.max(sc.pct, 4) : 0}%` }}
                       >
                         {sc.pct >= 18 && <span className="text-white text-xs font-bold">{sc.pct}%</span>}
                       </div>
