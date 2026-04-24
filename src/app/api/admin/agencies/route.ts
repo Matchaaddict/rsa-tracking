@@ -13,6 +13,8 @@ const agencySelect = {
   id: true,
   name: true,
   username: true,
+  plainPassword: true,
+  resetRequested: true,
   createdAt: true,
   subCommittees: { include: { subCommittee: true } },
   _count: { select: { implementations: true } },
@@ -46,6 +48,7 @@ export async function POST(req: NextRequest) {
       name,
       username,
       password: hashed,
+      plainPassword: password,
       subCommittees: {
         create: (subCommitteeIds || []).map((id: string) => ({ subCommitteeId: id })),
       },

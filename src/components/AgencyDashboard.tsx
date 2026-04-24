@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { STATUS_LABELS, STATUS_COLORS, FESTIVAL_TYPE_LABELS } from "@/lib/utils";
-import { Loader2, Save, CheckCircle2, FileText, MessageCircle } from "lucide-react";
+import { Loader2, Save, CheckCircle2, FileText, MessageCircle, KeyRound, ShieldAlert } from "lucide-react";
 import { AgencyMessages } from "./AgencyMessages";
+import { AgencyPasswordChange } from "./AgencyPasswordChange";
 
 interface Festival {
   id: string;
@@ -42,7 +43,8 @@ interface FormState {
 }
 
 export function AgencyDashboard({ agencyName }: { agencyId: string; agencyName: string }) {
-  const [activeTab, setActiveTab] = useState<"proposals" | "messages">("proposals");
+  const [activeTab, setActiveTab] = useState<"proposals" | "messages" | "password">("proposals");
+  const [isDefaultPassword, setIsDefaultPassword] = useState(false);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [forms, setForms] = useState<Record<string, FormState>>({});
@@ -69,6 +71,7 @@ export function AgencyDashboard({ agencyName }: { agencyId: string; agencyName: 
 
   useEffect(() => {
     fetchData();
+    fetch("/api/agency/password").then(r => r.json()).then(d => setIsDefaultPassword(d.isDefaultPassword));
   }, [fetchData]);
 
   async function handleSave(proposalId: string) {
@@ -109,6 +112,18 @@ export function AgencyDashboard({ agencyName }: { agencyId: string; agencyName: 
         </p>
       </div>
 
+      {/* First-login banner */}
+      {isDefaultPassword && activeTab !== "password" && (
+        <button onClick={() => setActiveTab("password")}
+          className="w-full flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-left hover:bg-amber-100 transition-colors">
+          <ShieldAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-amber-800">แนะนำ: เปลี่ยนรหัสผ่านก่อนใช้งาน</p>
+            <p className="text-xs text-amber-600 mt-0.5">คุณยังใช้รหัสผ่านชั่วคราวจากแอดมิน กดที่นี่เพื่อเปลี่ยน →</p>
+          </div>
+        </button>
+      )}
+
       {/* Tab navigation */}
       <div className="border-b border-gray-200">
         <nav className="flex gap-1">
@@ -128,10 +143,20 @@ export function AgencyDashboard({ agencyName }: { agencyId: string; agencyName: 
           >
             <MessageCircle size={15} /> ถามแอดมิน
           </button>
+          <button
+            onClick={() => setActiveTab("password")}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors relative ${
+              activeTab === "password" ? "border-emerald-600 text-emerald-600" : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <KeyRound size={15} /> รหัสผ่าน
+            {isDefaultPassword && <span className="absolute top-2 right-1 w-2 h-2 bg-amber-400 rounded-full" />}
+          </button>
         </nav>
       </div>
 
       {activeTab === "messages" && <AgencyMessages />}
+      {activeTab === "password" && <AgencyPasswordChange />}
       {activeTab === "proposals" && (<>
 
       {/* Festival filter */}

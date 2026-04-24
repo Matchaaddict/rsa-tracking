@@ -15,7 +15,8 @@ interface Agency {
   id: string;
   name: string;
   username: string;
-  password: string;
+  plainPassword: string | null;
+  resetRequested: boolean;
   subCommittees: { subCommittee: SubCommittee }[];
   _count?: { implementations: number };
 }
@@ -96,8 +97,20 @@ export function AgencyManager() {
     setShowForm(true);
   }
 
+  async function resetPassword(id: string) {
+    const newPass = generatePassword();
+    await fetch(`/api/admin/agencies/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: newPass }),
+    });
+    load();
+    alert(`รหัสผ่านใหม่: ${newPass}\n\nโปรดแจ้งหน่วยงานทาง Line/โทรศัพท์`);
+  }
+
   function copyCredentials(a: Agency) {
-    const text = `หน่วยงาน: ${a.name}\nUsername: ${a.username}`;
+    const pwPart = a.plainPassword ? `\nPassword: ${a.plainPassword}` : "";
+    const text = `หน่วยงาน: ${a.name}\nUsername: ${a.username}${pwPart}`;
     navigator.clipboard.writeText(text);
     setCopiedId(a.id);
     setTimeout(() => setCopiedId(null), 2000);
@@ -269,12 +282,28 @@ export function AgencyManager() {
       ) : (
         <div className="space-y-2">
           {filtered.map((a) => (
-            <Card key={a.id}>
+            <Card key={a.id} className={a.resetRequested ? "border-l-4 border-l-red-400" : ""}>
               <CardContent className="py-3 flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900">{a.name}</p>
-                  <p className="text-sm text-gray-500 font-mono">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-medium text-gray-900">{a.name}</p>
+                    {a.resetRequested && (
+                      <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">
+                        ⚠️ ขอรีเซ็ตรหัส
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-500 font-mono mt-0.5">
                     user: <span className="font-semibold">{a.username}</span>
+                  </p>
+                  <p className="text-xs mt-0.5">
+                    {a.plainPassword ? (
+                      <span className="font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                        pass: {a.plainPassword}
+                      </span>
+                    ) : (
+                      <span className="text-green-600 text-xs">✓ เปลี่ยนรหัสเองแล้ว</span>
+                    )}
                   </p>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {a.subCommittees.map((sc) => (
@@ -284,7 +313,18 @@ export function AgencyManager() {
                     ))}
                   </div>
                 </div>
-                <div className="flex gap-2 shrink-0">
+                <div className="flex gap-1 shrink-0 flex-wrap justify-end">
+                  {a.resetRequested && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => resetPassword(a.id)}
+                      title="สร้างรหัสผ่านใหม่"
+                      className="text-red-600 border-red-200 hover:bg-red-50"
+                    >
+                      <RefreshCw size={13} /> รีเซ็ต
+                    </Button>
+                  )}
                   <Button
                     variant="secondary"
                     size="sm"

@@ -17,9 +17,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const body = await req.json();
   const { name, username, password, subCommitteeIds } = body;
 
-  const data: Record<string, unknown> = { name, username };
+  const data: Record<string, unknown> = {};
+  if (name !== undefined) data.name = name;
+  if (username !== undefined) data.username = username;
   if (password) {
     data.password = await bcrypt.hash(password, 10);
+    data.plainPassword = password;
+    data.resetRequested = false;
   }
 
   await prisma.agencySubCommittee.deleteMany({ where: { agencyId: id } });
@@ -32,7 +36,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         create: (subCommitteeIds || []).map((scId: string) => ({ subCommitteeId: scId })),
       },
     },
-    select: { id: true, name: true, username: true, createdAt: true, subCommittees: { include: { subCommittee: true } } },
+    select: {
+      id: true, name: true, username: true, plainPassword: true,
+      resetRequested: true, createdAt: true,
+      subCommittees: { include: { subCommittee: true } },
+      _count: { select: { implementations: true } },
+    },
   });
   return NextResponse.json(agency);
 }

@@ -5,7 +5,7 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2 } from "lucide-react";
+import { Building2, HelpCircle } from "lucide-react";
 import Link from "next/link";
 
 export default function AgencyLoginPage() {
@@ -14,6 +14,25 @@ export default function AgencyLoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotUsername, setForgotUsername] = useState("");
+  const [forgotSending, setForgotSending] = useState(false);
+  const [forgotDone, setForgotDone] = useState(false);
+  const [forgotError, setForgotError] = useState("");
+
+  async function handleForgot(e: React.FormEvent) {
+    e.preventDefault();
+    setForgotSending(true); setForgotError("");
+    const res = await fetch("/api/public/reset-request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: forgotUsername }),
+    });
+    const data = await res.json();
+    setForgotSending(false);
+    if (!res.ok) { setForgotError(data.error || "เกิดข้อผิดพลาด"); return; }
+    setForgotDone(true);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -85,11 +104,39 @@ export default function AgencyLoginPage() {
               {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
             </Button>
           </form>
-          <p className="text-center text-sm text-gray-500 mt-4">
-            <Link href="/" className="text-emerald-600 hover:underline">
-              กลับหน้าแดชบอร์ด
-            </Link>
-          </p>
+
+          <div className="mt-4 space-y-2 text-center">
+            <button onClick={() => { setShowForgot(!showForgot); setForgotDone(false); setForgotError(""); }}
+              className="text-sm text-gray-400 hover:text-emerald-600 flex items-center gap-1 mx-auto">
+              <HelpCircle size={13} /> ลืมรหัสผ่าน?
+            </button>
+
+            {showForgot && (
+              <div className="text-left bg-gray-50 border border-gray-200 rounded-xl p-4 mt-2">
+                {forgotDone ? (
+                  <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                    ✓ ส่งคำขอรีเซ็ตรหัสผ่านแล้ว แอดมินจะติดต่อกลับมาเร็วๆ นี้
+                  </p>
+                ) : (
+                  <form onSubmit={handleForgot} className="space-y-3">
+                    <p className="text-xs text-gray-500">กรอก username ของหน่วยงาน แอดมินจะสร้างรหัสผ่านใหม่ให้</p>
+                    <input type="text" value={forgotUsername} onChange={(e) => setForgotUsername(e.target.value)}
+                      placeholder="ชื่อผู้ใช้ (username)"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      required />
+                    {forgotError && <p className="text-xs text-red-600">{forgotError}</p>}
+                    <Button type="submit" size="sm" disabled={forgotSending} className="bg-emerald-600 hover:bg-emerald-700">
+                      {forgotSending ? "กำลังส่ง..." : "ส่งคำขอรีเซ็ต"}
+                    </Button>
+                  </form>
+                )}
+              </div>
+            )}
+
+            <p className="text-sm text-gray-500">
+              <Link href="/" className="text-emerald-600 hover:underline">กลับหน้าแดชบอร์ด</Link>
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>

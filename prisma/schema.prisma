@@ -35,6 +35,8 @@ model Agency {
   name            String
   username        String               @unique
   password        String
+  plainPassword   String?
+  resetRequested  Boolean              @default(false)
   subCommittees   AgencySubCommittee[]
   implementations Implementation[]
   messages        AgencyMessage[]
