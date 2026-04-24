@@ -262,89 +262,84 @@ export function PublicDashboard() {
 
       {/* Charts */}
       {totalImplementationsForFilter > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">สัดส่วนสถานะการดำเนินงาน</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={90}
-                    dataKey="value"
-                    label={false}
-                    labelLine={false}
-                  >
-                    {pieData.map((_, i) => (
-                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <p className="text-sm font-semibold text-gray-700 mb-1">สัดส่วนสถานะการดำเนินงาน</p>
+            <p className="text-xs text-gray-400 mb-3">ทั้งหมด {totalImplementationsForFilter} รายการ</p>
+            <ResponsiveContainer width="100%" height={200}>
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  cx="50%" cy="50%"
+                  innerRadius={58} outerRadius={85}
+                  dataKey="value"
+                  paddingAngle={3}
+                  label={false} labelLine={false}
+                >
+                  {pieData.map((_, i) => (
+                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: 13 }}
+                  formatter={(value) => [`${value} รายการ`]}
+                />
+                <Legend iconType="circle" iconSize={9} wrapperStyle={{ fontSize: 12 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
 
           {barData.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">ความคืบหน้ารายข้อเสนอ</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={barData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                    <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip
-                      formatter={(value, name) => {
-                        const labels: Record<string, string> = {
-                          completed: STATUS_LABELS.COMPLETED,
-                          inProgress: STATUS_LABELS.IN_PROGRESS,
-                          notStarted: STATUS_LABELS.NOT_STARTED,
-                        };
-                        return [value, labels[name as string] || name];
-                      }}
-                    />
-                    <Bar dataKey="completed" stackId="a" fill="#22c55e" name="completed" />
-                    <Bar dataKey="inProgress" stackId="a" fill="#eab308" name="inProgress" />
-                    <Bar dataKey="notStarted" stackId="a" fill="#9ca3af" name="notStarted" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <p className="text-sm font-semibold text-gray-700 mb-1">ความคืบหน้ารายข้อเสนอ</p>
+              <p className="text-xs text-gray-400 mb-3">จำนวนหน่วยงานต่อสถานะ</p>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={barData} margin={{ top: 0, right: 0, left: -24, bottom: 0 }} barSize={14}>
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: 13 }}
+                    formatter={(value, name) => {
+                      const labels: Record<string, string> = {
+                        completed: STATUS_LABELS.COMPLETED,
+                        inProgress: STATUS_LABELS.IN_PROGRESS,
+                        notStarted: STATUS_LABELS.NOT_STARTED,
+                      };
+                      return [`${value} หน่วยงาน`, labels[name as string] || name];
+                    }}
+                    cursor={{ fill: "rgba(0,0,0,0.04)" }}
+                  />
+                  <Bar dataKey="completed" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} name="completed" />
+                  <Bar dataKey="inProgress" stackId="a" fill="#f59e0b" name="inProgress" />
+                  <Bar dataKey="notStarted" stackId="a" fill="#e5e7eb" radius={[4, 4, 0, 0]} name="notStarted" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           )}
         </div>
       )}
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="flex gap-6">
+      <div className="flex gap-2">
+        {([
+          { key: "proposals", label: "รายข้อเสนอ", count: filteredProposals.length },
+          { key: "agencies", label: "รายหน่วยงาน", count: data.agencies.length },
+        ] as const).map((t) => (
           <button
-            onClick={() => setActiveTab("proposals")}
-            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === "proposals"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+            key={t.key}
+            onClick={() => setActiveTab(t.key)}
+            className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
+              activeTab === t.key
+                ? "bg-blue-600 text-white shadow-sm"
+                : "bg-white text-gray-500 border border-gray-200 hover:border-gray-400"
             }`}
           >
-            รายข้อเสนอ ({filteredProposals.length})
+            {t.label}
+            <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
+              activeTab === t.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
+            }`}>{t.count}</span>
           </button>
-          <button
-            onClick={() => setActiveTab("agencies")}
-            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === "agencies"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            รายหน่วยงาน ({data.agencies.length})
-          </button>
-        </nav>
+        ))}
       </div>
 
       {/* Proposals Tab */}
@@ -555,82 +550,72 @@ export function PublicDashboard() {
 
       {/* Agencies Tab */}
       {activeTab === "agencies" && (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {data.agencies.map((agency) => {
             const relevantImpls = agency.implementations.filter((i) =>
-              selectedFestival === "all"
-                ? true
-                : i.proposal.festival.id === selectedFestival
+              selectedFestival === "all" ? true : i.proposal.festival.id === selectedFestival
             );
+            const total = relevantImpls.filter((i) => i.status !== "NOT_RELEVANT").length;
             const done = relevantImpls.filter((i) => i.status === "COMPLETED").length;
-            const filled = relevantImpls.filter((i) => i.content).length;
+            const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+            const isOpen = expandedAgency === agency.id;
 
             return (
-              <Card key={agency.id}>
+              <div key={agency.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div
-                  className="px-6 py-4 cursor-pointer"
-                  onClick={() =>
-                    setExpandedAgency(
-                      expandedAgency === agency.id ? null : agency.id
-                    )
-                  }
+                  className="px-5 py-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                  onClick={() => setExpandedAgency(isOpen ? null : agency.id)}
                 >
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-4">
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900">{agency.name}</p>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {agency.subCommittees.map((sc) => (
-                          <Badge key={sc.subCommittee.id} variant="gray">
-                            {sc.subCommittee.name}
-                          </Badge>
-                        ))}
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-semibold text-gray-900 text-sm truncate">{agency.name}</p>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`text-sm font-bold ${pct >= 80 ? "text-emerald-600" : pct >= 50 ? "text-amber-500" : "text-gray-400"}`}>
+                            {done}/{total}
+                          </span>
+                          {isOpen ? <ChevronUp size={15} className="text-gray-400" /> : <ChevronDown size={15} className="text-gray-400" />}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className="text-right">
-                        <p className="text-sm font-medium text-gray-700">{done} เสร็จ / {filled} กรอก</p>
-                        <p className="text-xs text-gray-400">{relevantImpls.length} ข้อทั้งหมด</p>
+                      <div className="mt-1.5 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${pct >= 80 ? "bg-emerald-500" : pct >= 50 ? "bg-amber-400" : "bg-gray-300"}`}
+                          style={{ width: `${pct}%` }}
+                        />
                       </div>
-                      {expandedAgency === agency.id ? (
-                        <ChevronUp size={18} className="text-gray-400" />
-                      ) : (
-                        <ChevronDown size={18} className="text-gray-400" />
-                      )}
                     </div>
                   </div>
                 </div>
 
-                {expandedAgency === agency.id && relevantImpls.length > 0 && (
-                  <div className="border-t border-gray-100 px-6 py-4 space-y-2">
+                {isOpen && relevantImpls.length > 0 && (
+                  <div className="border-t border-gray-100 px-5 py-3 space-y-2 bg-gray-50/50">
                     {relevantImpls.map((impl, idx) => (
-                      <div key={idx} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                      <div key={idx} className="flex items-start gap-3 p-3 bg-white rounded-xl border border-gray-100">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Badge
-                              variant={
-                                impl.proposal.festival.type === "NEW_YEAR" ? "default" : "warning"
-                              }
-                            >
-                              {FESTIVAL_TYPE_LABELS[impl.proposal.festival.type]}{" "}
-                              {impl.proposal.festival.year}
-                            </Badge>
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                              impl.proposal.festival.type === "NEW_YEAR"
+                                ? "bg-blue-50 text-blue-600"
+                                : "bg-orange-50 text-orange-600"
+                            }`}>
+                              {impl.proposal.festival.type === "NEW_YEAR" ? "🎆" : "💦"}{" "}
+                              {FESTIVAL_TYPE_LABELS[impl.proposal.festival.type]} {impl.proposal.festival.year}
+                            </span>
                           </div>
                           {impl.content ? (
-                            <p className="text-sm text-gray-600 mt-1">{impl.content}</p>
+                            <p className="text-sm text-gray-600">{impl.content}</p>
                           ) : (
-                            <p className="text-sm text-gray-400 italic mt-1">ยังไม่กรอกข้อมูล</p>
+                            <p className="text-sm text-gray-400 italic">ยังไม่กรอกข้อมูล</p>
                           )}
                         </div>
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0 ${STATUS_COLORS[impl.status]}`}
-                        >
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0 ${STATUS_COLORS[impl.status]}`}>
                           {STATUS_LABELS[impl.status]}
                         </span>
                       </div>
                     ))}
                   </div>
                 )}
-              </Card>
+              </div>
             );
           })}
         </div>
