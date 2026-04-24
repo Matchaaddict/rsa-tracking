@@ -177,26 +177,67 @@ export function PublicDashboard() {
     notStarted: p.implementations.filter((i) => i.status === "NOT_STARTED").length,
   }));
 
+  const overallPct =
+    totalImplementationsForFilter > 0
+      ? Math.round((completedForFilter / totalImplementationsForFilter) * 100)
+      : 0;
+  const ringR = 52;
+  const ringCirc = 2 * Math.PI * ringR;
+  const ringFilled = (overallPct / 100) * ringCirc;
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          ระบบติดตามข้อเสนอแนวทางในการป้องกันและลดอุบัติเหตุทางถนน
-        </h1>
-        <p className="text-gray-500 mt-1">
-          ในช่วงการรณรงค์และภายหลังการรณรงค์ป้องกันและลดอุบัติเหตุทางถนน เทศกาล ฯ
-        </p>
+      {/* Hero Banner */}
+      <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 rounded-2xl px-6 py-7 text-white shadow-xl">
+        <div className="flex flex-col sm:flex-row items-center gap-6">
+          {/* Completion Ring */}
+          <div className="shrink-0">
+            <svg width={130} height={130} viewBox="0 0 130 130">
+              <circle cx={65} cy={65} r={ringR} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={12} />
+              <circle
+                cx={65} cy={65} r={ringR} fill="none"
+                stroke="#34d399" strokeWidth={12}
+                strokeDasharray={`${ringFilled} ${ringCirc}`}
+                strokeLinecap="round"
+                transform="rotate(-90 65 65)"
+              />
+              <text x={65} y={60} textAnchor="middle" fill="white" style={{ fontSize: 26, fontWeight: 700 }}>{overallPct}%</text>
+              <text x={65} y={78} textAnchor="middle" fill="rgba(255,255,255,0.6)" style={{ fontSize: 11 }}>ความคืบหน้า</text>
+            </svg>
+          </div>
+          {/* Title + mini stats */}
+          <div className="flex-1 text-center sm:text-left">
+            <p className="text-blue-300 text-xs font-medium tracking-wider uppercase mb-1">ศูนย์วิชาการเพื่อความปลอดภัยทางถนน (ศวปถ.)</p>
+            <h1 className="text-xl sm:text-2xl font-bold leading-snug">
+              ระบบติดตามข้อเสนอแนวทาง<br className="hidden sm:block" />ป้องกันและลดอุบัติเหตุทางถนน
+            </h1>
+            <p className="text-blue-200 text-sm mt-1">ในช่วงการรณรงค์เทศกาล ฯ</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+              {[
+                { label: "หน่วยงานกรอกข้อมูล", value: agenciesWithDataForFilter, color: "text-white" },
+                { label: "ข้อเสนอทั้งหมด", value: filteredProposals.length, color: "text-white" },
+                { label: "ดำเนินการแล้ว", value: completedForFilter, color: "text-emerald-400" },
+                { label: "กำลังดำเนินการ", value: inProgressForFilter, color: "text-amber-400" },
+              ].map((s) => (
+                <div key={s.label} className="bg-white/10 rounded-xl px-3 py-2">
+                  <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
+                  <div className="text-blue-200 text-xs mt-0.5">{s.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Festival Filter */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 items-center">
+        <span className="text-xs text-gray-400 font-medium mr-1">กรองตามเทศกาล:</span>
         <button
           onClick={() => setSelectedFestival("all")}
-          className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+          className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
             selectedFestival === "all"
-              ? "bg-blue-600 text-white"
-              : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+              ? "bg-gray-800 text-white border-gray-800 shadow-sm"
+              : "bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700"
           }`}
         >
           ทุกเทศกาล
@@ -205,75 +246,19 @@ export function PublicDashboard() {
           <button
             key={f.id}
             onClick={() => setSelectedFestival(f.id)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+            className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
               selectedFestival === f.id
                 ? f.type === "NEW_YEAR"
-                  ? "bg-blue-600 text-white"
-                  : "bg-orange-500 text-white"
-                : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+                  ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                  : "bg-orange-500 text-white border-orange-500 shadow-sm"
+                : "bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700"
             }`}
           >
-            {FESTIVAL_TYPE_LABELS[f.type]} {f.year}
+            {f.type === "NEW_YEAR" ? "🎆" : "💦"} {FESTIVAL_TYPE_LABELS[f.type]} {f.year}
           </button>
         ))}
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Building2 className="text-blue-600" size={20} />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{agenciesWithDataForFilter}</p>
-                <p className="text-xs text-gray-500">จาก {data.stats.totalAgencies} หน่วยงาน</p>
-                <p className="text-xs text-gray-400">ที่กรอกข้อมูล</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                <FileText className="text-purple-600" size={20} />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{filteredProposals.length}</p>
-                <p className="text-xs text-gray-500">ข้อเสนอทั้งหมด</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <CheckCircle2 className="text-green-600" size={20} />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{completedForFilter}</p>
-                <p className="text-xs text-gray-500">ดำเนินการแล้ว</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-                <Clock className="text-yellow-600" size={20} />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{inProgressForFilter}</p>
-                <p className="text-xs text-gray-500">กำลังดำเนินการ</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Charts */}
       {totalImplementationsForFilter > 0 && (
