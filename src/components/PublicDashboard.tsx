@@ -321,14 +321,7 @@ export function PublicDashboard() {
             <div className="space-y-3">
               {rows.map((sc, idx) => (
                 <div key={sc.name} className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-xs font-bold"
-                    style={{
-                      background: sc.pct >= 70 ? "linear-gradient(135deg,#10b981,#059669)" :
-                                  sc.pct >= 40 ? "linear-gradient(135deg,#3b82f6,#2563eb)" :
-                                  sc.pct > 0   ? "linear-gradient(135deg,#f59e0b,#d97706)" :
-                                                 "#e5e7eb",
-                      color: sc.pct > 0 ? "white" : "#9ca3af",
-                    }}>
+                  <div className="w-5 shrink-0 text-xs text-gray-400 text-right tabular-nums">
                     {idx + 1}
                   </div>
                   <div className="w-28 sm:w-44 shrink-0">
