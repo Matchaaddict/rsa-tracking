@@ -256,7 +256,7 @@ export function PublicDashboard() {
         const medals = ["🥇", "🥈", "🥉"];
         return (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <p className="text-sm font-semibold text-gray-700 mb-4">Progress รายอนุกรรมการ</p>
+            <p className="text-sm font-semibold text-gray-700 mb-4">ความคืบหน้าในการขับเคลื่อนรายอนุกรรมการ</p>
             <div className="space-y-2.5">
               {rows.map((sc, idx) => (
                 <div key={sc.name} className="flex items-center gap-3">
@@ -386,7 +386,7 @@ export function PublicDashboard() {
       <div className="flex gap-2">
         {([
           { key: "proposals", label: "รายข้อเสนอ", count: filteredProposals.length },
-          { key: "subcommittees", label: "รายอนุกรรมการ", count: null },
+          { key: "subcommittees", label: "รายอนุกรรมการ", count: data.subCommittees.length },
           { key: "agencies", label: "รายหน่วยงาน", count: data.agencies.length },
         ] as const).map((t) => (
           <button
