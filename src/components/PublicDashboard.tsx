@@ -616,23 +616,18 @@ export function PublicDashboard() {
 
       {/* Sub-committee Tab */}
       {activeTab === "subcommittees" && (() => {
-        const scMap = new Map<string, { sc: SubCommittee; proposals: Proposal[] }>();
+        const proposalsBySC = new Map<string, Proposal[]>();
         filteredProposals.forEach((p) => {
           p.subCommittees.forEach(({ subCommittee }) => {
-            if (!scMap.has(subCommittee.id))
-              scMap.set(subCommittee.id, { sc: subCommittee, proposals: [] });
-            scMap.get(subCommittee.id)!.proposals.push(p);
+            if (!proposalsBySC.has(subCommittee.id))
+              proposalsBySC.set(subCommittee.id, []);
+            proposalsBySC.get(subCommittee.id)!.push(p);
           });
         });
-        const scList = Array.from(scMap.values());
-        if (scList.length === 0) return (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center text-gray-400 text-sm">
-            ยังไม่มีข้อมูล
-          </div>
-        );
         return (
           <div className="space-y-2">
-            {scList.map(({ sc, proposals }) => {
+            {data.subCommittees.map((sc) => {
+              const proposals = proposalsBySC.get(sc.id) ?? [];
               const total = proposals.reduce((a, p) => a + p.implementations.filter(i => i.status !== "NOT_RELEVANT").length, 0);
               const done = proposals.reduce((a, p) => a + p.implementations.filter(i => i.status === "COMPLETED").length, 0);
               const inProg = proposals.reduce((a, p) => a + p.implementations.filter(i => i.status === "IN_PROGRESS").length, 0);
@@ -640,6 +635,7 @@ export function PublicDashboard() {
               const isOpen = expandedSCTab === sc.id;
               return (
                 <div key={sc.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+
                   <button
                     onClick={() => setExpandedSCTab(isOpen ? null : sc.id)}
                     className="w-full px-5 py-4 flex items-center gap-4 hover:bg-gray-50 transition-colors text-left"
