@@ -95,7 +95,8 @@ export function PublicDashboard() {
   const [expandedAgency, setExpandedAgency] = useState<string | null>(null);
   const [expandedSubCommittees, setExpandedSubCommittees] = useState<Set<string>>(new Set());
   const [expandedFestivals, setExpandedFestivals] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<"proposals" | "agencies">("proposals");
+  const [activeTab, setActiveTab] = useState<"proposals" | "agencies" | "subcommittees">("proposals");
+  const [expandedSCTab, setExpandedSCTab] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/public/dashboard")
@@ -386,6 +387,7 @@ export function PublicDashboard() {
       <div className="flex gap-2">
         {([
           { key: "proposals", label: "รายข้อเสนอ", count: filteredProposals.length },
+          { key: "subcommittees", label: "รายอนุกรรมการ", count: null },
           { key: "agencies", label: "รายหน่วยงาน", count: data.agencies.length },
         ] as const).map((t) => (
           <button
@@ -398,9 +400,11 @@ export function PublicDashboard() {
             }`}
           >
             {t.label}
-            <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
-              activeTab === t.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
-            }`}>{t.count}</span>
+            {t.count !== null && (
+              <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
+                activeTab === t.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
+              }`}>{t.count}</span>
+            )}
           </button>
         ))}
       </div>
@@ -610,6 +614,83 @@ export function PublicDashboard() {
           })()}
         </div>
       )}
+
+      {/* Sub-committee Tab */}
+      {activeTab === "subcommittees" && (() => {
+        const scMap = new Map<string, { sc: SubCommittee; proposals: Proposal[] }>();
+        filteredProposals.forEach((p) => {
+          p.subCommittees.forEach(({ subCommittee }) => {
+            if (!scMap.has(subCommittee.id))
+              scMap.set(subCommittee.id, { sc: subCommittee, proposals: [] });
+            scMap.get(subCommittee.id)!.proposals.push(p);
+          });
+        });
+        const scList = Array.from(scMap.values());
+        if (scList.length === 0) return (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center text-gray-400 text-sm">
+            ยังไม่มีข้อมูล
+          </div>
+        );
+        return (
+          <div className="space-y-2">
+            {scList.map(({ sc, proposals }) => {
+              const total = proposals.reduce((a, p) => a + p.implementations.filter(i => i.status !== "NOT_RELEVANT").length, 0);
+              const done = proposals.reduce((a, p) => a + p.implementations.filter(i => i.status === "COMPLETED").length, 0);
+              const inProg = proposals.reduce((a, p) => a + p.implementations.filter(i => i.status === "IN_PROGRESS").length, 0);
+              const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+              const isOpen = expandedSCTab === sc.id;
+              return (
+                <div key={sc.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  <button
+                    onClick={() => setExpandedSCTab(isOpen ? null : sc.id)}
+                    className="w-full px-5 py-4 flex items-center gap-4 hover:bg-gray-50 transition-colors text-left"
+                  >
+                    {isOpen ? <ChevronUp size={15} className="text-gray-400 shrink-0" /> : <ChevronDown size={15} className="text-gray-400 shrink-0" />}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-semibold text-gray-900 text-sm">{sc.name}</p>
+                        <span className={`text-sm font-bold shrink-0 ${pct >= 80 ? "text-emerald-600" : pct >= 50 ? "text-amber-500" : "text-gray-400"}`}>
+                          {done}/{total} ({pct}%)
+                        </span>
+                      </div>
+                      <div className="mt-1.5 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${pct >= 80 ? "bg-emerald-500" : pct >= 50 ? "bg-amber-400" : "bg-gray-300"}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">{proposals.length} ข้อเสนอ · กำลังทำ {inProg} · เสร็จ {done}</p>
+                    </div>
+                  </button>
+                  {isOpen && (
+                    <div className="border-t border-gray-100 divide-y divide-gray-100">
+                      {proposals.map((p) => {
+                        const pDone = p.implementations.filter(i => i.status === "COMPLETED").length;
+                        const pTotal = p.implementations.filter(i => i.status !== "NOT_RELEVANT").length;
+                        const pPct = pTotal > 0 ? Math.round((pDone / pTotal) * 100) : 0;
+                        return (
+                          <div key={p.id} className="px-6 py-3 flex items-center justify-between gap-4">
+                            <div>
+                              <span className="text-xs text-gray-400 mr-1.5">ข้อ {p.orderNumber}</span>
+                              <span className="text-sm text-gray-800">{p.title}</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pPct}%` }} />
+                              </div>
+                              <span className="text-xs text-gray-500 w-8 text-right">{pPct}%</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Agencies Tab */}
       {activeTab === "agencies" && (
