@@ -5,5 +5,6 @@ COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
+ENV PORT=3000
 EXPOSE 3000
-CMD ["sh", "-c", "npx prisma migrate deploy && npm run start"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node_modules/.bin/next start -p 3000 2>&1"]
