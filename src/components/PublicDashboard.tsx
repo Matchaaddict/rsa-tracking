@@ -74,6 +74,7 @@ interface DashboardData {
   festivals: Festival[];
   proposals: Proposal[];
   agencies: AgencyData[];
+  subCommittees: SubCommittee[];
   stats: {
     totalAgencies: number;
     agenciesWithData: number;
@@ -232,12 +233,12 @@ export function PublicDashboard() {
 
       {/* Sub-committee Progress */}
       {(() => {
-        const scMap = new Map<string, { name: string; done: number; total: number }>();
+        const scStats = new Map<string, { done: number; total: number }>();
         filteredProposals.forEach((p) => {
           p.subCommittees.forEach(({ subCommittee }) => {
-            if (!scMap.has(subCommittee.id))
-              scMap.set(subCommittee.id, { name: subCommittee.name, done: 0, total: 0 });
-            const e = scMap.get(subCommittee.id)!;
+            if (!scStats.has(subCommittee.id))
+              scStats.set(subCommittee.id, { done: 0, total: 0 });
+            const e = scStats.get(subCommittee.id)!;
             p.implementations.forEach((i) => {
               if (i.status === "NOT_RELEVANT") return;
               e.total++;
@@ -245,15 +246,12 @@ export function PublicDashboard() {
             });
           });
         });
-        const rows = Array.from(scMap.values())
-          .map((sc) => ({ name: sc.name.replace(/^C\d+:\s*/, ""), pct: sc.total > 0 ? Math.round((sc.done / sc.total) * 100) : 0, done: sc.done, total: sc.total }))
+        const rows = data.subCommittees
+          .map((sc) => {
+            const s = scStats.get(sc.id) ?? { done: 0, total: 0 };
+            return { name: sc.name.replace(/^C\d+:\s*/, ""), pct: s.total > 0 ? Math.round((s.done / s.total) * 100) : 0, done: s.done, total: s.total };
+          })
           .sort((a, b) => b.pct - a.pct);
-        if (rows.length === 0) return (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <p className="text-sm font-semibold text-gray-700 mb-2">Progress รายอนุกรรมการ</p>
-            <p className="text-sm text-gray-400 text-center py-6">ยังไม่มีข้อมูล — กรุณาเพิ่มเทศกาลและข้อเสนอในแผงแอดมินก่อน</p>
-          </div>
-        );
         const medals = ["🥇", "🥈", "🥉"];
         return (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
