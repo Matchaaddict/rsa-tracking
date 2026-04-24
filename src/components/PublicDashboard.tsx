@@ -190,45 +190,103 @@ export function PublicDashboard() {
   const ringFilled = (overallPct / 100) * ringCirc;
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-gray-50">
+    <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
       {/* Hero Banner */}
-      <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 rounded-2xl px-6 py-7 text-white shadow-xl">
-        <div className="flex flex-col sm:flex-row items-center gap-6">
-          {/* Completion Ring */}
-          <div className="shrink-0">
-            <svg width={130} height={130} viewBox="0 0 130 130">
-              <circle cx={65} cy={65} r={ringR} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={12} />
-              <circle
-                cx={65} cy={65} r={ringR} fill="none"
-                stroke="#34d399" strokeWidth={12}
-                strokeDasharray={`${ringFilled} ${ringCirc}`}
-                strokeLinecap="round"
-                transform="rotate(-90 65 65)"
-              />
-              <text x={65} y={60} textAnchor="middle" fill="white" style={{ fontSize: 26, fontWeight: 700 }}>{overallPct}%</text>
-              <text x={65} y={78} textAnchor="middle" fill="rgba(255,255,255,0.6)" style={{ fontSize: 11 }}>ความคืบหน้า</text>
-            </svg>
-          </div>
-          {/* Title + mini stats */}
-          <div className="flex-1 text-center sm:text-left">
-            <p className="text-blue-300 text-xs font-medium tracking-wider uppercase mb-1">{data.siteConfig.hero_label ?? "RSAT"}</p>
-            <h1 className="text-xl sm:text-2xl font-bold leading-snug">
-              {data.siteConfig.hero_title ?? "ระบบติดตามข้อเสนอแนวทางป้องกันและลดอุบัติเหตุทางถนน"}
-            </h1>
-            <p className="text-blue-200 text-sm mt-1">{data.siteConfig.hero_subtitle ?? "ในช่วงการรณรงค์เทศกาล ฯ"}</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+      <div className="relative overflow-hidden bg-gradient-to-br from-[#0f2460] via-[#1a3a8a] to-[#1e3a8a] rounded-3xl text-white shadow-2xl">
+        {/* Background pattern */}
+        <div className="absolute inset-0 opacity-10"
+          style={{ backgroundImage: "radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px), radial-gradient(circle at 60% 80%, white 1px, transparent 1px)", backgroundSize: "60px 60px, 80px 80px, 50px 50px" }} />
+
+        <div className="relative flex flex-col lg:flex-row items-center gap-6 px-6 pt-8 pb-6">
+          {/* Left: text + ring + stats */}
+          <div className="flex-1 space-y-4">
+            <div className="flex items-center gap-3">
+              {/* Completion Ring */}
+              <svg width={100} height={100} viewBox="0 0 130 130" className="shrink-0">
+                <circle cx={65} cy={65} r={ringR} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={12} />
+                <circle cx={65} cy={65} r={ringR} fill="none"
+                  stroke="#34d399" strokeWidth={12}
+                  strokeDasharray={`${ringFilled} ${ringCirc}`}
+                  strokeLinecap="round"
+                  transform="rotate(-90 65 65)"
+                />
+                <text x={65} y={60} textAnchor="middle" fill="white" style={{ fontSize: 26, fontWeight: 700 }}>{overallPct}%</text>
+                <text x={65} y={78} textAnchor="middle" fill="rgba(255,255,255,0.6)" style={{ fontSize: 11 }}>ภาพรวม</text>
+              </svg>
+              <div>
+                <p className="text-blue-300 text-xs font-semibold tracking-widest uppercase">{data.siteConfig.hero_label ?? "RSAT"}</p>
+                <h1 className="text-lg sm:text-2xl font-bold leading-snug mt-0.5">
+                  {data.siteConfig.hero_title ?? "ระบบติดตามข้อเสนอแนวทางป้องกันและลดอุบัติเหตุทางถนน"}
+                </h1>
+                <p className="text-blue-300 text-sm mt-1">{data.siteConfig.hero_subtitle ?? "ในช่วงการรณรงค์เทศกาล ฯ"}</p>
+              </div>
+            </div>
+
+            {/* Stats grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[
-                { label: "หน่วยงานกรอกข้อมูล", value: agenciesWithDataForFilter, color: "text-white" },
-                { label: "ข้อเสนอทั้งหมด", value: filteredProposals.length, color: "text-white" },
-                { label: "ดำเนินการแล้ว", value: completedForFilter, color: "text-emerald-400" },
-                { label: "กำลังดำเนินการ", value: inProgressForFilter, color: "text-amber-400" },
+                { label: "หน่วยงานกรอกข้อมูล", value: agenciesWithDataForFilter, icon: "🏢", color: "from-white/10 to-white/5" },
+                { label: "ข้อเสนอทั้งหมด", value: filteredProposals.length, icon: "📋", color: "from-white/10 to-white/5" },
+                { label: "ดำเนินการแล้ว", value: completedForFilter, icon: "✅", color: "from-emerald-500/20 to-emerald-600/10" },
+                { label: "กำลังดำเนินการ", value: inProgressForFilter, icon: "⚡", color: "from-amber-500/20 to-amber-600/10" },
               ].map((s) => (
-                <div key={s.label} className="bg-white/10 rounded-xl px-3 py-2">
-                  <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
-                  <div className="text-blue-200 text-xs mt-0.5">{s.label}</div>
+                <div key={s.label} className={`bg-gradient-to-br ${s.color} rounded-2xl px-3 py-2.5 border border-white/10`}>
+                  <div className="text-xl mb-0.5">{s.icon}</div>
+                  <div className="text-2xl font-bold">{s.value}</div>
+                  <div className="text-blue-200 text-xs leading-tight mt-0.5">{s.label}</div>
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Right: SVG Illustration */}
+          <div className="shrink-0 lg:w-64">
+            <svg viewBox="0 0 260 180" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full max-w-xs mx-auto">
+              {/* Glow */}
+              <ellipse cx="130" cy="95" rx="110" ry="75" fill="rgba(99,102,241,0.12)"/>
+              {/* Shield */}
+              <path d="M130 18 L192 48 L192 108 Q192 155 130 170 Q68 155 68 108 L68 48 Z"
+                fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5"/>
+              {/* Road */}
+              <path d="M25 158 Q90 130 130 115 Q170 100 235 115"
+                stroke="rgba(255,255,255,0.15)" strokeWidth="24" strokeLinecap="round"/>
+              <path d="M25 158 Q90 130 130 115 Q170 100 235 115"
+                stroke="rgba(30,58,138,0.6)" strokeWidth="20" strokeLinecap="round"/>
+              {/* Road center line */}
+              <path d="M40 155 Q100 130 130 116 Q165 103 220 113"
+                stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeDasharray="14 10" strokeLinecap="round"/>
+              {/* Car 1 */}
+              <g transform="translate(104,111) rotate(-7)">
+                <rect x="-18" y="-8" width="36" height="16" rx="6" fill="rgba(255,255,255,0.18)"/>
+                <rect x="-12" y="-16" width="26" height="12" rx="4" fill="rgba(255,255,255,0.22)"/>
+                <circle cx="-10" cy="8" r="4.5" fill="rgba(255,255,255,0.45)"/>
+                <circle cx="10" cy="8" r="4.5" fill="rgba(255,255,255,0.45)"/>
+                <rect x="-4" y="-15" width="8" height="4" rx="1" fill="rgba(147,197,253,0.5)"/>
+              </g>
+              {/* Car 2 */}
+              <g transform="translate(183,104) rotate(-3)">
+                <rect x="-13" y="-6" width="26" height="12" rx="4" fill="rgba(255,255,255,0.12)"/>
+                <rect x="-8" y="-12" width="18" height="9" rx="3" fill="rgba(255,255,255,0.15)"/>
+                <circle cx="-7" cy="7" r="3.5" fill="rgba(255,255,255,0.32)"/>
+                <circle cx="7" cy="7" r="3.5" fill="rgba(255,255,255,0.32)"/>
+              </g>
+              {/* Checkmark */}
+              <path d="M108 92 L124 108 L158 70"
+                stroke="#34d399" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round"/>
+              {/* Data nodes */}
+              <circle cx="88" cy="38" r="5" fill="rgba(52,211,153,0.35)" stroke="rgba(52,211,153,0.7)" strokeWidth="1.5"/>
+              <circle cx="130" cy="26" r="6" fill="rgba(52,211,153,0.45)" stroke="rgba(52,211,153,0.8)" strokeWidth="1.5"/>
+              <circle cx="172" cy="38" r="5" fill="rgba(52,211,153,0.35)" stroke="rgba(52,211,153,0.7)" strokeWidth="1.5"/>
+              <path d="M88 38 L130 26 L172 38" stroke="rgba(52,211,153,0.3)" strokeWidth="1.5"/>
+              {/* Decorative dots */}
+              <circle cx="45" cy="52" r="3" fill="rgba(255,255,255,0.15)"/>
+              <circle cx="58" cy="68" r="2" fill="rgba(255,255,255,0.1)"/>
+              <circle cx="205" cy="55" r="3" fill="rgba(255,255,255,0.15)"/>
+              <circle cx="218" cy="72" r="2" fill="rgba(255,255,255,0.1)"/>
+              <circle cx="44" cy="80" r="2" fill="rgba(255,255,255,0.08)"/>
+              <circle cx="216" cy="88" r="2" fill="rgba(255,255,255,0.08)"/>
+            </svg>
           </div>
         </div>
       </div>
@@ -254,38 +312,47 @@ export function PublicDashboard() {
             return { name: sc.name.replace(/^C\d+:\s*/, ""), pct: s.total > 0 ? Math.round((s.done / s.total) * 100) : 0, done: s.done, total: s.total };
           })
           .sort((a, b) => b.pct - a.pct);
-        const medals = ["🥇", "🥈", "🥉"];
         return (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <p className="text-sm font-semibold text-gray-700 mb-4">ความคืบหน้าในการขับเคลื่อนรายอนุกรรมการ</p>
-            <div className="space-y-2.5">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-1 h-5 bg-blue-600 rounded-full" />
+              <p className="text-sm font-semibold text-gray-700">ความคืบหน้าในการขับเคลื่อนรายอนุกรรมการ</p>
+            </div>
+            <div className="space-y-3">
               {rows.map((sc, idx) => (
                 <div key={sc.name} className="flex items-center gap-3">
-                  <div className="w-5 text-center shrink-0 text-sm">
-                    {idx < 3 ? medals[idx] : <span className="text-xs text-gray-400">#{idx + 1}</span>}
+                  <div className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-xs font-bold"
+                    style={{
+                      background: sc.pct >= 70 ? "linear-gradient(135deg,#10b981,#059669)" :
+                                  sc.pct >= 40 ? "linear-gradient(135deg,#3b82f6,#2563eb)" :
+                                  sc.pct > 0   ? "linear-gradient(135deg,#f59e0b,#d97706)" :
+                                                 "#e5e7eb",
+                      color: sc.pct > 0 ? "white" : "#9ca3af",
+                    }}>
+                    {idx + 1}
                   </div>
-                  <div className="w-32 sm:w-48 shrink-0">
+                  <div className="w-28 sm:w-44 shrink-0">
                     <p className="text-xs text-gray-600 leading-snug line-clamp-2">{sc.name}</p>
                   </div>
                   <div className="flex-1 relative">
-                    <div className="h-6 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-5 bg-gray-100 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full flex items-center justify-end pr-2 transition-all duration-700 ${
-                          idx === 0 ? "bg-gradient-to-r from-amber-400 to-amber-500" :
-                          idx === 1 ? "bg-gradient-to-r from-slate-300 to-slate-400" :
-                          idx === 2 ? "bg-gradient-to-r from-orange-300 to-orange-400" :
                           sc.pct >= 70 ? "bg-gradient-to-r from-emerald-400 to-emerald-500" :
                           sc.pct >= 40 ? "bg-gradient-to-r from-blue-400 to-blue-500" :
-                          "bg-gradient-to-r from-gray-300 to-gray-400"
+                          sc.pct > 0   ? "bg-gradient-to-r from-amber-400 to-amber-500" :
+                                         "bg-gray-200"
                         }`}
-                        style={{ width: `${Math.max(sc.pct, 3)}%` }}
+                        style={{ width: `${Math.max(sc.pct, sc.pct > 0 ? 4 : 0)}%` }}
                       >
-                        {sc.pct >= 15 && <span className="text-white text-xs font-bold">{sc.pct}%</span>}
+                        {sc.pct >= 18 && <span className="text-white text-xs font-bold">{sc.pct}%</span>}
                       </div>
                     </div>
-                    {sc.pct < 15 && <span className="absolute left-2 top-1 text-xs font-bold text-gray-500">{sc.pct}%</span>}
+                    {sc.pct > 0 && sc.pct < 18 && (
+                      <span className="absolute left-2 top-0.5 text-xs font-bold text-gray-500">{sc.pct}%</span>
+                    )}
                   </div>
-                  <div className="text-xs text-gray-400 shrink-0 w-12 text-right">{sc.done}/{sc.total}</div>
+                  <div className="text-xs text-gray-400 shrink-0 w-10 text-right tabular-nums">{sc.done}/{sc.total}</div>
                 </div>
               ))}
             </div>
@@ -761,13 +828,13 @@ export function PublicDashboard() {
         </div>
       )}
 
-      {/* FAQ */}
+    </div>
+
       <FAQSection />
 
-      {/* Footnote */}
       {data.siteConfig.site_footnote && (
-        <footer className="border-t border-gray-200 py-4 text-center">
-          <p className="text-xs text-gray-400 whitespace-pre-wrap">{data.siteConfig.site_footnote}</p>
+        <footer className="border-t border-gray-100 py-5 text-center bg-white">
+          <p className="text-xs text-gray-400 whitespace-pre-wrap max-w-3xl mx-auto px-4">{data.siteConfig.site_footnote}</p>
         </footer>
       )}
     </div>
