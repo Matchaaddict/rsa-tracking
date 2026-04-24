@@ -75,6 +75,7 @@ interface DashboardData {
   proposals: Proposal[];
   agencies: AgencyData[];
   subCommittees: SubCommittee[];
+  siteConfig: Record<string, string>;
   stats: {
     totalAgencies: number;
     agenciesWithData: number;
@@ -209,11 +210,11 @@ export function PublicDashboard() {
           </div>
           {/* Title + mini stats */}
           <div className="flex-1 text-center sm:text-left">
-            <p className="text-blue-300 text-xs font-medium tracking-wider uppercase mb-1">RSAT</p>
+            <p className="text-blue-300 text-xs font-medium tracking-wider uppercase mb-1">{data.siteConfig.hero_label ?? "RSAT"}</p>
             <h1 className="text-xl sm:text-2xl font-bold leading-snug">
-              ระบบติดตามข้อเสนอแนวทาง<br className="hidden sm:block" />ป้องกันและลดอุบัติเหตุทางถนน
+              {data.siteConfig.hero_title ?? "ระบบติดตามข้อเสนอแนวทางป้องกันและลดอุบัติเหตุทางถนน"}
             </h1>
-            <p className="text-blue-200 text-sm mt-1">ในช่วงการรณรงค์เทศกาล ฯ</p>
+            <p className="text-blue-200 text-sm mt-1">{data.siteConfig.hero_subtitle ?? "ในช่วงการรณรงค์เทศกาล ฯ"}</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
               {[
                 { label: "หน่วยงานกรอกข้อมูล", value: agenciesWithDataForFilter, color: "text-white" },

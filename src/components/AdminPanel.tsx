@@ -7,7 +7,8 @@ import { AgencyManager } from "./admin/AgencyManager";
 import { ProposalManager } from "./admin/ProposalManager";
 import { AccountSettings } from "./admin/AccountSettings";
 import { AnalysisPanel } from "./admin/AnalysisPanel";
-import { CalendarDays, Users, Building2, FileText, KeyRound, BarChart2 } from "lucide-react";
+import { SiteConfigManager } from "./admin/SiteConfigManager";
+import { CalendarDays, Users, Building2, FileText, KeyRound, BarChart2, Globe } from "lucide-react";
 
 const TABS = [
   { id: "festivals", label: "เทศกาล", icon: CalendarDays },
@@ -15,6 +16,7 @@ const TABS = [
   { id: "agencies", label: "หน่วยงาน", icon: Building2 },
   { id: "proposals", label: "ข้อเสนอ", icon: FileText },
   { id: "analysis", label: "วิเคราะห์", icon: BarChart2 },
+  { id: "siteconfig", label: "หน้าเว็บ", icon: Globe },
   { id: "account", label: "รหัสผ่าน", icon: KeyRound },
 ] as const;
 
@@ -60,6 +62,7 @@ export function AdminPanel() {
         {activeTab === "agencies" && <AgencyManager />}
         {activeTab === "proposals" && <ProposalManager />}
         {activeTab === "analysis" && <AnalysisPanel />}
+        {activeTab === "siteconfig" && <SiteConfigManager />}
         {activeTab === "account" && <AccountSettings />}
       </div>
     </div>

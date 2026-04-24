@@ -158,6 +158,17 @@ async function main() {
   console.log(`✓ ${count} agencies created (total: ${AGENCIES_DATA.length}, password: pass1234)`);
   console.log("  Usernames: agency001 ... agency086");
 
+  // Site config defaults
+  const siteDefaults = [
+    { key: "hero_label", value: "RSAT" },
+    { key: "hero_title", value: "ระบบติดตามข้อเสนอแนวทางป้องกันและลดอุบัติเหตุทางถนน" },
+    { key: "hero_subtitle", value: "ในช่วงการรณรงค์เทศกาล ฯ" },
+  ];
+  for (const cfg of siteDefaults) {
+    await prisma.siteConfig.upsert({ where: { key: cfg.key }, update: {}, create: cfg });
+  }
+  console.log("✓ Site config defaults set");
+
   console.log("\n=== Seed Complete ===");
   console.log("Admin login:   admin / admin1234");
   console.log("Agency logins: agency001–agency086 / pass1234");

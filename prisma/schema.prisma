@@ -84,3 +84,9 @@ model Implementation {
 
   @@unique([proposalId, agencyId])
 }
+
+model SiteConfig {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}

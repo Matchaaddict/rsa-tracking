@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
-  const [festivals, proposals, agencies, implementations, subCommittees] = await Promise.all([
+  const [festivals, proposals, agencies, implementations, subCommittees, siteConfigs] = await Promise.all([
     prisma.festival.findMany({ orderBy: [{ year: "desc" }, { type: "asc" }] }),
     prisma.proposal.findMany({
       orderBy: [{ festival: { year: "desc" } }, { orderNumber: "asc" }],
@@ -27,7 +27,10 @@ export async function GET() {
     }),
     prisma.implementation.findMany(),
     prisma.subCommittee.findMany({ orderBy: { name: "asc" } }),
+    prisma.siteConfig.findMany(),
   ]);
+  const siteConfig: Record<string, string> = {};
+  siteConfigs.forEach((c) => { siteConfig[c.key] = c.value; });
 
   const totalAgencies = agencies.length;
   const agenciesWithData = new Set(implementations.filter((i) => i.content).map((i) => i.agencyId)).size;
@@ -40,6 +43,7 @@ export async function GET() {
     proposals,
     agencies,
     subCommittees,
+    siteConfig,
     stats: {
       totalAgencies,
       agenciesWithData,
