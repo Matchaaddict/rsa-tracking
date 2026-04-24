@@ -7,6 +7,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
+# bust layer cache
 COPY . .
 RUN npm run build
 
