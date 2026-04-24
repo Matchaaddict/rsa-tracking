@@ -24,6 +24,7 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  Trophy,
 } from "lucide-react";
 
 interface Festival {
@@ -95,7 +96,7 @@ export function PublicDashboard() {
   const [expandedAgency, setExpandedAgency] = useState<string | null>(null);
   const [expandedSubCommittees, setExpandedSubCommittees] = useState<Set<string>>(new Set());
   const [expandedFestivals, setExpandedFestivals] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<"proposals" | "agencies">("proposals");
+  const [activeTab, setActiveTab] = useState<"proposals" | "agencies" | "race">("proposals");
 
   useEffect(() => {
     fetch("/api/public/dashboard")
@@ -320,24 +321,30 @@ export function PublicDashboard() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         {([
           { key: "proposals", label: "รายข้อเสนอ", count: filteredProposals.length },
           { key: "agencies", label: "รายหน่วยงาน", count: data.agencies.length },
+          { key: "race", label: "กราฟแข่งขัน", count: null },
         ] as const).map((t) => (
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key)}
             className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
               activeTab === t.key
-                ? "bg-blue-600 text-white shadow-sm"
+                ? t.key === "race"
+                  ? "bg-amber-500 text-white shadow-sm"
+                  : "bg-blue-600 text-white shadow-sm"
                 : "bg-white text-gray-500 border border-gray-200 hover:border-gray-400"
             }`}
           >
+            {t.key === "race" && <Trophy size={13} className="inline mr-1.5 -mt-0.5" />}
             {t.label}
-            <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
-              activeTab === t.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
-            }`}>{t.count}</span>
+            {t.count !== null && (
+              <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
+                activeTab === t.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
+              }`}>{t.count}</span>
+            )}
           </button>
         ))}
       </div>
@@ -620,6 +627,95 @@ export function PublicDashboard() {
           })}
         </div>
       )}
+
+      {/* Race Tab */}
+      {activeTab === "race" && (() => {
+        // คำนวณ % ต่ออนุกรรมการ จาก proposals ที่กรองแล้ว
+        const scMap = new Map<string, { name: string; done: number; inProgress: number; total: number }>();
+        filteredProposals.forEach((p) => {
+          p.subCommittees.forEach(({ subCommittee }) => {
+            if (!scMap.has(subCommittee.id)) {
+              scMap.set(subCommittee.id, { name: subCommittee.name, done: 0, inProgress: 0, total: 0 });
+            }
+            const entry = scMap.get(subCommittee.id)!;
+            p.implementations.forEach((i) => {
+              if (i.status === "NOT_RELEVANT") return;
+              entry.total++;
+              if (i.status === "COMPLETED") entry.done++;
+              else if (i.status === "IN_PROGRESS") entry.inProgress++;
+            });
+          });
+        });
+
+        const raceData = Array.from(scMap.values())
+          .map((sc) => ({
+            name: sc.name.replace(/^C\d+:\s*/, ""),
+            fullName: sc.name,
+            pct: sc.total > 0 ? Math.round((sc.done / sc.total) * 100) : 0,
+            done: sc.done,
+            inProgress: sc.inProgress,
+            total: sc.total,
+          }))
+          .sort((a, b) => b.pct - a.pct);
+
+        const medals = ["🥇", "🥈", "🥉"];
+
+        return (
+          <div className="space-y-4">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <div className="flex items-center gap-2 mb-6">
+                <Trophy size={18} className="text-amber-500" />
+                <h3 className="font-semibold text-gray-800">อนุกรรมการฯ แข่งกัน — เรียงจากมากไปน้อย</h3>
+              </div>
+              <div className="space-y-3">
+                {raceData.map((sc, idx) => (
+                  <div key={sc.fullName} className="flex items-center gap-3">
+                    <div className="w-6 text-center text-base shrink-0">
+                      {idx < 3 ? medals[idx] : <span className="text-xs text-gray-400 font-medium">#{idx + 1}</span>}
+                    </div>
+                    <div className="w-36 sm:w-52 shrink-0">
+                      <p className="text-xs text-gray-700 leading-snug line-clamp-2">{sc.name}</p>
+                    </div>
+                    <div className="flex-1 relative">
+                      <div className="h-7 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full flex items-center justify-end pr-2 transition-all duration-700 ${
+                            idx === 0 ? "bg-gradient-to-r from-amber-400 to-amber-500" :
+                            idx === 1 ? "bg-gradient-to-r from-slate-300 to-slate-400" :
+                            idx === 2 ? "bg-gradient-to-r from-orange-300 to-orange-400" :
+                            sc.pct >= 70 ? "bg-gradient-to-r from-emerald-400 to-emerald-500" :
+                            sc.pct >= 40 ? "bg-gradient-to-r from-blue-400 to-blue-500" :
+                            "bg-gradient-to-r from-gray-300 to-gray-400"
+                          }`}
+                          style={{ width: `${Math.max(sc.pct, 4)}%` }}
+                        >
+                          {sc.pct >= 15 && (
+                            <span className="text-white text-xs font-bold">{sc.pct}%</span>
+                          )}
+                        </div>
+                      </div>
+                      {sc.pct < 15 && (
+                        <span className="absolute left-2 top-1.5 text-xs font-bold text-gray-500">{sc.pct}%</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-400 shrink-0 w-16 text-right">
+                      {sc.done}/{sc.total}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Legend */}
+            <div className="flex flex-wrap gap-3 text-xs text-gray-500 px-1">
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-400 inline-block" /> อันดับ 1</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-400 inline-block" /> ≥ 70%</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-blue-400 inline-block" /> ≥ 40%</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-gray-300 inline-block" /> &lt; 40%</span>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
