@@ -24,6 +24,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     data.password = await bcrypt.hash(password, 10);
     data.plainPassword = password;
     data.resetRequested = false;
+    data.passwordChangedByAgency = false;
   }
 
   await prisma.agencySubCommittee.deleteMany({ where: { agencyId: id } });

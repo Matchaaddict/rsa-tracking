@@ -10,9 +10,9 @@ export async function GET() {
 
   const agency = await prisma.agency.findUnique({
     where: { id: session.user.id },
-    select: { plainPassword: true },
+    select: { passwordChangedByAgency: true },
   });
-  return NextResponse.json({ isDefaultPassword: !!agency?.plainPassword });
+  return NextResponse.json({ isDefaultPassword: !agency?.passwordChangedByAgency });
 }
 
 export async function PUT(req: NextRequest) {
@@ -33,7 +33,7 @@ export async function PUT(req: NextRequest) {
   const hashed = await bcrypt.hash(newPassword, 10);
   await prisma.agency.update({
     where: { id: session.user.id },
-    data: { password: hashed, plainPassword: null },
+    data: { password: hashed, plainPassword: null, passwordChangedByAgency: true },
   });
   return NextResponse.json({ ok: true });
 }
