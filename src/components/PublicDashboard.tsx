@@ -194,11 +194,50 @@ export function PublicDashboard() {
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
       {/* Hero Banner */}
       <div className="relative overflow-hidden bg-gradient-to-br from-[#0f2460] via-[#1a3a8a] to-[#1e3a8a] rounded-3xl text-white shadow-2xl">
-        {/* Subtle background decoration */}
-        <svg className="absolute inset-0 w-full h-full opacity-[0.06]" viewBox="0 0 800 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-          <circle cx="650" cy="40" r="180" fill="white"/>
-          <circle cx="750" cy="200" r="120" fill="white"/>
-          <circle cx="580" cy="180" r="80" fill="white"/>
+        {/* Motorcycle + rider silhouette background */}
+        <svg className="absolute right-0 bottom-0 h-[105%] opacity-[0.07] pointer-events-none select-none"
+          viewBox="0 0 580 270" fill="white" aria-hidden="true">
+          {/* Wheels (donut via evenodd) */}
+          <g fillRule="evenodd">
+            <circle cx="118" cy="208" r="58"/>
+            <circle cx="118" cy="208" r="38"/>
+            <circle cx="425" cy="208" r="58"/>
+            <circle cx="425" cy="208" r="38"/>
+          </g>
+          {/* Axle centers */}
+          <circle cx="118" cy="208" r="7"/>
+          <circle cx="425" cy="208" r="7"/>
+          {/* Swingarm */}
+          <path d="M118 210 L160 202 L160 148 L120 155 Z"/>
+          {/* Engine block */}
+          <rect x="160" y="130" width="142" height="72" rx="10"/>
+          {/* Fuel tank */}
+          <path d="M160 130 L160 95 Q170 70 202 66 L275 66 Q306 66 316 95 L316 130 Z"/>
+          {/* Front fork */}
+          <path d="M310 96 Q338 120 384 166 L396 157 Q350 112 324 88 Z"/>
+          {/* Rear fender */}
+          <path d="M118 152 Q94 158 82 172 L80 186 L118 180 Z"/>
+          {/* Exhaust pipe */}
+          <path d="M228 202 Q320 216 405 214 L405 208 Q320 210 228 196 Z"/>
+          {/* Handlebar (cross) */}
+          <path d="M298 76 L298 54 Q300 46 310 46 L358 46 Q366 46 366 56 L366 68 L324 68 L324 78 L308 78 Z"/>
+          {/* Footpeg + lower leg */}
+          <path d="M155 228 L188 228 L188 218 L158 218 Z"/>
+          <path d="M170 220 L170 192 L180 192 L180 220 Z"/>
+
+          {/* ── RIDER ── */}
+          {/* Helmet */}
+          <ellipse cx="232" cy="36" rx="35" ry="32"/>
+          {/* Helmet visor slot (cutout style using same fill → creates depth at low opacity) */}
+          <path d="M202 44 Q202 36 232 36 Q262 36 262 44 L260 56 Q258 64 232 64 Q206 64 204 56 Z" fillOpacity="0"/>
+          {/* Neck */}
+          <path d="M224 66 L240 66 L238 82 L226 82 Z"/>
+          {/* Torso / jacket */}
+          <path d="M188 132 Q192 94 226 82 L242 82 Q280 80 318 74 L320 86 Q286 92 264 98 Q246 110 238 132 Z"/>
+          {/* Arm to handlebar */}
+          <path d="M256 94 Q288 86 318 76 L320 86 Q290 96 260 104 Z"/>
+          {/* Thigh / knee */}
+          <path d="M188 132 Q178 158 164 188 L180 192 Q194 162 202 136 Z"/>
         </svg>
 
         <div className="relative px-6 pt-7 pb-6 space-y-5">
