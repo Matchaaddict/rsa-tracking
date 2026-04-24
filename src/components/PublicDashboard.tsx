@@ -222,12 +222,13 @@ export function PublicDashboard() {
           {/* Stats grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {[
-              { label: "หน่วยงานกรอกข้อมูล", value: agenciesWithDataForFilter, color: "from-white/10 to-white/5" },
-              { label: "ข้อเสนอทั้งหมด", value: filteredProposals.length, color: "from-white/10 to-white/5" },
-              { label: "ดำเนินการแล้ว", value: completedForFilter, color: "from-emerald-500/20 to-emerald-600/10" },
-              { label: "กำลังดำเนินการ", value: inProgressForFilter, color: "from-amber-500/20 to-amber-600/10" },
+              { label: "หน่วยงานกรอกข้อมูล", value: agenciesWithDataForFilter, icon: "🏢", color: "from-white/10 to-white/5" },
+              { label: "ข้อเสนอทั้งหมด", value: filteredProposals.length, icon: "📋", color: "from-white/10 to-white/5" },
+              { label: "ดำเนินการแล้ว", value: completedForFilter, icon: "✅", color: "from-emerald-500/20 to-emerald-600/10" },
+              { label: "กำลังดำเนินการ", value: inProgressForFilter, icon: "⚡", color: "from-amber-500/20 to-amber-600/10" },
             ].map((s) => (
               <div key={s.label} className={`bg-gradient-to-br ${s.color} rounded-xl px-3 py-2.5 border border-white/10`}>
+                <div className="text-xl mb-0.5">{s.icon}</div>
                 <div className="text-2xl font-bold">{s.value}</div>
                 <div className="text-blue-200 text-xs leading-tight mt-0.5">{s.label}</div>
               </div>
