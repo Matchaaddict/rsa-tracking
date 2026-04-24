@@ -247,7 +247,12 @@ export function PublicDashboard() {
         const rows = Array.from(scMap.values())
           .map((sc) => ({ name: sc.name.replace(/^C\d+:\s*/, ""), pct: sc.total > 0 ? Math.round((sc.done / sc.total) * 100) : 0, done: sc.done, total: sc.total }))
           .sort((a, b) => b.pct - a.pct);
-        if (rows.length === 0) return null;
+        if (rows.length === 0) return (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <p className="text-sm font-semibold text-gray-700 mb-2">Progress รายอนุกรรมการ</p>
+            <p className="text-sm text-gray-400 text-center py-6">ยังไม่มีข้อมูล — กรุณาเพิ่มเทศกาลและข้อเสนอในแผงแอดมินก่อน</p>
+          </div>
+        );
         const medals = ["🥇", "🥈", "🥉"];
         return (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
