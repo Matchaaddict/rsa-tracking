@@ -6,13 +6,15 @@ import { SubCommitteeManager } from "./admin/SubCommitteeManager";
 import { AgencyManager } from "./admin/AgencyManager";
 import { ProposalManager } from "./admin/ProposalManager";
 import { AccountSettings } from "./admin/AccountSettings";
-import { CalendarDays, Users, Building2, FileText, KeyRound } from "lucide-react";
+import { AnalysisPanel } from "./admin/AnalysisPanel";
+import { CalendarDays, Users, Building2, FileText, KeyRound, BarChart2 } from "lucide-react";
 
 const TABS = [
   { id: "festivals", label: "เทศกาล", icon: CalendarDays },
   { id: "subcommittees", label: "อนุกรรมการ", icon: Users },
   { id: "agencies", label: "หน่วยงาน", icon: Building2 },
   { id: "proposals", label: "ข้อเสนอ", icon: FileText },
+  { id: "analysis", label: "วิเคราะห์", icon: BarChart2 },
   { id: "account", label: "รหัสผ่าน", icon: KeyRound },
 ] as const;
 
@@ -57,6 +59,7 @@ export function AdminPanel() {
         {activeTab === "subcommittees" && <SubCommitteeManager />}
         {activeTab === "agencies" && <AgencyManager />}
         {activeTab === "proposals" && <ProposalManager />}
+        {activeTab === "analysis" && <AnalysisPanel />}
         {activeTab === "account" && <AccountSettings />}
       </div>
     </div>
