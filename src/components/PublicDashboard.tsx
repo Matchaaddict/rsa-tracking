@@ -24,6 +24,8 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  Search,
+  X,
 } from "lucide-react";
 import { FAQSection } from "./FAQSection";
 
@@ -100,6 +102,7 @@ export function PublicDashboard() {
   const [expandedFestivals, setExpandedFestivals] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<"proposals" | "agencies" | "subcommittees">("proposals");
   const [expandedSCTab, setExpandedSCTab] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetch("/api/public/dashboard")
@@ -394,36 +397,144 @@ export function PublicDashboard() {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex gap-2">
-        {([
-          { key: "proposals", label: "รายข้อเสนอ", count: filteredProposals.length },
-          { key: "subcommittees", label: "รายอนุกรรมการ", count: data.subCommittees.length },
-          { key: "agencies", label: "รายหน่วยงาน", count: data.agencies.length },
-        ] as const).map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setActiveTab(t.key)}
-            className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
-              activeTab === t.key
-                ? "bg-blue-600 text-white shadow-sm"
-                : "bg-white text-gray-500 border border-gray-200 hover:border-gray-400"
-            }`}
-          >
-            {t.label}
-            {t.count !== null && (
-              <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
-                activeTab === t.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
-              }`}>{t.count}</span>
+      {/* Tabs + Search */}
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          {([
+            { key: "proposals", label: "รายข้อเสนอ", count: filteredProposals.length },
+            { key: "subcommittees", label: "รายอนุกรรมการ", count: data.subCommittees.length },
+            { key: "agencies", label: "รายหน่วยงาน", count: data.agencies.length },
+          ] as const).map((t) => (
+            <button
+              key={t.key}
+              onClick={() => { setActiveTab(t.key); setSearchQuery(""); }}
+              className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
+                activeTab === t.key
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "bg-white text-gray-500 border border-gray-200 hover:border-gray-400"
+              }`}
+            >
+              {t.label}
+              {t.count !== null && (
+                <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
+                  activeTab === t.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
+                }`}>{t.count}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === "proposals" && (
+          <div className="relative">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="ค้นหาข้อเสนอ..."
+              className="w-full pl-9 pr-9 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X size={14} />
+              </button>
             )}
-          </button>
-        ))}
+          </div>
+        )}
       </div>
 
       {/* Proposals Tab */}
       {activeTab === "proposals" && (
         <div className="space-y-3">
-          {filteredProposals.length === 0 ? (
+          {searchQuery.trim() ? (() => {
+            const q = searchQuery.trim().toLowerCase();
+            const results = filteredProposals.filter(
+              (p) =>
+                p.title.toLowerCase().includes(q) ||
+                (p.description ?? "").toLowerCase().includes(q)
+            );
+            if (results.length === 0) {
+              return (
+                <Card>
+                  <CardContent className="py-12 text-center text-gray-400">
+                    ไม่พบข้อเสนอที่ตรงกับ &ldquo;{searchQuery}&rdquo;
+                  </CardContent>
+                </Card>
+              );
+            }
+            return (
+              <>
+                <p className="text-xs text-gray-400">พบ {results.length} ข้อเสนอ</p>
+                {results.map((proposal) => {
+                  const allImpls = proposal.implementations;
+                  const relevant = allImpls.filter((i) => i.status !== "NOT_RELEVANT");
+                  const done = relevant.filter((i) => i.status === "COMPLETED").length;
+                  const inProg = relevant.filter((i) => i.status === "IN_PROGRESS").length;
+                  const total = relevant.length;
+                  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+                  const isOpen = expandedProposal === `search-${proposal.id}`;
+                  return (
+                    <div key={proposal.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                      <div
+                        className="px-5 py-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                        onClick={() => setExpandedProposal(isOpen ? null : `search-${proposal.id}`)}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <span className="text-xs text-gray-400">ข้อ {proposal.orderNumber}</span>
+                              <Badge variant={proposal.festival.type === "NEW_YEAR" ? "default" : "warning"}>
+                                {proposal.festival.type === "NEW_YEAR" ? "🎆" : "💦"} {FESTIVAL_TYPE_LABELS[proposal.festival.type]} {proposal.festival.year}
+                              </Badge>
+                              {proposal.subCommittees.map(({ subCommittee }) => (
+                                <Badge key={subCommittee.id} variant="gray">{subCommittee.name}</Badge>
+                              ))}
+                            </div>
+                            <p className="font-medium text-gray-900">{proposal.title}</p>
+                            {proposal.description && (
+                              <p className="text-sm text-gray-500 mt-0.5">{proposal.description}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="text-right">
+                              <p className="text-base font-bold text-gray-900">{pct}%</p>
+                              <p className="text-xs text-green-600">เสร็จ {done}/{total}</p>
+                              {inProg > 0 && <p className="text-xs text-yellow-600">กำลังทำ {inProg}</p>}
+                            </div>
+                            {isOpen ? <ChevronUp size={15} className="text-gray-400" /> : <ChevronDown size={15} className="text-gray-400" />}
+                          </div>
+                        </div>
+                        <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-green-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                      {isOpen && allImpls.length > 0 && (
+                        <div className="bg-gray-50 px-5 py-3 border-t border-gray-100 space-y-2">
+                          {allImpls.map((impl) => (
+                            <div key={impl.id} className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gray-100">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-800">{impl.agency.name}</p>
+                                {impl.content
+                                  ? <p className="text-sm text-gray-600 mt-0.5">{impl.content}</p>
+                                  : <p className="text-sm text-gray-400 italic mt-0.5">ยังไม่ได้กรอกข้อมูล</p>
+                                }
+                              </div>
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0 ${STATUS_COLORS[impl.status as keyof typeof STATUS_COLORS]}`}>
+                                {STATUS_LABELS[impl.status as keyof typeof STATUS_LABELS]}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </>
+            );
+          })() : filteredProposals.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-gray-400">
                 ยังไม่มีข้อเสนอ
