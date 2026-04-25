@@ -6,6 +6,37 @@ import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { STATUS_LABELS, STATUS_COLORS, FESTIVAL_TYPE_LABELS } from "@/lib/utils";
 import { Loader2, FileText, MessageCircle, KeyRound, ShieldAlert, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
+
+function AutoResizeTextarea({
+  value,
+  onChange,
+  placeholder,
+  className,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      rows={3}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className={className}
+      style={{ overflow: "hidden" }}
+    />
+  );
+}
 import { AgencyMessages } from "./AgencyMessages";
 import { AgencyPasswordChange } from "./AgencyPasswordChange";
 
@@ -316,10 +347,9 @@ export function AgencyDashboard({
                       {form.status !== "NOT_RELEVANT" && (
                         <div>
                           <label className="text-sm font-medium text-gray-700 block mb-2">รายละเอียดผลการดำเนินงาน</label>
-                          <textarea
-                            rows={3}
+                          <AutoResizeTextarea
                             value={form.content}
-                            onChange={(e) => handleContentChange(proposal.id, e.target.value)}
+                            onChange={(v) => handleContentChange(proposal.id, v)}
                             placeholder="อธิบายผลการดำเนินงาน..."
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
                           />
