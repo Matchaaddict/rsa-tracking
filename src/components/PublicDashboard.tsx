@@ -309,34 +309,62 @@ export function PublicDashboard() {
       })()}
 
       {/* Festival Filter */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <span className="text-xs text-gray-400 font-medium mr-1">กรองตามเทศกาล:</span>
-        <button
-          onClick={() => setSelectedFestival("all")}
-          className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
-            selectedFestival === "all"
-              ? "bg-gray-800 text-white border-gray-800 shadow-sm"
-              : "bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700"
-          }`}
-        >
-          ทุกเทศกาล
-        </button>
-        {data.festivals.map((f) => (
-          <button
-            key={f.id}
-            onClick={() => setSelectedFestival(f.id)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
-              selectedFestival === f.id
-                ? f.type === "NEW_YEAR"
-                  ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-                  : "bg-orange-500 text-white border-orange-500 shadow-sm"
-                : "bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700"
-            }`}
-          >
-            {f.type === "NEW_YEAR" ? "🎆" : "💦"} {FESTIVAL_TYPE_LABELS[f.type]} {f.year}
-          </button>
-        ))}
-      </div>
+      {(() => {
+        const festStats = new Map<string, { done: number; total: number }>();
+        data.proposals.forEach((p) => {
+          if (!festStats.has(p.festivalId)) festStats.set(p.festivalId, { done: 0, total: 0 });
+          const s = festStats.get(p.festivalId)!;
+          p.implementations.forEach((i) => {
+            if (i.status === "NOT_RELEVANT") return;
+            s.total++;
+            if (i.status === "COMPLETED") s.done++;
+          });
+        });
+        const allDone = data.proposals.reduce((a, p) => a + p.implementations.filter(i => i.status === "COMPLETED").length, 0);
+        const allTotal = data.proposals.reduce((a, p) => a + p.implementations.filter(i => i.status !== "NOT_RELEVANT").length, 0);
+        const allPct = allTotal > 0 ? Math.round((allDone / allTotal) * 100) : 0;
+        return (
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-xs text-gray-400 font-medium mr-1">กรองตามเทศกาล:</span>
+            <button
+              onClick={() => setSelectedFestival("all")}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                selectedFestival === "all"
+                  ? "bg-gray-800 text-white border-gray-800 shadow-sm"
+                  : "bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700"
+              }`}
+            >
+              ทุกเทศกาล
+              <span className={`ml-1.5 text-xs ${selectedFestival === "all" ? "text-gray-300" : "text-gray-400"}`}>
+                {allPct}%
+              </span>
+            </button>
+            {data.festivals.map((f) => {
+              const s = festStats.get(f.id) ?? { done: 0, total: 0 };
+              const pct = s.total > 0 ? Math.round((s.done / s.total) * 100) : 0;
+              const isActive = selectedFestival === f.id;
+              return (
+                <button
+                  key={f.id}
+                  onClick={() => setSelectedFestival(f.id)}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                    isActive
+                      ? f.type === "NEW_YEAR"
+                        ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                        : "bg-orange-500 text-white border-orange-500 shadow-sm"
+                      : "bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700"
+                  }`}
+                >
+                  {f.type === "NEW_YEAR" ? "🎆" : "💦"} {FESTIVAL_TYPE_LABELS[f.type]} {f.year}
+                  <span className={`ml-1.5 text-xs ${isActive ? "opacity-80" : "text-gray-400"}`}>
+                    {pct}%
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        );
+      })()}
 
 
       {/* Charts */}
