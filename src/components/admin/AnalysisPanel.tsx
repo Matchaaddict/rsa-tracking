@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/utils";
-import { ChevronDown, ChevronRight, Sparkles, Loader2, CheckCircle2, Circle } from "lucide-react";
+import { ChevronDown, ChevronRight, Sparkles, Loader2, CheckCircle2, Circle, Download } from "lucide-react";
 
 interface ProposalDetail {
   id: string;
@@ -140,17 +140,32 @@ export function AnalysisPanel() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-lg font-semibold text-gray-800">วิเคราะห์ความคืบหน้า</h2>
-        <select
-          value={selectedId}
-          onChange={(e) => setSelectedId(e.target.value)}
-          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          {festivals.map((f) => (
-            <option key={f.id} value={f.id}>{f.name}</option>
-          ))}
-        </select>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Export buttons */}
+          <a href="/api/admin/export?type=detail" download
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
+            <Download size={13} /> CSV รายละเอียด
+          </a>
+          <a href="/api/admin/export?type=summary" download
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
+            <Download size={13} /> CSV สรุปรายหน่วยงาน
+          </a>
+          <a href="/report" target="_blank"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-blue-300 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors">
+            <Download size={13} /> พิมพ์ PDF
+          </a>
+          <select
+            value={selectedId}
+            onChange={(e) => setSelectedId(e.target.value)}
+            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {festivals.map((f) => (
+              <option key={f.id} value={f.id}>{f.name}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {loading && (
