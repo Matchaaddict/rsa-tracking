@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
-import { Plus, Pencil, Trash2, Loader2, Check, X, Eye, EyeOff } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Check, X, Eye, EyeOff, ChevronUp, ChevronDown } from "lucide-react";
 
 interface FAQ { id: string; question: string; answer: string; published: boolean; orderNum: number; }
 const emptyForm = { question: "", answer: "" };
@@ -15,6 +15,7 @@ export function FAQManager() {
   const [editId, setEditId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [moving, setMoving] = useState(false);
 
   async function load() {
     const res = await fetch("/api/admin/faqs");
@@ -37,6 +38,19 @@ export function FAQManager() {
 
   async function togglePublish(faq: FAQ) {
     await fetch(`/api/admin/faqs/${faq.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ published: !faq.published }) });
+    load();
+  }
+
+  async function handleMove(id: string, dir: "up" | "down") {
+    const idx = faqs.findIndex((f) => f.id === id);
+    const other = dir === "up" ? faqs[idx - 1] : faqs[idx + 1];
+    if (!other) return;
+    setMoving(true);
+    await Promise.all([
+      fetch(`/api/admin/faqs/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderNum: other.orderNum }) }),
+      fetch(`/api/admin/faqs/${other.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderNum: faqs[idx].orderNum }) }),
+    ]);
+    setMoving(false);
     load();
   }
 
@@ -84,10 +98,18 @@ export function FAQManager() {
       {loading ? <div className="flex justify-center py-8"><Loader2 className="animate-spin text-blue-500" size={22} /></div> : (
         <div className="space-y-2">
           {faqs.length === 0 && <Card><CardContent className="py-8 text-center text-gray-400 text-sm">ยังไม่มี FAQ</CardContent></Card>}
-          {faqs.map((faq) => (
+          {faqs.map((faq, idx) => (
             <Card key={faq.id} className={faq.published ? "" : "opacity-60"}>
               <CardContent className="py-3">
                 <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-0.5 shrink-0">
+                    <Button variant="ghost" size="sm" onClick={() => handleMove(faq.id, "up")} disabled={moving || idx === 0} className="p-0.5 h-6 w-6">
+                      <ChevronUp size={13} />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleMove(faq.id, "down")} disabled={moving || idx === faqs.length - 1} className="p-0.5 h-6 w-6">
+                      <ChevronDown size={13} />
+                    </Button>
+                  </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-gray-900 text-sm">{faq.question}</p>
                     <p className="text-sm text-gray-500 mt-1 line-clamp-2">{faq.answer}</p>
