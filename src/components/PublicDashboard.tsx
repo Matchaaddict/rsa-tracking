@@ -103,6 +103,7 @@ export function PublicDashboard() {
   const [activeTab, setActiveTab] = useState<"proposals" | "agencies" | "subcommittees">("proposals");
   const [expandedSCTab, setExpandedSCTab] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedSC, setSelectedSC] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/public/dashboard")
@@ -407,7 +408,7 @@ export function PublicDashboard() {
           ] as const).map((t) => (
             <button
               key={t.key}
-              onClick={() => { setActiveTab(t.key); setSearchQuery(""); }}
+              onClick={() => { setActiveTab(t.key); setSearchQuery(""); setSelectedSC(null); }}
               className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
                 activeTab === t.key
                   ? "bg-blue-600 text-white shadow-sm"
@@ -425,22 +426,55 @@ export function PublicDashboard() {
         </div>
 
         {activeTab === "proposals" && (
-          <div className="relative">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="ค้นหาข้อเสนอ..."
-              className="w-full pl-9 pr-9 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <X size={14} />
-              </button>
+          <div className="space-y-2">
+            <div className="relative">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="ค้นหาข้อเสนอ..."
+                className="w-full pl-9 pr-9 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            {data.subCommittees.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  onClick={() => setSelectedSC(null)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                    selectedSC === null
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
+                  }`}
+                >
+                  ทุกอนุกรรมการ
+                </button>
+                {data.subCommittees.map((sc) => {
+                  const short = sc.name.match(/^(C\d+)/)?.[1] ?? sc.name.slice(0, 4);
+                  return (
+                    <button
+                      key={sc.id}
+                      onClick={() => setSelectedSC(selectedSC === sc.id ? null : sc.id)}
+                      title={sc.name}
+                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                        selectedSC === sc.id
+                          ? "bg-indigo-600 text-white border-indigo-600"
+                          : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
+                      }`}
+                    >
+                      {short}
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </div>
         )}
@@ -449,13 +483,19 @@ export function PublicDashboard() {
       {/* Proposals Tab */}
       {activeTab === "proposals" && (
         <div className="space-y-3">
-          {searchQuery.trim() ? (() => {
+          {(() => {
+            const proposalsForTab = selectedSC
+              ? filteredProposals.filter((p) => p.subCommittees.some((s) => s.subCommittee.id === selectedSC))
+              : filteredProposals;
             const q = searchQuery.trim().toLowerCase();
-            const results = filteredProposals.filter(
-              (p) =>
-                p.title.toLowerCase().includes(q) ||
-                (p.description ?? "").toLowerCase().includes(q)
-            );
+            const results = q
+              ? proposalsForTab.filter(
+                  (p) =>
+                    p.title.toLowerCase().includes(q) ||
+                    (p.description ?? "").toLowerCase().includes(q)
+                )
+              : null;
+            return results !== null ? (() => {
             if (results.length === 0) {
               return (
                 <Card>
@@ -534,7 +574,7 @@ export function PublicDashboard() {
                 })}
               </>
             );
-          })() : filteredProposals.length === 0 ? (
+          })() : proposalsForTab.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-gray-400">
                 ยังไม่มีข้อเสนอ
@@ -543,7 +583,7 @@ export function PublicDashboard() {
           ) : (() => {
             // Group proposals by sub-committee
             const scMap = new Map<string, { sc: SubCommittee; proposals: Proposal[] }>();
-            filteredProposals.forEach((p) => {
+            proposalsForTab.forEach((p) => {
               p.subCommittees.forEach(({ subCommittee }) => {
                 if (!scMap.has(subCommittee.id)) {
                   scMap.set(subCommittee.id, { sc: subCommittee, proposals: [] });
@@ -733,7 +773,7 @@ export function PublicDashboard() {
                 </div>
               );
             });
-          })()}
+          })()})()}
         </div>
       )}
 
