@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
 import { STATUS_LABELS, STATUS_COLORS, FESTIVAL_TYPE_LABELS } from "@/lib/utils";
-import { Loader2, FileText, MessageCircle, KeyRound, ShieldAlert, CheckCircle2 } from "lucide-react";
+import { Loader2, FileText, MessageCircle, KeyRound, ShieldAlert, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 import { AgencyMessages } from "./AgencyMessages";
 import { AgencyPasswordChange } from "./AgencyPasswordChange";
 
@@ -64,19 +65,36 @@ export function AgencyDashboard({
   const [proposals] = useState<Proposal[]>(initialProposals);
   const [forms, setForms] = useState<Record<string, FormState>>(() => buildInitialForms(initialProposals));
   const [dirty, setDirty] = useState<Record<string, boolean>>({});
+  const [saveError, setSaveError] = useState<Record<string, boolean>>({});
   const [savingCount, setSavingCount] = useState(0);
   const [selectedFestival, setSelectedFestival] = useState<string>("all");
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
+  // Warn before closing/navigating away if there are unsaved or pending changes
+  useEffect(() => {
+    const hasPending = Object.values(dirty).some(Boolean) || Object.values(saveError).some(Boolean);
+    if (!hasPending) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty, saveError]);
+
   async function autoSave(proposalId: string, formData: FormState) {
     setSavingCount((n) => n + 1);
-    await fetch("/api/agency/implementations", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ proposalId, ...formData }),
-    });
-    setSavingCount((n) => n - 1);
-    setDirty((d) => ({ ...d, [proposalId]: false }));
+    setSaveError((e) => ({ ...e, [proposalId]: false }));
+    try {
+      const res = await fetch("/api/agency/implementations", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ proposalId, ...formData }),
+      });
+      if (!res.ok) throw new Error("server error");
+      setDirty((d) => ({ ...d, [proposalId]: false }));
+    } catch {
+      setSaveError((e) => ({ ...e, [proposalId]: true }));
+    } finally {
+      setSavingCount((n) => n - 1);
+    }
   }
 
   function handleStatusChange(proposalId: string, status: string) {
@@ -108,6 +126,8 @@ export function AgencyDashboard({
   const pct = total > 0 ? Math.round((filled / total) * 100) : 0;
 
   const hasDirty = Object.values(dirty).some(Boolean);
+  const hasError = Object.values(saveError).some(Boolean);
+  const errorCount = Object.values(saveError).filter(Boolean).length;
 
   return (
     <div className="space-y-6">
@@ -123,6 +143,10 @@ export function AgencyDashboard({
           {savingCount > 0 ? (
             <span className="flex items-center gap-1.5 text-xs text-gray-400">
               <Loader2 size={12} className="animate-spin" /> กำลังบันทึก...
+            </span>
+          ) : hasError ? (
+            <span className="flex items-center gap-1.5 text-xs text-red-500">
+              <AlertCircle size={12} /> บันทึกไม่สำเร็จ {errorCount} รายการ
             </span>
           ) : hasDirty ? (
             <span className="text-xs text-amber-500">● รอบันทึก</span>
@@ -236,11 +260,12 @@ export function AgencyDashboard({
               {filtered.map((proposal) => {
                 const form = forms[proposal.id] || { content: "", status: "NOT_STARTED" };
                 const isDirty = dirty[proposal.id];
+                const isError = saveError[proposal.id];
 
                 return (
                   <Card
                     key={proposal.id}
-                    className={`transition-all ${isDirty ? "border-l-4 border-l-amber-300" : ""}`}
+                    className={`transition-all ${isError ? "border-l-4 border-l-red-400" : isDirty ? "border-l-4 border-l-amber-300" : ""}`}
                   >
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between gap-3">
@@ -298,6 +323,23 @@ export function AgencyDashboard({
                             placeholder="อธิบายผลการดำเนินงาน..."
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
                           />
+                        </div>
+                      )}
+
+                      {isError && (
+                        <div className="flex items-center justify-between gap-3 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                          <div className="flex items-center gap-2 text-sm text-red-600">
+                            <AlertCircle size={14} className="shrink-0" />
+                            บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => autoSave(proposal.id, forms[proposal.id])}
+                            className="shrink-0 text-red-600 border-red-200 hover:bg-red-100"
+                          >
+                            <RefreshCw size={13} /> ลองใหม่
+                          </Button>
                         </div>
                       )}
                     </CardContent>
