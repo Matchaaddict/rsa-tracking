@@ -159,6 +159,38 @@ export function AgencyDashboard({ agencyName }: { agencyId: string; agencyName: 
       {activeTab === "password" && <AgencyPasswordChange />}
       {activeTab === "proposals" && (<>
 
+      {/* Progress summary */}
+      {(() => {
+        const total = proposals.length;
+        const filled = proposals.filter((p) => {
+          const form = forms[p.id];
+          return form && (form.status !== "NOT_STARTED" || form.content.trim() !== "");
+        }).length;
+        const completed = proposals.filter((p) => forms[p.id]?.status === "COMPLETED").length;
+        const inProg = proposals.filter((p) => forms[p.id]?.status === "IN_PROGRESS").length;
+        const pct = total > 0 ? Math.round((filled / total) * 100) : 0;
+        return (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-semibold text-gray-700">ความคืบหน้าของคุณ</p>
+              <span className={`text-sm font-bold ${pct >= 80 ? "text-emerald-600" : pct >= 40 ? "text-amber-600" : "text-gray-400"}`}>
+                {filled}/{total} ข้อ ({pct}%)
+              </span>
+            </div>
+            <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+              <div className={`h-full rounded-full transition-all duration-700 ${
+                pct >= 80 ? "bg-emerald-500" : pct >= 40 ? "bg-amber-400" : "bg-gray-300"
+              }`} style={{ width: `${pct}%` }} />
+            </div>
+            <div className="flex gap-4 mt-3 text-xs text-gray-500">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"/>ดำเนินการแล้ว {completed}</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block"/>กำลังดำเนินการ {inProg}</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-300 inline-block"/>ยังไม่เริ่ม {total - filled}</span>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Festival filter */}
       <div className="flex flex-wrap gap-2">
         <button
