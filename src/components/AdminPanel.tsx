@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FestivalManager } from "./admin/FestivalManager";
 import { SubCommitteeManager } from "./admin/SubCommitteeManager";
 import { AgencyManager } from "./admin/AgencyManager";
@@ -28,6 +28,18 @@ type TabId = (typeof TABS)[number]["id"];
 
 export function AdminPanel() {
   const [activeTab, setActiveTab] = useState<TabId>("festivals");
+  const [unreadMessages, setUnreadMessages] = useState(0);
+
+  useEffect(() => {
+    function fetchUnread() {
+      fetch("/api/admin/messages/unread")
+        .then((r) => r.json())
+        .then((d) => setUnreadMessages(d.count ?? 0));
+    }
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 60_000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -45,7 +57,7 @@ export function AdminPanel() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                className={`relative flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === tab.id
                     ? "border-blue-600 text-blue-600"
                     : "border-transparent text-gray-500 hover:text-gray-700"
@@ -53,6 +65,11 @@ export function AdminPanel() {
               >
                 <Icon size={16} />
                 {tab.label}
+                {tab.id === "messages" && unreadMessages > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                    {unreadMessages > 99 ? "99+" : unreadMessages}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -68,7 +85,11 @@ export function AdminPanel() {
         {activeTab === "analysis" && <AnalysisPanel />}
         {activeTab === "siteconfig" && <SiteConfigManager />}
         {activeTab === "faq" && <FAQManager />}
-        {activeTab === "messages" && <MessagesManager />}
+        {activeTab === "messages" && (
+          <MessagesManager onReply={() =>
+            fetch("/api/admin/messages/unread").then(r => r.json()).then(d => setUnreadMessages(d.count ?? 0))
+          } />
+        )}
         {activeTab === "account" && <AccountSettings />}
       </div>
     </div>

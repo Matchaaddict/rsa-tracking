@@ -14,7 +14,7 @@ interface Message {
   agency: { name: string };
 }
 
-export function MessagesManager() {
+export function MessagesManager({ onReply }: { onReply?: () => void }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [replyId, setReplyId] = useState<string | null>(null);
@@ -40,6 +40,7 @@ export function MessagesManager() {
     setReplyText("");
     setSaving(false);
     load();
+    onReply?.();
   }
 
   const unanswered = messages.filter((m) => !m.answer);
