@@ -5,7 +5,7 @@ import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Loader2, KeyRound, ShieldAlert, Check } from "lucide-react";
 
-export function AgencyPasswordChange() {
+export function AgencyPasswordChange({ onChanged }: { onChanged?: () => void } = {}) {
   const [isDefault, setIsDefault] = useState(false);
   const [loading, setLoading] = useState(true);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -37,6 +37,7 @@ export function AgencyPasswordChange() {
     if (!res.ok) { setError(data.error || "เกิดข้อผิดพลาด"); return; }
     setSuccess(true);
     setIsDefault(false);
+    onChanged?.();
     setCurrentPassword(""); setNewPassword(""); setConfirm("");
   }
 

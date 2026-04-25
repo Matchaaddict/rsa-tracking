@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
-  const [festivals, proposals, agencies, implementations, subCommittees, siteConfigs] = await Promise.all([
+  const [festivals, proposals, agencies, subCommittees, siteConfigs] = await Promise.all([
     prisma.festival.findMany({ orderBy: [{ year: "desc" }, { type: "asc" }] }),
     prisma.proposal.findMany({
       orderBy: [{ festival: { year: "desc" } }, { orderNumber: "asc" }],
@@ -25,33 +25,42 @@ export async function GET() {
         },
       },
     }),
-    prisma.implementation.findMany(),
     prisma.subCommittee.findMany({ orderBy: { name: "asc" } }),
     prisma.siteConfig.findMany(),
   ]);
+
   const siteConfig: Record<string, string> = {};
   siteConfigs.forEach((c) => { siteConfig[c.key] = c.value; });
 
+  // Compute stats from already-fetched proposals (no extra query needed)
+  const allImpls = proposals.flatMap((p) => p.implementations);
   const totalAgencies = agencies.length;
-  const agenciesWithData = new Set(implementations.filter((i) => i.content).map((i) => i.agencyId)).size;
-  const completed = implementations.filter((i) => i.status === "COMPLETED").length;
-  const inProgress = implementations.filter((i) => i.status === "IN_PROGRESS").length;
-  const notStarted = implementations.filter((i) => i.status === "NOT_STARTED").length;
+  const agenciesWithData = new Set(allImpls.filter((i) => i.content).map((i) => i.agencyId)).size;
+  const completed = allImpls.filter((i) => i.status === "COMPLETED").length;
+  const inProgress = allImpls.filter((i) => i.status === "IN_PROGRESS").length;
+  const notStarted = allImpls.filter((i) => i.status === "NOT_STARTED").length;
 
-  return NextResponse.json({
-    festivals,
-    proposals,
-    agencies,
-    subCommittees,
-    siteConfig,
-    stats: {
-      totalAgencies,
-      agenciesWithData,
-      totalProposals: proposals.length,
-      completed,
-      inProgress,
-      notStarted,
-      totalImplementations: implementations.length,
+  return NextResponse.json(
+    {
+      festivals,
+      proposals,
+      agencies,
+      subCommittees,
+      siteConfig,
+      stats: {
+        totalAgencies,
+        agenciesWithData,
+        totalProposals: proposals.length,
+        completed,
+        inProgress,
+        notStarted,
+        totalImplementations: allImpls.length,
+      },
     },
-  });
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
+      },
+    }
+  );
 }
