@@ -55,6 +55,18 @@ export function ReportPage() {
     return true;
   });
 
+  // When "ทุกวาระ", group by festival (year desc) so ข้อ numbers from different years don't mix
+  const festivalGroups: { festival: Festival; proposals: Proposal[] }[] = (() => {
+    if (selectedFestival !== "all") return [{ festival: data.festivals.find(f => f.id === selectedFestival)!, proposals }];
+    const map = new Map<string, { festival: Festival; proposals: Proposal[] }>();
+    proposals.forEach(p => {
+      if (!map.has(p.festivalId)) map.set(p.festivalId, { festival: p.festival, proposals: [] });
+      map.get(p.festivalId)!.proposals.push(p);
+    });
+    return [...map.values()].sort((a, b) => b.festival.year - a.festival.year || a.festival.type.localeCompare(b.festival.type));
+  })();
+  const multiGroup = selectedFestival === "all" && festivalGroups.length > 1;
+
   const today = new Date().toLocaleDateString("th-TH", { year: "numeric", month: "long", day: "numeric" });
 
   // รวบรวม sub-committees ทั้งหมดที่มีข้อเสนอ
@@ -172,64 +184,89 @@ export function ReportPage() {
         {/* 2. ความคืบหน้ารายข้อเสนอ */}
         <div>
           <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-3">2. ความคืบหน้ารายข้อเสนอ</h2>
-          <div className="space-y-2">
-            {proposals.map(p => {
-              const relevant = p.implementations.filter(i => i.status !== "NOT_RELEVANT");
-              const done = relevant.filter(i => i.status === "COMPLETED").length;
-              const inProg = relevant.filter(i => i.status === "IN_PROGRESS").length;
-              const notStarted = relevant.filter(i => i.status === "NOT_STARTED").length;
-              const notRel = p.implementations.filter(i => i.status === "NOT_RELEVANT").length;
-              const total = relevant.length;
-              const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+          <div className="space-y-4">
+            {festivalGroups.map(({ festival, proposals: groupProposals }) => (
+              <div key={festival.id}>
+                {multiGroup && (
+                  <div className={`flex items-center gap-2 px-3 py-2 rounded-lg mb-2 text-sm font-semibold ${festTheme(festival.type).pill}`}>
+                    {festIcon(festival.type)} {FESTIVAL_TYPE_LABELS[festival.type]} {festival.year}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  {groupProposals.map(p => {
+                    const relevant = p.implementations.filter(i => i.status !== "NOT_RELEVANT");
+                    const done = relevant.filter(i => i.status === "COMPLETED").length;
+                    const inProg = relevant.filter(i => i.status === "IN_PROGRESS").length;
+                    const notStarted = relevant.filter(i => i.status === "NOT_STARTED").length;
+                    const notRel = p.implementations.filter(i => i.status === "NOT_RELEVANT").length;
+                    const total = relevant.length;
+                    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
-              return (
-                <div key={p.id} className="border border-gray-100 rounded-lg p-3 print:break-inside-avoid">
-                  <div className="flex items-start gap-3">
-                    <div className="shrink-0 w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-600">
-                      {p.orderNumber}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{p.title}</p>
-                          <div className="flex gap-1 mt-1 flex-wrap">
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${festTheme(p.festival.type).pill}`}>
-                              {festIcon(p.festival.type)} {FESTIVAL_TYPE_LABELS[p.festival.type]} {p.festival.year}
-                            </span>
-                            {p.subCommittees.map(sc => {
-                              const n = sc.subCommittee.name.match(/^C(\d+)/)?.[1];
-                              return (
-                                <span key={sc.subCommittee.id} className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
-                                  {n ? `อนุฯ ${n}` : sc.subCommittee.name.replace(/^C\d+:\s*/, "")}
-                                </span>
-                              );
-                            })}
+                    return (
+                      <div key={p.id} className="border border-gray-100 rounded-lg p-3 print:break-inside-avoid">
+                        <div className="flex items-start gap-3">
+                          <div className="shrink-0 w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-600">
+                            {p.orderNumber}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{p.title}</p>
+                                {!multiGroup && (
+                                  <div className="flex gap-1 mt-1 flex-wrap">
+                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${festTheme(p.festival.type).pill}`}>
+                                      {festIcon(p.festival.type)} {FESTIVAL_TYPE_LABELS[p.festival.type]} {p.festival.year}
+                                    </span>
+                                    {p.subCommittees.map(sc => {
+                                      const n = sc.subCommittee.name.match(/^C(\d+)/)?.[1];
+                                      return (
+                                        <span key={sc.subCommittee.id} className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                                          {n ? `อนุฯ ${n}` : sc.subCommittee.name.replace(/^C\d+:\s*/, "")}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                                {multiGroup && (
+                                  <div className="flex gap-1 mt-1 flex-wrap">
+                                    {p.subCommittees.map(sc => {
+                                      const n = sc.subCommittee.name.match(/^C(\d+)/)?.[1];
+                                      return (
+                                        <span key={sc.subCommittee.id} className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                                          {n ? `อนุฯ ${n}` : sc.subCommittee.name.replace(/^C\d+:\s*/, "")}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className="text-xl font-bold text-gray-900">{pct}%</p>
+                                <p className="text-xs text-gray-400">{done}/{total} หน่วย</p>
+                              </div>
+                            </div>
+                            {/* Segmented bar */}
+                            <div className="mt-2 h-2.5 rounded-full overflow-hidden flex bg-gray-100">
+                              {total > 0 && <>
+                                {done > 0 && <div className="bg-green-500 h-full" style={{ width: `${(done / total) * 100}%` }} />}
+                                {inProg > 0 && <div className="bg-yellow-400 h-full" style={{ width: `${(inProg / total) * 100}%` }} />}
+                                {notStarted > 0 && <div className="bg-gray-200 h-full" style={{ width: `${(notStarted / total) * 100}%` }} />}
+                              </>}
+                            </div>
+                            <div className="flex gap-3 mt-1 text-xs flex-wrap">
+                              <span className="text-green-600">✓ เสร็จ {done}</span>
+                              {inProg > 0 && <span className="text-yellow-600">◑ กำลังทำ {inProg}</span>}
+                              {notStarted > 0 && <span className="text-gray-400">○ ยังไม่ตอบ {notStarted}</span>}
+                              {notRel > 0 && <span className="text-slate-400">– ไม่เกี่ยวข้อง {notRel}</span>}
+                            </div>
                           </div>
                         </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-xl font-bold text-gray-900">{pct}%</p>
-                          <p className="text-xs text-gray-400">{done}/{total} หน่วย</p>
-                        </div>
                       </div>
-                      {/* Segmented bar */}
-                      <div className="mt-2 h-2.5 rounded-full overflow-hidden flex bg-gray-100">
-                        {total > 0 && <>
-                          {done > 0 && <div className="bg-green-500 h-full" style={{ width: `${(done / total) * 100}%` }} />}
-                          {inProg > 0 && <div className="bg-yellow-400 h-full" style={{ width: `${(inProg / total) * 100}%` }} />}
-                          {notStarted > 0 && <div className="bg-gray-200 h-full" style={{ width: `${(notStarted / total) * 100}%` }} />}
-                        </>}
-                      </div>
-                      <div className="flex gap-3 mt-1 text-xs flex-wrap">
-                        <span className="text-green-600">✓ เสร็จ {done}</span>
-                        {inProg > 0 && <span className="text-yellow-600">◑ กำลังทำ {inProg}</span>}
-                        {notStarted > 0 && <span className="text-gray-400">○ ยังไม่ตอบ {notStarted}</span>}
-                        {notRel > 0 && <span className="text-slate-400">– ไม่เกี่ยวข้อง {notRel}</span>}
-                      </div>
-                    </div>
-                  </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </div>
 
@@ -393,70 +430,82 @@ export function ReportPage() {
               ข้อมูลที่หน่วยงานรายงานล่าสุด ณ วันที่ {today}
             </p>
 
-            <div className="space-y-4">
-              {proposals.map((p) => {
-                // เรียงตามสถานะ: เสร็จ → กำลังทำ → ไม่เกี่ยวข้อง
-                const order: Record<string, number> = { COMPLETED: 0, IN_PROGRESS: 1, NOT_RELEVANT: 2, NOT_STARTED: 3 };
-                const reported = p.implementations
-                  .filter((i) => i.status !== "NOT_STARTED")
-                  .slice()
-                  .sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9) || a.agency.name.localeCompare(b.agency.name, "th"));
-
-                return (
-                  <div key={p.id} className="border border-gray-200 rounded-lg p-4 print:break-inside-avoid">
-                    <div className="flex items-start gap-3 pb-3 mb-3 border-b border-gray-100">
-                      <div className="shrink-0 w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-sm font-bold text-blue-700">
-                        {p.orderNumber}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900">{p.title}</p>
-                        <div className="flex gap-1 mt-1 flex-wrap">
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${festTheme(p.festival.type).pill}`}>
-                            {festIcon(p.festival.type)} {FESTIVAL_TYPE_LABELS[p.festival.type]} {p.festival.year}
-                          </span>
-                          {p.subCommittees.map((sc) => {
-                            const n = sc.subCommittee.name.match(/^C(\d+)/)?.[1];
-                            return (
-                              <span key={sc.subCommittee.id} className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
-                                {n ? `อนุฯ ${n}` : sc.subCommittee.name.replace(/^C\d+:\s*/, "")}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </div>
+            <div className="space-y-6">
+              {festivalGroups.map(({ festival, proposals: groupProposals }) => (
+                <div key={festival.id}>
+                  {multiGroup && (
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg mb-3 text-sm font-semibold print:break-before-page ${festTheme(festival.type).pill}`}>
+                      {festIcon(festival.type)} {FESTIVAL_TYPE_LABELS[festival.type]} {festival.year}
                     </div>
+                  )}
+                  <div className="space-y-4">
+                    {groupProposals.map((p) => {
+                      const order: Record<string, number> = { COMPLETED: 0, IN_PROGRESS: 1, NOT_RELEVANT: 2, NOT_STARTED: 3 };
+                      const reported = p.implementations
+                        .filter((i) => i.status !== "NOT_STARTED")
+                        .slice()
+                        .sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9) || a.agency.name.localeCompare(b.agency.name, "th"));
 
-                    {reported.length === 0 ? (
-                      <p className="text-sm text-gray-400 italic">ยังไม่มีหน่วยงานรายงานผล</p>
-                    ) : (
-                      <div className="space-y-3">
-                        {reported.map((impl) => (
-                          <div key={impl.agencyId} className="flex items-start gap-3 print:break-inside-avoid">
-                            <span className={`shrink-0 mt-0.5 inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold ${STATUS_BG[impl.status]}`}>
-                              {STATUS_SYMBOL[impl.status]}
-                            </span>
+                      return (
+                        <div key={p.id} className="border border-gray-200 rounded-lg p-4 print:break-inside-avoid">
+                          <div className="flex items-start gap-3 pb-3 mb-3 border-b border-gray-100">
+                            <div className="shrink-0 w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-sm font-bold text-blue-700">
+                              {p.orderNumber}
+                            </div>
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <p className="text-sm font-medium text-gray-800">{impl.agency.name}</p>
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${STATUS_BG[impl.status]}`}>
-                                  {STATUS_LABELS[impl.status]}
-                                </span>
+                              <p className="font-medium text-gray-900">{p.title}</p>
+                              <div className="flex gap-1 mt-1 flex-wrap">
+                                {!multiGroup && (
+                                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${festTheme(p.festival.type).pill}`}>
+                                    {festIcon(p.festival.type)} {FESTIVAL_TYPE_LABELS[p.festival.type]} {p.festival.year}
+                                  </span>
+                                )}
+                                {p.subCommittees.map((sc) => {
+                                  const n = sc.subCommittee.name.match(/^C(\d+)/)?.[1];
+                                  return (
+                                    <span key={sc.subCommittee.id} className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                                      {n ? `อนุฯ ${n}` : sc.subCommittee.name.replace(/^C\d+:\s*/, "")}
+                                    </span>
+                                  );
+                                })}
                               </div>
-                              {impl.content ? (
-                                <p className="text-sm text-gray-700 mt-0.5 whitespace-pre-wrap break-words">{impl.content}</p>
-                              ) : (
-                                <p className="text-sm text-gray-400 italic mt-0.5">
-                                  {impl.status === "NOT_RELEVANT" ? "(หน่วยงานระบุว่าไม่เกี่ยวข้อง)" : "(ยังไม่ได้กรอกรายละเอียด)"}
-                                </p>
-                              )}
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    )}
+
+                          {reported.length === 0 ? (
+                            <p className="text-sm text-gray-400 italic">ยังไม่มีหน่วยงานรายงานผล</p>
+                          ) : (
+                            <div className="space-y-3">
+                              {reported.map((impl) => (
+                                <div key={impl.agencyId} className="flex items-start gap-3 print:break-inside-avoid">
+                                  <span className={`shrink-0 mt-0.5 inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold ${STATUS_BG[impl.status]}`}>
+                                    {STATUS_SYMBOL[impl.status]}
+                                  </span>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <p className="text-sm font-medium text-gray-800">{impl.agency.name}</p>
+                                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${STATUS_BG[impl.status]}`}>
+                                        {STATUS_LABELS[impl.status]}
+                                      </span>
+                                    </div>
+                                    {impl.content ? (
+                                      <p className="text-sm text-gray-700 mt-0.5 whitespace-pre-wrap break-words">{impl.content}</p>
+                                    ) : (
+                                      <p className="text-sm text-gray-400 italic mt-0.5">
+                                        {impl.status === "NOT_RELEVANT" ? "(หน่วยงานระบุว่าไม่เกี่ยวข้อง)" : "(ยังไม่ได้กรอกรายละเอียด)"}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           </div>
         )}
