@@ -76,17 +76,33 @@ model ProposalSubCommittee {
 }
 
 model Implementation {
-  id         String   @id @default(cuid())
-  proposal   Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-  proposalId String
-  agency     Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  agencyId   String
-  content    String?
-  status     String   @default("NOT_STARTED")
-  updatedAt  DateTime @updatedAt
-  createdAt  DateTime @default(now())
+  id             String              @id @default(cuid())
+  proposal       Proposal            @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  proposalId     String
+  agency         Agency              @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId       String
+  content        String?
+  status         String              @default("NOT_STARTED")
+  evidenceUrl    String?
+  contactName    String?
+  contactTitle   String?
+  contactPhone   String?
+  updatedAt      DateTime            @updatedAt
+  createdAt      DateTime            @default(now())
+  logs           ImplementationLog[]
 
   @@unique([proposalId, agencyId])
+}
+
+model ImplementationLog {
+  id               String         @id @default(cuid())
+  implementation   Implementation @relation(fields: [implementationId], references: [id], onDelete: Cascade)
+  implementationId String
+  oldStatus        String?
+  newStatus        String?
+  oldContent       String?
+  newContent       String?
+  changedAt        DateTime       @default(now())
 }
 
 model SiteConfig {

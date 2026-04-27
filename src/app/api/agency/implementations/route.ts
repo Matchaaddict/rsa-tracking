@@ -51,12 +51,32 @@ export async function PUT(req: NextRequest) {
 
   const agencyId = session.user.id!;
   const body = await req.json();
-  const { proposalId, content, status } = body;
+  const { proposalId, content, status, evidenceUrl, contactName, contactTitle, contactPhone } = body;
+
+  const existing = await prisma.implementation.findUnique({
+    where: { proposalId_agencyId: { proposalId, agencyId } },
+    select: { id: true, status: true, content: true },
+  });
 
   const impl = await prisma.implementation.upsert({
     where: { proposalId_agencyId: { proposalId, agencyId } },
-    update: { content, status },
-    create: { proposalId, agencyId, content, status },
+    update: { content, status, evidenceUrl, contactName, contactTitle, contactPhone },
+    create: { proposalId, agencyId, content, status, evidenceUrl, contactName, contactTitle, contactPhone },
   });
+
+  const statusChanged = existing && existing.status !== status;
+  const contentChanged = existing && existing.content !== content;
+  if (!existing || statusChanged || contentChanged) {
+    await prisma.implementationLog.create({
+      data: {
+        implementationId: impl.id,
+        oldStatus: existing?.status ?? null,
+        newStatus: status,
+        oldContent: statusChanged ? (existing?.content ?? null) : null,
+        newContent: statusChanged ? content : null,
+      },
+    });
+  }
+
   return NextResponse.json(impl);
 }

@@ -4,7 +4,14 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/utils";
-import { ChevronDown, ChevronRight, Sparkles, Loader2, CheckCircle2, Circle, Download } from "lucide-react";
+import { ChevronDown, ChevronRight, Sparkles, Loader2, CheckCircle2, Circle, Download, Link2, User, History } from "lucide-react";
+
+interface ImplLog {
+  id: string;
+  oldStatus: string | null;
+  newStatus: string | null;
+  changedAt: string;
+}
 
 interface ProposalDetail {
   id: string;
@@ -14,6 +21,11 @@ interface ProposalDetail {
   hasContent: boolean;
   answered: boolean;
   content: string | null;
+  evidenceUrl: string | null;
+  contactName: string | null;
+  contactTitle: string | null;
+  contactPhone: string | null;
+  logs: ImplLog[];
 }
 
 interface AgencyAnalysis {
@@ -251,6 +263,29 @@ export function AnalysisPanel() {
                                 </div>
                                 {p.content && (
                                   <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{p.content}</p>
+                                )}
+                                {(p.evidenceUrl || p.contactName || p.logs.length > 0) && (
+                                  <div className="mt-1.5 space-y-1">
+                                    {p.evidenceUrl && (
+                                      <a href={p.evidenceUrl} target="_blank" rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                                        <Link2 size={11} /> ดูหลักฐาน
+                                      </a>
+                                    )}
+                                    {p.contactName && (
+                                      <div className="flex items-center gap-1 text-xs text-gray-400">
+                                        <User size={11} />
+                                        {p.contactName}{p.contactTitle ? ` · ${p.contactTitle}` : ""}{p.contactPhone ? ` · ${p.contactPhone}` : ""}
+                                      </div>
+                                    )}
+                                    {p.logs.length > 0 && (
+                                      <div className="flex items-center gap-1 text-xs text-gray-400">
+                                        <History size={11} />
+                                        อัปเดตล่าสุด: {new Date(p.logs[0].changedAt).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                        {p.logs.length > 1 && ` (${p.logs.length} ครั้ง)`}
+                                      </div>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             </div>

@@ -20,7 +20,11 @@ export async function GET(req: NextRequest) {
       proposals: {
         include: {
           subCommittees: { include: { subCommittee: true } },
-          implementations: true,
+          implementations: {
+            include: {
+              logs: { orderBy: { changedAt: "desc" }, take: 10 },
+            },
+          },
         },
         orderBy: { orderNumber: "asc" },
       },
@@ -58,6 +62,11 @@ export async function GET(req: NextRequest) {
           hasContent,
           answered,
           content: impl?.content ?? null,
+          evidenceUrl: impl?.evidenceUrl ?? null,
+          contactName: impl?.contactName ?? null,
+          contactTitle: impl?.contactTitle ?? null,
+          contactPhone: impl?.contactPhone ?? null,
+          logs: impl?.logs ?? [],
         };
       });
 

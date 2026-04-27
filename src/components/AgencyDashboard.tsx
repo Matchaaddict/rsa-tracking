@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { STATUS_LABELS, STATUS_COLORS, FESTIVAL_TYPE_LABELS } from "@/lib/utils";
-import { Loader2, FileText, MessageCircle, KeyRound, ShieldAlert, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
+import { Loader2, FileText, MessageCircle, KeyRound, ShieldAlert, CheckCircle2, AlertCircle, RefreshCw, Link2, User } from "lucide-react";
 
 function AutoResizeTextarea({
   value,
@@ -56,6 +56,10 @@ interface Implementation {
   id?: string;
   status: string;
   content: string | null;
+  evidenceUrl: string | null;
+  contactName: string | null;
+  contactTitle: string | null;
+  contactPhone: string | null;
 }
 
 interface Proposal {
@@ -71,15 +75,40 @@ interface Proposal {
 interface FormState {
   content: string;
   status: string;
+  evidenceUrl: string;
+}
+
+interface ContactInfo {
+  contactName: string;
+  contactTitle: string;
+  contactPhone: string;
 }
 
 function buildInitialForms(proposals: Proposal[]): Record<string, FormState> {
   const forms: Record<string, FormState> = {};
   proposals.forEach((p) => {
     const impl = p.implementations[0];
-    forms[p.id] = { content: impl?.content || "", status: impl?.status || "NOT_STARTED" };
+    forms[p.id] = {
+      content: impl?.content || "",
+      status: impl?.status || "NOT_STARTED",
+      evidenceUrl: impl?.evidenceUrl || "",
+    };
   });
   return forms;
+}
+
+function buildInitialContact(proposals: Proposal[]): ContactInfo {
+  for (const p of proposals) {
+    const impl = p.implementations[0];
+    if (impl?.contactName) {
+      return {
+        contactName: impl.contactName || "",
+        contactTitle: impl.contactTitle || "",
+        contactPhone: impl.contactPhone || "",
+      };
+    }
+  }
+  return { contactName: "", contactTitle: "", contactPhone: "" };
 }
 
 export function AgencyDashboard({
@@ -95,6 +124,7 @@ export function AgencyDashboard({
   const [isDefaultPassword, setIsDefaultPassword] = useState(initialIsDefault);
   const [proposals] = useState<Proposal[]>(initialProposals);
   const [forms, setForms] = useState<Record<string, FormState>>(() => buildInitialForms(initialProposals));
+  const [contact, setContact] = useState<ContactInfo>(() => buildInitialContact(initialProposals));
   const [dirty, setDirty] = useState<Record<string, boolean>>({});
   const [saveError, setSaveError] = useState<Record<string, boolean>>({});
   const [savingCount, setSavingCount] = useState(0);
@@ -110,14 +140,14 @@ export function AgencyDashboard({
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty, saveError]);
 
-  async function autoSave(proposalId: string, formData: FormState) {
+  async function autoSave(proposalId: string, formData: FormState, contactData: ContactInfo = contact) {
     setSavingCount((n) => n + 1);
     setSaveError((e) => ({ ...e, [proposalId]: false }));
     try {
       const res = await fetch("/api/agency/implementations", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proposalId, ...formData }),
+        body: JSON.stringify({ proposalId, ...formData, ...contactData }),
       });
       if (!res.ok) throw new Error("server error");
       setDirty((d) => ({ ...d, [proposalId]: false }));
@@ -142,6 +172,27 @@ export function AgencyDashboard({
     setDirty((d) => ({ ...d, [proposalId]: true }));
     clearTimeout(timers.current[proposalId]);
     timers.current[proposalId] = setTimeout(() => autoSave(proposalId, newForm), 1500);
+  }
+
+  function handleEvidenceChange(proposalId: string, evidenceUrl: string) {
+    const newForm = { ...forms[proposalId], evidenceUrl };
+    setForms((f) => ({ ...f, [proposalId]: newForm }));
+    setDirty((d) => ({ ...d, [proposalId]: true }));
+    clearTimeout(timers.current[proposalId]);
+    timers.current[proposalId] = setTimeout(() => autoSave(proposalId, newForm), 1500);
+  }
+
+  function handleContactChange(field: keyof ContactInfo, value: string) {
+    const newContact = { ...contact, [field]: value };
+    setContact(newContact);
+    // Re-save all dirty or existing proposals with updated contact
+    Object.keys(forms).forEach((proposalId) => {
+      const form = forms[proposalId];
+      if (form.status !== "NOT_STARTED" || form.content || form.evidenceUrl) {
+        clearTimeout(timers.current[`contact_${proposalId}`]);
+        timers.current[`contact_${proposalId}`] = setTimeout(() => autoSave(proposalId, form, newContact), 2000);
+      }
+    });
   }
 
   const festivals = Array.from(new Map(proposals.map((p) => [p.festival.id, p.festival])).values());
@@ -255,6 +306,47 @@ export function AgencyDashboard({
             </div>
           </div>
 
+          {/* Contact info panel */}
+          <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <User size={15} className="text-emerald-600" />
+              <p className="text-sm font-semibold text-gray-700">ข้อมูลผู้รายงาน</p>
+              <span className="text-xs text-gray-400">(บันทึกครั้งเดียวใช้ได้ทุกข้อ)</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">ชื่อ-นามสกุล</label>
+                <input
+                  type="text"
+                  value={contact.contactName}
+                  onChange={(e) => handleContactChange("contactName", e.target.value)}
+                  placeholder="นายสมชาย ใจดี"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">ตำแหน่ง</label>
+                <input
+                  type="text"
+                  value={contact.contactTitle}
+                  onChange={(e) => handleContactChange("contactTitle", e.target.value)}
+                  placeholder="นักวิเคราะห์นโยบายและแผน"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">เบอร์โทรศัพท์</label>
+                <input
+                  type="tel"
+                  value={contact.contactPhone}
+                  onChange={(e) => handleContactChange("contactPhone", e.target.value)}
+                  placeholder="02-xxx-xxxx"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Festival filter */}
           <div className="flex flex-wrap gap-2">
             <button
@@ -346,15 +438,31 @@ export function AgencyDashboard({
                       </div>
 
                       {form.status !== "NOT_RELEVANT" && (
-                        <div>
-                          <label className="text-sm font-medium text-gray-700 block mb-2">รายละเอียดผลการดำเนินงาน</label>
-                          <AutoResizeTextarea
-                            value={form.content}
-                            onChange={(v) => handleContentChange(proposal.id, v)}
-                            placeholder="อธิบายผลการดำเนินงาน..."
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
-                          />
-                        </div>
+                        <>
+                          <div>
+                            <label className="text-sm font-medium text-gray-700 block mb-2">รายละเอียดผลการดำเนินงาน</label>
+                            <AutoResizeTextarea
+                              value={form.content}
+                              onChange={(v) => handleContentChange(proposal.id, v)}
+                              placeholder="อธิบายผลการดำเนินงาน..."
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-700 flex items-center gap-1.5 mb-1">
+                              <Link2 size={13} className="text-gray-400" />
+                              ลิงก์หลักฐาน
+                              <span className="text-xs font-normal text-gray-400">(ไม่บังคับ — ใส่ลิงก์ Google Drive, OneDrive หรืออื่นๆ)</span>
+                            </label>
+                            <input
+                              type="url"
+                              value={form.evidenceUrl}
+                              onChange={(e) => handleEvidenceChange(proposal.id, e.target.value)}
+                              placeholder="https://drive.google.com/..."
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            />
+                          </div>
+                        </>
                       )}
 
                       {isError && (
