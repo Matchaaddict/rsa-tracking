@@ -486,7 +486,8 @@ export function PublicDashboard() {
                   ทุกอนุกรรมการ
                 </button>
                 {data.subCommittees.map((sc) => {
-                  const short = sc.name.match(/^(C\d+)/)?.[1] ?? sc.name.slice(0, 4);
+                  const num = sc.name.match(/^C(\d+)/)?.[1];
+                  const short = num ? `อนุฯ ${num}` : sc.name.slice(0, 4);
                   return (
                     <button
                       key={sc.id}
