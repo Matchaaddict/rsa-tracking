@@ -130,6 +130,12 @@ export function AgencyDashboard({
   const [savingCount, setSavingCount] = useState(0);
   const [selectedFestival, setSelectedFestival] = useState<string>("all");
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  // Tracks which proposals already have an implementation row in the DB.
+  // Empty NOT_STARTED forms for proposals NOT in this set are skipped
+  // by autoSave so we don't pollute the public dashboard.
+  const hasImpl = useRef<Set<string>>(
+    new Set(initialProposals.filter((p) => p.implementations[0]).map((p) => p.id))
+  );
 
   // Warn before closing/navigating away if there are unsaved or pending changes
   useEffect(() => {
@@ -141,6 +147,17 @@ export function AgencyDashboard({
   }, [dirty, saveError]);
 
   async function autoSave(proposalId: string, formData: FormState, contactData: ContactInfo = contact) {
+    const isEmpty =
+      (!formData.status || formData.status === "NOT_STARTED") &&
+      !formData.content?.trim() &&
+      !formData.evidenceUrl?.trim() &&
+      !contactData.contactName?.trim() &&
+      !contactData.contactTitle?.trim() &&
+      !contactData.contactPhone?.trim();
+    if (isEmpty && !hasImpl.current.has(proposalId)) {
+      setDirty((d) => ({ ...d, [proposalId]: false }));
+      return;
+    }
     setSavingCount((n) => n + 1);
     setSaveError((e) => ({ ...e, [proposalId]: false }));
     try {
@@ -150,6 +167,7 @@ export function AgencyDashboard({
         body: JSON.stringify({ proposalId, ...formData, ...contactData }),
       });
       if (!res.ok) throw new Error("server error");
+      hasImpl.current.add(proposalId);
       setDirty((d) => ({ ...d, [proposalId]: false }));
     } catch {
       setSaveError((e) => ({ ...e, [proposalId]: true }));

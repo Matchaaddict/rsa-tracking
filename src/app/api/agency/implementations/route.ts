@@ -58,6 +58,20 @@ export async function PUT(req: NextRequest) {
     select: { id: true, status: true, content: true },
   });
 
+  const isEmpty =
+    (!status || status === "NOT_STARTED") &&
+    !content?.trim() &&
+    !evidenceUrl?.trim() &&
+    !contactName?.trim() &&
+    !contactTitle?.trim() &&
+    !contactPhone?.trim();
+
+  // Don't create empty NOT_STARTED records (e.g. when user just clicks
+  // around without entering data). If one already exists, leave it alone.
+  if (isEmpty && !existing) {
+    return NextResponse.json({ skipped: true });
+  }
+
   const impl = await prisma.implementation.upsert({
     where: { proposalId_agencyId: { proposalId, agencyId } },
     update: { content, status, evidenceUrl, contactName, contactTitle, contactPhone },
