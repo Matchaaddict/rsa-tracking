@@ -375,7 +375,7 @@ export function PublicDashboard() {
 
       {/* Charts */}
       {overall.total > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className={`grid grid-cols-1 gap-4 ${selectedFestival !== "all" ? "lg:grid-cols-2" : ""}`}>
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <p className="text-sm font-semibold text-gray-700 mb-1">สัดส่วนสถานะการดำเนินงาน</p>
             <p className="text-xs text-gray-400 mb-3">ทั้งหมด {overall.total} รายการ</p>
@@ -402,7 +402,7 @@ export function PublicDashboard() {
             </ResponsiveContainer>
           </div>
 
-          {barData.length > 0 && (
+          {selectedFestival !== "all" && barData.length > 0 && (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
               <p className="text-sm font-semibold text-gray-700 mb-1">ความคืบหน้ารายข้อเสนอ</p>
               <p className="text-xs text-gray-400 mb-3">จำนวนหน่วยงานต่อสถานะ</p>
