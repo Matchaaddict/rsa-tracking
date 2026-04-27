@@ -10,11 +10,13 @@ export async function GET() {
         festival: true,
         subCommittees: { include: { subCommittee: true } },
         implementations: {
+          where: { agency: { isVisible: true } },
           include: { agency: { select: { id: true, name: true } } },
         },
       },
     }),
     prisma.agency.findMany({
+      where: { isVisible: true },
       orderBy: { name: "asc" },
       select: {
         id: true,

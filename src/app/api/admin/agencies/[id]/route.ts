@@ -15,11 +15,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { id } = await params;
   const body = await req.json();
-  const { name, username, password, subCommitteeIds } = body;
+  const { name, username, password, subCommitteeIds, isVisible } = body;
 
   const data: Record<string, unknown> = {};
   if (name !== undefined) data.name = name;
   if (username !== undefined) data.username = username;
+  if (isVisible !== undefined) data.isVisible = isVisible;
   if (password) {
     data.password = await bcrypt.hash(password, 10);
     data.plainPassword = password;
@@ -39,7 +40,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     },
     select: {
       id: true, name: true, username: true, plainPassword: true,
-      resetRequested: true, passwordChangedByAgency: true, createdAt: true,
+      resetRequested: true, passwordChangedByAgency: true, isVisible: true, createdAt: true,
       subCommittees: { include: { subCommittee: true } },
       _count: { select: { implementations: true } },
     },

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
-import { Plus, Pencil, Trash2, Loader2, X, Check, Copy, RefreshCw, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, X, Check, Copy, RefreshCw, Download, Eye, EyeOff } from "lucide-react";
 
 interface SubCommittee {
   id: string;
@@ -18,6 +18,7 @@ interface Agency {
   plainPassword: string | null;
   resetRequested: boolean;
   passwordChangedByAgency: boolean;
+  isVisible: boolean;
   subCommittees: { subCommittee: SubCommittee }[];
   _count?: { implementations: number };
 }
@@ -96,6 +97,15 @@ export function AgencyManager() {
     });
     setEditId(a.id);
     setShowForm(true);
+  }
+
+  async function toggleVisibility(a: Agency) {
+    await fetch(`/api/admin/agencies/${a.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isVisible: !a.isVisible }),
+    });
+    load();
   }
 
   async function resetPassword(id: string) {
@@ -298,11 +308,16 @@ export function AgencyManager() {
       ) : (
         <div className="space-y-2">
           {filtered.map((a) => (
-            <Card key={a.id} className={a.resetRequested ? "border-l-4 border-l-red-400" : ""}>
+            <Card key={a.id} className={`${a.resetRequested ? "border-l-4 border-l-red-400" : ""} ${!a.isVisible ? "opacity-60" : ""}`}>
               <CardContent className="py-3 flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-medium text-gray-900">{a.name}</p>
+                    {!a.isVisible && (
+                      <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                        <EyeOff size={10} /> ซ่อนจากสาธารณะ
+                      </span>
+                    )}
                     {a.resetRequested && (
                       <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">
                         ⚠️ ขอรีเซ็ตรหัส
@@ -349,6 +364,14 @@ export function AgencyManager() {
                     title="คัดลอก credentials"
                   >
                     {copiedId === a.id ? <Check size={14} /> : <Copy size={14} />}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => toggleVisibility(a)}
+                    title={a.isVisible ? "ซ่อนจากหน้าสาธารณะ" : "แสดงในหน้าสาธารณะ"}
+                  >
+                    {a.isVisible ? <Eye size={14} /> : <EyeOff size={14} />}
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => startEdit(a)}>
                     <Pencil size={14} />

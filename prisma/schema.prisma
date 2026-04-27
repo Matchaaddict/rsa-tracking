@@ -40,6 +40,7 @@ model Agency {
   plainPassword          String?
   resetRequested         Boolean              @default(false)
   passwordChangedByAgency Boolean            @default(false)
+  isVisible              Boolean              @default(true)
   subCommittees   AgencySubCommittee[]
   implementations Implementation[]
   messages        AgencyMessage[]
