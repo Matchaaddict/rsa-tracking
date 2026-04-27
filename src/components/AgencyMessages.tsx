@@ -3,13 +3,25 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
-import { Loader2, Send, MessageCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, Send, MessageCircle, CheckCircle2, Megaphone } from "lucide-react";
 
 interface Message {
   id: string;
   question: string;
   answer: string | null;
+  direction: "TO_ADMIN" | "FROM_ADMIN";
+  readByAgency: boolean;
   createdAt: string;
+}
+
+function formatThaiDateTime(iso: string) {
+  return new Date(iso).toLocaleDateString("th-TH", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 export function AgencyMessages() {
@@ -23,7 +35,12 @@ export function AgencyMessages() {
     setMessages(await res.json());
     setLoading(false);
   }
-  useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    load();
+    // Mark FROM_ADMIN messages as read once the agency opens this tab.
+    fetch("/api/agency/messages/read", { method: "POST" }).catch(() => {});
+  }, []);
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
@@ -39,22 +56,57 @@ export function AgencyMessages() {
     load();
   }
 
+  const fromAdmin = messages.filter((m) => m.direction === "FROM_ADMIN");
+  const myQuestions = messages.filter((m) => m.direction !== "FROM_ADMIN");
+
   return (
     <div className="space-y-4">
       <div>
         <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
           <MessageCircle size={20} className="text-emerald-600" />
-          ส่งคำถามถึงแอดมิน
+          ข้อความ
         </h2>
-        <p className="text-gray-500 text-sm mt-1">หากมีข้อสงสัยเกี่ยวกับการใช้งานระบบ สามารถส่งคำถามได้ที่นี่</p>
+        <p className="text-gray-500 text-sm mt-1">
+          แจ้งจากแอดมิน + คำถามของคุณ
+        </p>
       </div>
 
-      {/* Send form */}
+      {/* Admin announcements */}
+      {fromAdmin.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-blue-700 flex items-center gap-1.5">
+            <Megaphone size={14} /> แจ้งจากแอดมิน ({fromAdmin.length})
+          </p>
+          {fromAdmin.map((msg) => (
+            <Card
+              key={msg.id}
+              className={`border-l-4 ${msg.readByAgency ? "border-l-blue-300 opacity-80" : "border-l-blue-500"}`}
+            >
+              <CardContent className="py-3 space-y-2">
+                <div className="flex items-center gap-2 text-xs text-gray-400">
+                  <Megaphone size={12} className="text-blue-500" />
+                  <span className="font-medium text-blue-600">แอดมิน</span>
+                  <span>·</span>
+                  <span>{formatThaiDateTime(msg.createdAt)}</span>
+                  {!msg.readByAgency && (
+                    <span className="ml-auto bg-blue-500 text-white text-[10px] font-semibold rounded-full px-2 py-0.5">
+                      ใหม่
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">{msg.question}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Send question to admin */}
       <Card>
         <CardContent className="pt-4">
           <form onSubmit={handleSend} className="space-y-3">
             <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">คำถามของคุณ</label>
+              <label className="text-sm font-medium text-gray-700 block mb-1">ส่งคำถามถึงแอดมิน</label>
               <textarea
                 rows={3}
                 value={question}
@@ -73,28 +125,23 @@ export function AgencyMessages() {
         </CardContent>
       </Card>
 
-      {/* History */}
+      {/* History of questions */}
       {loading ? (
         <div className="flex justify-center py-6"><Loader2 className="animate-spin text-emerald-500" size={20} /></div>
-      ) : (
+      ) : myQuestions.length > 0 ? (
         <div className="space-y-3">
-          <p className="text-sm font-medium text-gray-600">ประวัติคำถาม ({messages.length})</p>
-          {messages.length === 0 && (
-            <Card><CardContent className="py-8 text-center text-gray-400 text-sm">ยังไม่มีคำถาม</CardContent></Card>
-          )}
-          {messages.map((msg) => (
+          <p className="text-sm font-medium text-gray-600">ประวัติคำถามของคุณ ({myQuestions.length})</p>
+          {myQuestions.map((msg) => (
             <Card key={msg.id} className={msg.answer ? "border-l-4 border-l-green-400" : "border-l-4 border-l-yellow-400"}>
               <CardContent className="py-3 space-y-2">
-                <p className="text-xs text-gray-400">
-                  {new Date(msg.createdAt).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-                </p>
+                <p className="text-xs text-gray-400">{formatThaiDateTime(msg.createdAt)}</p>
                 <p className="text-sm text-gray-800 font-medium">{msg.question}</p>
                 {msg.answer ? (
                   <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 flex gap-2">
                     <CheckCircle2 size={14} className="text-green-500 shrink-0 mt-0.5" />
                     <div>
                       <p className="text-xs text-green-600 font-medium mb-0.5">คำตอบจากแอดมิน</p>
-                      <p className="text-sm text-gray-700">{msg.answer}</p>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">{msg.answer}</p>
                     </div>
                   </div>
                 ) : (
@@ -104,7 +151,7 @@ export function AgencyMessages() {
             </Card>
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -146,13 +146,16 @@ export function AgencyDashboard({
   agencyName,
   initialProposals,
   isDefaultPassword: initialIsDefault,
+  initialUnreadCount = 0,
 }: {
   agencyName: string;
   initialProposals: Proposal[];
   isDefaultPassword: boolean;
+  initialUnreadCount?: number;
 }) {
   const [activeTab, setActiveTab] = useState<"proposals" | "messages" | "password">("proposals");
   const [isDefaultPassword, setIsDefaultPassword] = useState(initialIsDefault);
+  const [unreadAdminCount, setUnreadAdminCount] = useState(initialUnreadCount);
   const [proposals] = useState<Proposal[]>(initialProposals);
   const [meta, setMeta] = useState<Record<string, MetadataState>>(() => buildInitialMeta(initialProposals));
   const [entries, setEntries] = useState<Record<string, ProgressEntry[]>>(() => buildInitialEntries(initialProposals));
@@ -400,17 +403,25 @@ export function AgencyDashboard({
       <div className="border-b border-gray-200">
         <nav className="flex gap-1">
           {(["proposals", "messages", "password"] as const).map((tab) => {
-            const label = tab === "proposals" ? "กรอกผลการดำเนินงาน" : tab === "messages" ? "ถามแอดมิน" : "รหัสผ่าน";
+            const label = tab === "proposals" ? "กรอกผลการดำเนินงาน" : tab === "messages" ? "ข้อความ" : "รหัสผ่าน";
             const Icon = tab === "proposals" ? FileText : tab === "messages" ? MessageCircle : KeyRound;
             return (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => {
+                  setActiveTab(tab);
+                  if (tab === "messages") setUnreadAdminCount(0);
+                }}
                 className={`relative flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === tab ? "border-emerald-600 text-emerald-600" : "border-transparent text-gray-500 hover:text-gray-700"
                 }`}
               >
                 <Icon size={15} /> {label}
+                {tab === "messages" && unreadAdminCount > 0 && (
+                  <span className="ml-0.5 bg-blue-500 text-white text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[18px] text-center">
+                    {unreadAdminCount}
+                  </span>
+                )}
                 {tab === "password" && isDefaultPassword && (
                   <span className="absolute top-2 right-1 w-2 h-2 bg-amber-400 rounded-full" />
                 )}

@@ -147,7 +147,11 @@ model AgencyMessage {
   agencyId     String
   question     String
   answer       String?
+  // TO_ADMIN: agency→admin question (legacy default)
+  // FROM_ADMIN: admin→agency announcement
+  direction    String   @default("TO_ADMIN")
   readByAdmin  Boolean  @default(false)
+  readByAgency Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }

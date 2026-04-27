@@ -22,20 +22,25 @@ export default async function AgencyDashboardPage() {
 
   const subCommitteeIds = agency?.subCommittees.map((s) => s.subCommitteeId) ?? [];
 
-  const proposals = await prisma.proposal.findMany({
-    where: {
-      subCommittees: { some: { subCommitteeId: { in: subCommitteeIds } } },
-    },
-    orderBy: [{ festival: { year: "desc" } }, { orderNumber: "asc" }],
-    include: {
-      festival: true,
-      subCommittees: { include: { subCommittee: true } },
-      implementations: {
-        where: { agencyId },
-        include: { progressEntries: { orderBy: { createdAt: "desc" } } },
+  const [proposals, unreadAdminMessages] = await Promise.all([
+    prisma.proposal.findMany({
+      where: {
+        subCommittees: { some: { subCommitteeId: { in: subCommitteeIds } } },
       },
-    },
-  });
+      orderBy: [{ festival: { year: "desc" } }, { orderNumber: "asc" }],
+      include: {
+        festival: true,
+        subCommittees: { include: { subCommittee: true } },
+        implementations: {
+          where: { agencyId },
+          include: { progressEntries: { orderBy: { createdAt: "desc" } } },
+        },
+      },
+    }),
+    prisma.agencyMessage.count({
+      where: { agencyId, direction: "FROM_ADMIN", readByAgency: false },
+    }),
+  ]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -45,6 +50,7 @@ export default async function AgencyDashboardPage() {
           agencyName={session.user.name!}
           initialProposals={proposals as never}
           isDefaultPassword={!agency?.passwordChangedByAgency}
+          initialUnreadCount={unreadAdminMessages}
         />
       </main>
     </div>
