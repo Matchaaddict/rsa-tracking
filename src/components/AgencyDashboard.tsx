@@ -166,7 +166,16 @@ export function AgencyDashboard({
   const [saveError, setSaveError] = useState<Record<string, boolean>>({});
   const [savingCount, setSavingCount] = useState(0);
   const [selectedFestival, setSelectedFestival] = useState<string>("all");
+  const [showOnlyPending, setShowOnlyPending] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function showToast(msg: string) {
+    setToast(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2200);
+  }
   const hasImpl = useRef<Set<string>>(
     new Set(initialProposals.filter((p) => p.implementations[0]).map((p) => p.id))
   );
@@ -258,6 +267,7 @@ export function AgencyDashboard({
       setMeta((m) => ({ ...m, [proposalId]: { ...m[proposalId], status } }));
       hasImpl.current.add(proposalId);
       rememberContact(contactInfo);
+      showToast("เพิ่มรายงานเรียบร้อย");
       return true;
     } catch {
       setSaveError((e) => ({ ...e, [proposalId]: true }));
@@ -292,6 +302,7 @@ export function AgencyDashboard({
         setMeta((m) => ({ ...m, [proposalId]: { ...m[proposalId], status } }));
       }
       rememberContact(contactInfo);
+      showToast("บันทึกการแก้ไขเรียบร้อย");
       return true;
     } catch {
       return false;
@@ -317,7 +328,17 @@ export function AgencyDashboard({
   }
 
   const festivals = Array.from(new Map(proposals.map((p) => [p.festival.id, p.festival])).values());
-  const filtered = selectedFestival === "all" ? proposals : proposals.filter((p) => p.festival.id === selectedFestival);
+
+  function isPending(p: Proposal) {
+    const m = meta[p.id];
+    const status = m?.status ?? "NOT_STARTED";
+    const entryCount = entries[p.id]?.length ?? 0;
+    return status === "NOT_STARTED" && entryCount === 0;
+  }
+
+  const byFestival = selectedFestival === "all" ? proposals : proposals.filter((p) => p.festival.id === selectedFestival);
+  const filtered = showOnlyPending ? byFestival.filter(isPending) : byFestival;
+  const pendingCount = byFestival.filter(isPending).length;
 
   const total = proposals.length;
   const filled = proposals.filter((p) => {
@@ -452,10 +473,40 @@ export function AgencyDashboard({
             ))}
           </div>
 
+          {/* Pending-only toggle */}
+          {byFestival.length > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowOnlyPending((v) => !v)}
+                disabled={pendingCount === 0 && !showOnlyPending}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                  showOnlyPending
+                    ? "bg-amber-100 border-amber-300 text-amber-800"
+                    : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                }`}
+              >
+                <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${showOnlyPending ? "bg-amber-500 border-amber-500" : "border-gray-300"}`}>
+                  {showOnlyPending && <Check size={10} className="text-white" />}
+                </span>
+                แสดงเฉพาะที่ยังไม่รายงาน
+                {pendingCount > 0 && (
+                  <span className="text-[10px] bg-white/60 rounded-full px-1.5 py-0.5">{pendingCount}</span>
+                )}
+              </button>
+              {pendingCount === 0 && byFestival.length > 0 && (
+                <span className="text-xs text-emerald-600 flex items-center gap-1">
+                  <CheckCircle2 size={12} /> รายงานครบทุกข้อแล้ว
+                </span>
+              )}
+            </div>
+          )}
+
           {filtered.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-gray-400">
-                ไม่มีข้อเสนอที่เกี่ยวข้องกับหน่วยงานของคุณ
+                {showOnlyPending && byFestival.length > 0
+                  ? "รายงานครบทุกข้อในมุมมองนี้แล้ว"
+                  : "ไม่มีข้อเสนอที่เกี่ยวข้องกับหน่วยงานของคุณ"}
               </CardContent>
             </Card>
           ) : (
@@ -479,6 +530,13 @@ export function AgencyDashboard({
             </div>
           )}
         </>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white text-sm px-4 py-2 rounded-full shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
+          <CheckCircle2 size={14} /> {toast}
+        </div>
       )}
     </div>
   );
@@ -556,6 +614,15 @@ function ProposalProgressCard({
 
   async function submit() {
     if (!canSubmit) return;
+    if (draft.status === "NOT_RELEVANT") {
+      const confirmed = confirm(
+        "ยืนยัน \"ไม่เกี่ยวข้อง\"?\n\n" +
+          "การติ๊กไม่เกี่ยวข้อง หมายถึงข้อเสนอนี้ไม่อยู่ในภารกิจของหน่วยงานคุณ " +
+          "และจะถูกตัดออกจากตัวหารเปอร์เซ็นต์ของอนุฯ อย่างถาวร\n\n" +
+          "หากเพียงแต่ยังไม่ได้เริ่ม โปรดเลือก \"กำลังดำเนินการ\" แทน"
+      );
+      if (!confirmed) return;
+    }
     setSubmitting(true);
     const contactInfo: ContactInfo = {
       contactName: draft.contactName.trim(),
@@ -640,6 +707,16 @@ function ProposalProgressCard({
                     </button>
                   ))}
                 </div>
+                {draft.status === "NOT_RELEVANT" && (
+                  <div className="mt-2 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-800">
+                    <AlertCircle size={13} className="shrink-0 mt-0.5 text-amber-500" />
+                    <span>
+                      ใช้สถานะนี้เฉพาะเมื่อข้อเสนอ <span className="font-medium">ไม่อยู่ในภารกิจ</span> ของหน่วยงานคุณ
+                      จะถูกตัดออกจากตัวหารเปอร์เซ็นต์ของอนุฯ อย่างถาวร
+                      <span className="block mt-1 text-amber-600">หากเพียงยังไม่เริ่ม ให้เลือก &ldquo;กำลังดำเนินการ&rdquo; แทน</span>
+                    </span>
+                  </div>
+                )}
               </div>
               {draft.status !== "NOT_RELEVANT" && (
                 <div>
