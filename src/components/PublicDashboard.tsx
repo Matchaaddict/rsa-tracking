@@ -65,6 +65,7 @@ interface Proposal {
   festivalId: string;
   subCommittees: { subCommittee: SubCommittee }[];
   implementations: Implementation[];
+  expectedAgencyIds: string[];
 }
 
 interface AgencyData {
@@ -80,15 +81,34 @@ interface DashboardData {
   agencies: AgencyData[];
   subCommittees: SubCommittee[];
   siteConfig: Record<string, string>;
-  stats: {
-    totalAgencies: number;
-    agenciesWithData: number;
-    totalProposals: number;
-    completed: number;
-    inProgress: number;
-    notStarted: number;
-    totalImplementations: number;
-  };
+}
+
+// ดูสูตรเต็มได้ที่ docs/PROGRESS_CALCULATION.md
+function computeProgress(proposals: Proposal[]) {
+  let expected = 0;
+  let notRelevant = 0;
+  let completed = 0;
+  let inProgress = 0;
+  let started = 0; // implementation rows with NOT_STARTED status (acknowledged but no action)
+
+  proposals.forEach((p) => {
+    expected += p.expectedAgencyIds.length;
+    p.implementations.forEach((i) => {
+      if (i.status === "NOT_RELEVANT") notRelevant++;
+      else if (i.status === "COMPLETED") completed++;
+      else if (i.status === "IN_PROGRESS") inProgress++;
+      else if (i.status === "NOT_STARTED") started++;
+    });
+  });
+
+  const total = Math.max(expected - notRelevant, 0);
+  const notStarted = Math.max(total - completed - inProgress, 0);
+  const active = completed + inProgress;
+  const completedPct = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const activePct = total > 0 ? Math.round((active / total) * 100) : 0;
+  void started;
+
+  return { expected, notRelevant, completed, inProgress, notStarted, active, total, completedPct, activePct };
 }
 
 const PIE_COLORS = ["#22c55e", "#eab308", "#9ca3af"];
@@ -146,23 +166,7 @@ export function PublicDashboard() {
       ? data.proposals
       : data.proposals.filter((p) => p.festivalId === selectedFestival);
 
-  // ไม่นับ NOT_RELEVANT ใน total
-  const totalImplementationsForFilter = filteredProposals.reduce(
-    (acc, p) => acc + p.implementations.filter((i) => i.status !== "NOT_RELEVANT").length,
-    0
-  );
-  const completedForFilter = filteredProposals.reduce(
-    (acc, p) => acc + p.implementations.filter((i) => i.status === "COMPLETED").length,
-    0
-  );
-  const inProgressForFilter = filteredProposals.reduce(
-    (acc, p) => acc + p.implementations.filter((i) => i.status === "IN_PROGRESS").length,
-    0
-  );
-  const notStartedForFilter = filteredProposals.reduce(
-    (acc, p) => acc + p.implementations.filter((i) => i.status === "NOT_STARTED").length,
-    0
-  );
+  const overall = computeProgress(filteredProposals);
 
   const agenciesWithDataForFilter = new Set(
     filteredProposals.flatMap((p) =>
@@ -173,26 +177,26 @@ export function PublicDashboard() {
   ).size;
 
   const pieData = [
-    { name: STATUS_LABELS.COMPLETED, value: completedForFilter },
-    { name: STATUS_LABELS.IN_PROGRESS, value: inProgressForFilter },
-    { name: STATUS_LABELS.NOT_STARTED, value: notStartedForFilter },
+    { name: STATUS_LABELS.COMPLETED, value: overall.completed },
+    { name: STATUS_LABELS.IN_PROGRESS, value: overall.inProgress },
+    { name: STATUS_LABELS.NOT_STARTED, value: overall.notStarted },
   ].filter((d) => d.value > 0);
 
-  const barData = filteredProposals.map((p) => ({
-    name: `ข้อ ${p.orderNumber}`,
-    label: p.title.slice(0, 20) + (p.title.length > 20 ? "…" : ""),
-    completed: p.implementations.filter((i) => i.status === "COMPLETED").length,
-    inProgress: p.implementations.filter((i) => i.status === "IN_PROGRESS").length,
-    notStarted: p.implementations.filter((i) => i.status === "NOT_STARTED").length,
-  }));
+  const barData = filteredProposals.map((p) => {
+    const s = computeProgress([p]);
+    return {
+      name: `ข้อ ${p.orderNumber}`,
+      label: p.title.slice(0, 20) + (p.title.length > 20 ? "…" : ""),
+      completed: s.completed,
+      inProgress: s.inProgress,
+      notStarted: s.notStarted,
+    };
+  });
 
-  const overallPct =
-    totalImplementationsForFilter > 0
-      ? Math.round((completedForFilter / totalImplementationsForFilter) * 100)
-      : 0;
   const ringR = 52;
   const ringCirc = 2 * Math.PI * ringR;
-  const ringFilled = (overallPct / 100) * ringCirc;
+  const ringActive = (overall.activePct / 100) * ringCirc;
+  const ringDone = (overall.completedPct / 100) * ringCirc;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -203,17 +207,24 @@ export function PublicDashboard() {
         <div className="relative px-6 pt-7 pb-6 space-y-5">
           {/* Title row */}
           <div className="flex items-center gap-4">
-            {/* Completion Ring */}
+            {/* Completion Ring: yellow = ดำเนินการแล้ว (active), green = เสร็จสมบูรณ์ overlays */}
             <svg width={88} height={88} viewBox="0 0 130 130" className="shrink-0">
               <circle cx={65} cy={65} r={ringR} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={12} />
               <circle cx={65} cy={65} r={ringR} fill="none"
-                stroke="#34d399" strokeWidth={12}
-                strokeDasharray={`${ringFilled} ${ringCirc}`}
+                stroke="#fbbf24" strokeWidth={12}
+                strokeDasharray={`${ringActive} ${ringCirc}`}
                 strokeLinecap="round"
                 transform="rotate(-90 65 65)"
               />
-              <text x={65} y={60} textAnchor="middle" fill="white" style={{ fontSize: 26, fontWeight: 700 }}>{overallPct}%</text>
-              <text x={65} y={78} textAnchor="middle" fill="rgba(255,255,255,0.6)" style={{ fontSize: 11 }}>ภาพรวม</text>
+              <circle cx={65} cy={65} r={ringR} fill="none"
+                stroke="#34d399" strokeWidth={12}
+                strokeDasharray={`${ringDone} ${ringCirc}`}
+                strokeLinecap="round"
+                transform="rotate(-90 65 65)"
+              />
+              <text x={65} y={58} textAnchor="middle" fill="white" style={{ fontSize: 24, fontWeight: 700 }}>{overall.activePct}%</text>
+              <text x={65} y={74} textAnchor="middle" fill="rgba(255,255,255,0.7)" style={{ fontSize: 9 }}>ดำเนินการแล้ว</text>
+              <text x={65} y={88} textAnchor="middle" fill="#a7f3d0" style={{ fontSize: 10, fontWeight: 600 }}>เสร็จ {overall.completedPct}%</text>
             </svg>
             <div>
               <p className="text-blue-300 text-xs font-semibold tracking-widest uppercase">{data.siteConfig.hero_label ?? "RSAT"}</p>
@@ -227,10 +238,10 @@ export function PublicDashboard() {
           {/* Stats grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {[
-              { label: "หน่วยงานกรอกข้อมูล", value: agenciesWithDataForFilter, icon: "🏢", color: "from-white/10 to-white/5" },
+              { label: "หน่วยงานที่กรอก", value: agenciesWithDataForFilter, icon: "🏢", color: "from-white/10 to-white/5" },
               { label: "ข้อเสนอทั้งหมด", value: filteredProposals.length, icon: "📋", color: "from-white/10 to-white/5" },
-              { label: "ดำเนินการแล้ว", value: completedForFilter, icon: "✅", color: "from-emerald-500/20 to-emerald-600/10" },
-              { label: "กำลังดำเนินการ", value: inProgressForFilter, icon: "⚡", color: "from-amber-500/20 to-amber-600/10" },
+              { label: "เสร็จสมบูรณ์", value: overall.completed, icon: "✅", color: "from-emerald-500/20 to-emerald-600/10" },
+              { label: "กำลังดำเนินการ", value: overall.inProgress, icon: "⚡", color: "from-amber-500/20 to-amber-600/10" },
             ].map((s) => (
               <div key={s.label} className={`bg-gradient-to-br ${s.color} rounded-xl px-3 py-2.5 border border-white/10`}>
                 <div className="text-xl mb-0.5">{s.icon}</div>
@@ -244,39 +255,46 @@ export function PublicDashboard() {
 
       {/* Sub-committee Progress */}
       {(() => {
-        const scStats = new Map<string, { done: number; total: number }>();
+        const scProposals = new Map<string, Proposal[]>();
         filteredProposals.forEach((p) => {
           p.subCommittees.forEach(({ subCommittee }) => {
-            if (!scStats.has(subCommittee.id))
-              scStats.set(subCommittee.id, { done: 0, total: 0 });
-            const e = scStats.get(subCommittee.id)!;
-            p.implementations.forEach((i) => {
-              if (i.status === "NOT_RELEVANT") return;
-              e.total++;
-              if (i.status === "COMPLETED") e.done++;
-            });
+            if (!scProposals.has(subCommittee.id)) scProposals.set(subCommittee.id, []);
+            scProposals.get(subCommittee.id)!.push(p);
           });
         });
         const rows = data.subCommittees
           .map((sc) => {
-            const s = scStats.get(sc.id) ?? { done: 0, total: 0 };
-            return { name: sc.name.replace(/^C\d+:\s*/, ""), pct: s.total > 0 ? Math.round((s.done / s.total) * 100) : 0, done: s.done, total: s.total };
+            const s = computeProgress(scProposals.get(sc.id) ?? []);
+            return {
+              name: sc.name.replace(/^C\d+:\s*/, ""),
+              activePct: s.activePct,
+              completedPct: s.completedPct,
+              completed: s.completed,
+              inProgress: s.inProgress,
+              total: s.total,
+            };
           })
-          .sort((a, b) => b.pct - a.pct);
+          .sort((a, b) => b.activePct - a.activePct);
         return (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-1 h-5 bg-blue-600 rounded-full" />
-              <p className="text-sm font-semibold text-gray-700">ความคืบหน้าในการขับเคลื่อนรายอนุกรรมการ</p>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-1 h-5 bg-blue-600 rounded-full" />
+                <p className="text-sm font-semibold text-gray-700">ความคืบหน้าในการขับเคลื่อนรายอนุกรรมการ</p>
+              </div>
+              <div className="flex items-center gap-3 text-[11px] text-gray-500">
+                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />เสร็จ</span>
+                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-amber-400" />กำลังทำ</span>
+              </div>
             </div>
             <div className="space-y-3">
               {rows.map((sc, idx) => (
                 <div key={sc.name} className="flex items-center gap-3">
                   <div className={`w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-xs font-bold ${
-                    sc.pct >= 70 ? "bg-emerald-100 text-emerald-700" :
-                    sc.pct >= 40 ? "bg-blue-100 text-blue-700" :
-                    sc.pct > 0   ? "bg-amber-100 text-amber-700" :
-                                   "bg-gray-100 text-gray-400"
+                    sc.completedPct >= 70 ? "bg-emerald-100 text-emerald-700" :
+                    sc.activePct    >= 40 ? "bg-blue-100 text-blue-700" :
+                    sc.activePct    >  0  ? "bg-amber-100 text-amber-700" :
+                                            "bg-gray-100 text-gray-400"
                   }`}>
                     {idx + 1}
                   </div>
@@ -284,24 +302,24 @@ export function PublicDashboard() {
                     <p className="text-xs text-gray-600 leading-snug line-clamp-2">{sc.name}</p>
                   </div>
                   <div className="flex-1 relative">
-                    <div className="h-5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-5 bg-gray-100 rounded-full overflow-hidden flex">
                       <div
-                        className={`h-full rounded-full flex items-center justify-end pr-2 transition-all duration-700 ${
-                          sc.pct >= 70 ? "bg-gradient-to-r from-emerald-400 to-emerald-500" :
-                          sc.pct >= 40 ? "bg-gradient-to-r from-blue-400 to-blue-500" :
-                          sc.pct > 0   ? "bg-gradient-to-r from-amber-400 to-amber-500" :
-                                         "bg-gray-200"
-                        }`}
-                        style={{ width: `${sc.pct > 0 ? Math.max(sc.pct, 4) : 0}%` }}
-                      >
-                        {sc.pct >= 18 && <span className="text-white text-xs font-bold">{sc.pct}%</span>}
-                      </div>
+                        className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 transition-all duration-700"
+                        style={{ width: `${sc.completedPct}%` }}
+                      />
+                      <div
+                        className="h-full bg-gradient-to-r from-amber-300 to-amber-400 transition-all duration-700"
+                        style={{ width: `${Math.max(sc.activePct - sc.completedPct, 0)}%` }}
+                      />
                     </div>
-                    {sc.pct > 0 && sc.pct < 18 && (
-                      <span className="absolute left-2 top-0.5 text-xs font-bold text-gray-500">{sc.pct}%</span>
-                    )}
+                    <span className="absolute right-2 top-0.5 text-xs font-bold text-gray-700">
+                      {sc.activePct}%
+                    </span>
                   </div>
-                  <div className="text-xs text-gray-400 shrink-0 w-10 text-right tabular-nums">{sc.done}/{sc.total}</div>
+                  <div className="text-[10px] text-gray-400 shrink-0 w-14 text-right tabular-nums leading-tight">
+                    <div className="text-emerald-600">เสร็จ {sc.completed}</div>
+                    <div>{sc.completed + sc.inProgress}/{sc.total}</div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -311,19 +329,7 @@ export function PublicDashboard() {
 
       {/* Festival Filter */}
       {(() => {
-        const festStats = new Map<string, { done: number; total: number }>();
-        data.proposals.forEach((p) => {
-          if (!festStats.has(p.festivalId)) festStats.set(p.festivalId, { done: 0, total: 0 });
-          const s = festStats.get(p.festivalId)!;
-          p.implementations.forEach((i) => {
-            if (i.status === "NOT_RELEVANT") return;
-            s.total++;
-            if (i.status === "COMPLETED") s.done++;
-          });
-        });
-        const allDone = data.proposals.reduce((a, p) => a + p.implementations.filter(i => i.status === "COMPLETED").length, 0);
-        const allTotal = data.proposals.reduce((a, p) => a + p.implementations.filter(i => i.status !== "NOT_RELEVANT").length, 0);
-        const allPct = allTotal > 0 ? Math.round((allDone / allTotal) * 100) : 0;
+        const allPct = computeProgress(data.proposals).activePct;
         return (
           <div className="flex flex-wrap gap-2 items-center">
             <span className="text-xs text-gray-400 font-medium mr-1">กรองตามเทศกาล:</span>
@@ -341,8 +347,7 @@ export function PublicDashboard() {
               </span>
             </button>
             {data.festivals.map((f) => {
-              const s = festStats.get(f.id) ?? { done: 0, total: 0 };
-              const pct = s.total > 0 ? Math.round((s.done / s.total) * 100) : 0;
+              const pct = computeProgress(data.proposals.filter((p) => p.festivalId === f.id)).activePct;
               const isActive = selectedFestival === f.id;
               return (
                 <button
@@ -369,11 +374,11 @@ export function PublicDashboard() {
 
 
       {/* Charts */}
-      {totalImplementationsForFilter > 0 && (
+      {overall.total > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <p className="text-sm font-semibold text-gray-700 mb-1">สัดส่วนสถานะการดำเนินงาน</p>
-            <p className="text-xs text-gray-400 mb-3">ทั้งหมด {totalImplementationsForFilter} รายการ</p>
+            <p className="text-xs text-gray-400 mb-3">ทั้งหมด {overall.total} รายการ</p>
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
                 <Pie
@@ -540,11 +545,8 @@ export function PublicDashboard() {
                 <p className="text-xs text-gray-400">พบ {results.length} ข้อเสนอ</p>
                 {results.map((proposal) => {
                   const allImpls = proposal.implementations;
-                  const relevant = allImpls.filter((i) => i.status !== "NOT_RELEVANT");
-                  const done = relevant.filter((i) => i.status === "COMPLETED").length;
-                  const inProg = relevant.filter((i) => i.status === "IN_PROGRESS").length;
-                  const total = relevant.length;
-                  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+                  const s = computeProgress([proposal]);
+                  const { completed: done, inProgress: inProg, total, activePct: pct, completedPct } = s;
                   const isOpen = expandedProposal === `search-${proposal.id}`;
                   return (
                     <div key={proposal.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -578,8 +580,9 @@ export function PublicDashboard() {
                             {isOpen ? <ChevronUp size={15} className="text-gray-400" /> : <ChevronDown size={15} className="text-gray-400" />}
                           </div>
                         </div>
-                        <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-green-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                        <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden flex">
+                          <div className="h-full bg-emerald-500 transition-all" style={{ width: `${completedPct}%` }} />
+                          <div className="h-full bg-amber-400 transition-all" style={{ width: `${Math.max(pct - completedPct, 0)}%` }} />
                         </div>
                       </div>
                       {isOpen && allImpls.length > 0 && (
@@ -630,13 +633,8 @@ export function PublicDashboard() {
 
             return Array.from(scMap.values()).map(({ sc, proposals }) => {
               // Aggregate stats for this SC group
-              const scDone = proposals.reduce(
-                (a, p) => a + p.implementations.filter((i) => i.status === "COMPLETED").length, 0
-              );
-              const scTotal = proposals.reduce(
-                (a, p) => a + p.implementations.filter((i) => i.status !== "NOT_RELEVANT").length, 0
-              );
-              const scPct = scTotal > 0 ? Math.round((scDone / scTotal) * 100) : 0;
+              const scStats = computeProgress(proposals);
+              const { completed: scDone, total: scTotal, activePct: scPct, completedPct: scDonePct } = scStats;
               const isOpen = expandedSubCommittees.has(sc.id);
 
               return (
@@ -661,12 +659,10 @@ export function PublicDashboard() {
                     </div>
                   </button>
 
-                  {/* SC Progress bar */}
-                  <div className="h-1 bg-gray-100">
-                    <div
-                      className="h-full bg-blue-500 transition-all"
-                      style={{ width: `${scPct}%` }}
-                    />
+                  {/* SC Progress bar (stacked) */}
+                  <div className="h-1 bg-gray-100 flex">
+                    <div className="h-full bg-emerald-500 transition-all" style={{ width: `${scDonePct}%` }} />
+                    <div className="h-full bg-amber-400 transition-all" style={{ width: `${Math.max(scPct - scDonePct, 0)}%` }} />
                   </div>
 
                   {/* Festival sub-groups inside each SC */}
@@ -684,16 +680,10 @@ export function PublicDashboard() {
                       const festKey = `${sc.id}-${festival.id}`;
                       const isFestOpen = expandedFestivals.has(festKey);
 
-                      const fDone = festProposals.reduce(
-                        (a, p) => a + p.implementations.filter((i) => i.status === "COMPLETED").length, 0
-                      );
-                      const fTotal = festProposals.reduce(
-                        (a, p) => a + p.implementations.filter((i) => i.status !== "NOT_RELEVANT").length, 0
-                      );
-                      const fPct = fTotal > 0 ? Math.round((fDone / fTotal) * 100) : 0;
+                      const fStats = computeProgress(festProposals);
+                      const { completed: fDone, total: fTotal, activePct: fPct, completedPct: fDonePct } = fStats;
                       const festColor = festival.type === "NEW_YEAR" ? "text-blue-600" : "text-orange-500";
                       const festBg = festival.type === "NEW_YEAR" ? "bg-blue-50 hover:bg-blue-100" : "bg-orange-50 hover:bg-orange-100";
-                      const festBar = festival.type === "NEW_YEAR" ? "bg-blue-400" : "bg-orange-400";
 
                       return (
                         <div key={festKey} className="border-t border-gray-100">
@@ -717,9 +707,10 @@ export function PublicDashboard() {
                             </div>
                           </button>
 
-                          {/* Thin festival progress bar */}
-                          <div className="h-0.5 bg-gray-100">
-                            <div className={`h-full ${festBar} transition-all`} style={{ width: `${fPct}%` }} />
+                          {/* Thin festival progress bar (stacked) */}
+                          <div className="h-0.5 bg-gray-100 flex">
+                            <div className="h-full bg-emerald-500 transition-all" style={{ width: `${fDonePct}%` }} />
+                            <div className="h-full bg-amber-400 transition-all" style={{ width: `${Math.max(fPct - fDonePct, 0)}%` }} />
                           </div>
 
                           {/* Proposals under this festival */}
@@ -727,13 +718,8 @@ export function PublicDashboard() {
                             <div className="divide-y divide-gray-100">
                               {festProposals.map((proposal) => {
                                 const allImpls = proposal.implementations;
-                                const notRelevant = allImpls.filter((i) => i.status === "NOT_RELEVANT").length;
-                                const relevant = allImpls.filter((i) => i.status !== "NOT_RELEVANT");
-                                const done = relevant.filter((i) => i.status === "COMPLETED").length;
-                                const inProg = relevant.filter((i) => i.status === "IN_PROGRESS").length;
-                                const notAnswered = relevant.filter((i) => i.status === "NOT_STARTED").length;
-                                const total = relevant.length;
-                                const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+                                const ps = computeProgress([proposal]);
+                                const { completed: done, inProgress: inProg, notRelevant, notStarted: notAnswered, total, activePct: pct, completedPct: donePct } = ps;
                                 const proposalKey = `${sc.id}-${festival.id}-${proposal.id}`;
 
                                 return (
@@ -765,11 +751,9 @@ export function PublicDashboard() {
                                             : <ChevronDown size={15} className="text-gray-400" />}
                                         </div>
                                       </div>
-                                      <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                        <div
-                                          className="h-full bg-green-500 rounded-full transition-all"
-                                          style={{ width: `${pct}%` }}
-                                        />
+                                      <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden flex">
+                                        <div className="h-full bg-emerald-500 transition-all" style={{ width: `${donePct}%` }} />
+                                        <div className="h-full bg-amber-400 transition-all" style={{ width: `${Math.max(pct - donePct, 0)}%` }} />
                                       </div>
                                     </div>
 
@@ -832,10 +816,8 @@ export function PublicDashboard() {
           <div className="space-y-2">
             {data.subCommittees.map((sc) => {
               const proposals = proposalsBySC.get(sc.id) ?? [];
-              const total = proposals.reduce((a, p) => a + p.implementations.filter(i => i.status !== "NOT_RELEVANT").length, 0);
-              const done = proposals.reduce((a, p) => a + p.implementations.filter(i => i.status === "COMPLETED").length, 0);
-              const inProg = proposals.reduce((a, p) => a + p.implementations.filter(i => i.status === "IN_PROGRESS").length, 0);
-              const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+              const s = computeProgress(proposals);
+              const { completed: done, inProgress: inProg, total, activePct: pct, completedPct: donePct } = s;
               const isOpen = expandedSCTab === sc.id;
               return (
                 <div key={sc.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -848,15 +830,13 @@ export function PublicDashboard() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <p className="font-semibold text-gray-900 text-sm">{sc.name.replace(/^C(\d+):/, (_, n) => `อนุฯ ${n}:`)}</p>
-                        <span className={`text-sm font-bold shrink-0 ${pct >= 80 ? "text-emerald-600" : pct >= 50 ? "text-amber-500" : "text-gray-400"}`}>
+                        <span className={`text-sm font-bold shrink-0 ${donePct >= 80 ? "text-emerald-600" : pct >= 50 ? "text-amber-500" : "text-gray-400"}`}>
                           {done}/{total} ({pct}%)
                         </span>
                       </div>
-                      <div className="mt-1.5 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${pct >= 80 ? "bg-emerald-500" : pct >= 50 ? "bg-amber-400" : "bg-gray-300"}`}
-                          style={{ width: `${pct}%` }}
-                        />
+                      <div className="mt-1.5 h-1.5 bg-gray-100 rounded-full overflow-hidden flex">
+                        <div className="h-full bg-emerald-500 transition-all" style={{ width: `${donePct}%` }} />
+                        <div className="h-full bg-amber-400 transition-all" style={{ width: `${Math.max(pct - donePct, 0)}%` }} />
                       </div>
                       <p className="text-xs text-gray-400 mt-1">{proposals.length} ข้อเสนอ · กำลังทำ {inProg} · เสร็จ {done}</p>
                     </div>
@@ -864,9 +844,8 @@ export function PublicDashboard() {
                   {isOpen && (
                     <div className="border-t border-gray-100 divide-y divide-gray-100">
                       {proposals.map((p) => {
-                        const pDone = p.implementations.filter(i => i.status === "COMPLETED").length;
-                        const pTotal = p.implementations.filter(i => i.status !== "NOT_RELEVANT").length;
-                        const pPct = pTotal > 0 ? Math.round((pDone / pTotal) * 100) : 0;
+                        const ps = computeProgress([p]);
+                        const { activePct: pPct, completedPct: pDonePct } = ps;
                         return (
                           <div key={p.id} className="px-6 py-3 flex items-center justify-between gap-4">
                             <div>
@@ -874,8 +853,9 @@ export function PublicDashboard() {
                               <span className="text-sm text-gray-800">{p.title}</span>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                              <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pPct}%` }} />
+                              <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden flex">
+                                <div className="h-full bg-emerald-500" style={{ width: `${pDonePct}%` }} />
+                                <div className="h-full bg-amber-400" style={{ width: `${Math.max(pPct - pDonePct, 0)}%` }} />
                               </div>
                               <span className="text-xs text-gray-500 w-8 text-right">{pPct}%</span>
                             </div>
@@ -898,9 +878,17 @@ export function PublicDashboard() {
             const relevantImpls = agency.implementations.filter((i) =>
               selectedFestival === "all" ? true : i.proposal.festival.id === selectedFestival
             );
-            const total = relevantImpls.filter((i) => i.status !== "NOT_RELEVANT").length;
+            // Proposals this agency is expected to respond to (within filter)
+            const expectedProposals = filteredProposals.filter((p) =>
+              p.expectedAgencyIds.includes(agency.id)
+            );
+            const expected = expectedProposals.length;
+            const notRelevant = relevantImpls.filter((i) => i.status === "NOT_RELEVANT").length;
             const done = relevantImpls.filter((i) => i.status === "COMPLETED").length;
-            const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+            const inProg = relevantImpls.filter((i) => i.status === "IN_PROGRESS").length;
+            const total = Math.max(expected - notRelevant, 0);
+            const pct = total > 0 ? Math.round(((done + inProg) / total) * 100) : 0;
+            const donePct = total > 0 ? Math.round((done / total) * 100) : 0;
             const isOpen = expandedAgency === agency.id;
 
             return (
@@ -914,17 +902,15 @@ export function PublicDashboard() {
                       <div className="flex items-center justify-between gap-2">
                         <p className="font-semibold text-gray-900 text-sm truncate">{agency.name}</p>
                         <div className="flex items-center gap-2 shrink-0">
-                          <span className={`text-sm font-bold ${pct >= 80 ? "text-emerald-600" : pct >= 50 ? "text-amber-500" : "text-gray-400"}`}>
-                            {done}/{total}
+                          <span className={`text-sm font-bold ${donePct >= 80 ? "text-emerald-600" : pct >= 50 ? "text-amber-500" : "text-gray-400"}`}>
+                            {done}/{total} ({pct}%)
                           </span>
                           {isOpen ? <ChevronUp size={15} className="text-gray-400" /> : <ChevronDown size={15} className="text-gray-400" />}
                         </div>
                       </div>
-                      <div className="mt-1.5 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${pct >= 80 ? "bg-emerald-500" : pct >= 50 ? "bg-amber-400" : "bg-gray-300"}`}
-                          style={{ width: `${pct}%` }}
-                        />
+                      <div className="mt-1.5 h-1.5 bg-gray-100 rounded-full overflow-hidden flex">
+                        <div className="h-full bg-emerald-500 transition-all" style={{ width: `${donePct}%` }} />
+                        <div className="h-full bg-amber-400 transition-all" style={{ width: `${Math.max(pct - donePct, 0)}%` }} />
                       </div>
                     </div>
                   </div>

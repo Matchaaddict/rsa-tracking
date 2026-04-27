@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
-  const [festivals, proposals, agencies, subCommittees, siteConfigs] = await Promise.all([
+  const [festivals, proposalsRaw, agencies, subCommittees, siteConfigs] = await Promise.all([
     prisma.festival.findMany({ orderBy: [{ year: "desc" }, { type: "asc" }] }),
     prisma.proposal.findMany({
       orderBy: [{ festival: { year: "desc" } }, { orderNumber: "asc" }],
@@ -34,31 +34,31 @@ export async function GET() {
   const siteConfig: Record<string, string> = {};
   siteConfigs.forEach((c) => { siteConfig[c.key] = c.value; });
 
-  // Compute stats from already-fetched proposals (no extra query needed)
-  const allImpls = proposals.flatMap((p) => p.implementations);
-  const totalAgencies = agencies.length;
-  const agenciesWithData = new Set(allImpls.filter((i) => i.content).map((i) => i.agencyId)).size;
-  const completed = allImpls.filter((i) => i.status === "COMPLETED").length;
-  const inProgress = allImpls.filter((i) => i.status === "IN_PROGRESS").length;
-  const notStarted = allImpls.filter((i) => i.status === "NOT_STARTED").length;
+  // Each agency's sub-committee membership set
+  const agencyScSets = new Map<string, Set<string>>();
+  agencies.forEach((a) => {
+    agencyScSets.set(a.id, new Set(a.subCommittees.map((s) => s.subCommitteeId)));
+  });
+
+  // For each proposal: agencies whose SC overlaps the proposal's SC are
+  // implicitly responsible — they count as NOT_STARTED until they engage.
+  const proposals = proposalsRaw.map((p) => {
+    const propScIds = new Set(p.subCommittees.map((s) => s.subCommitteeId));
+    const expectedAgencyIds: string[] = [];
+    agencies.forEach((a) => {
+      const aScs = agencyScSets.get(a.id)!;
+      for (const sc of aScs) {
+        if (propScIds.has(sc)) {
+          expectedAgencyIds.push(a.id);
+          break;
+        }
+      }
+    });
+    return { ...p, expectedAgencyIds };
+  });
 
   return NextResponse.json(
-    {
-      festivals,
-      proposals,
-      agencies,
-      subCommittees,
-      siteConfig,
-      stats: {
-        totalAgencies,
-        agenciesWithData,
-        totalProposals: proposals.length,
-        completed,
-        inProgress,
-        notStarted,
-        totalImplementations: allImpls.length,
-      },
-    },
+    { festivals, proposals, agencies, subCommittees, siteConfig },
     {
       headers: {
         "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
