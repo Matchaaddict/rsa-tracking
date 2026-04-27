@@ -114,6 +114,40 @@ function computeProgress(proposals: Proposal[]) {
 
 const PIE_COLORS = ["#22c55e", "#eab308", "#9ca3af"];
 
+// Shows agencies expected for a proposal that have NOT created any
+// implementation row yet (silently absent). Agencies with a row get
+// rendered in the regular implementation list, even if NOT_STARTED.
+function PendingAgenciesList({
+  proposal,
+  agencies,
+}: {
+  proposal: Proposal;
+  agencies: AgencyData[];
+}) {
+  const implAgencyIds = new Set(proposal.implementations.map((i) => i.agencyId));
+  const pending = agencies.filter(
+    (a) => proposal.expectedAgencyIds.includes(a.id) && !implAgencyIds.has(a.id)
+  );
+  if (pending.length === 0) return null;
+  return (
+    <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5">
+      <p className="text-xs font-medium text-amber-700 mb-1.5 flex items-center gap-1.5">
+        <Clock size={12} /> ยังไม่รายงาน ({pending.length})
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {pending.map((a) => (
+          <span
+            key={a.id}
+            className="text-xs bg-white border border-amber-200 rounded-full px-2.5 py-0.5 text-amber-800"
+          >
+            {a.name}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function DownloadMenu({ festivalId }: { festivalId: string | null }) {
   const [open, setOpen] = useState(false);
 
@@ -687,7 +721,7 @@ export function PublicDashboard() {
                           <div className="h-full bg-amber-400 transition-all" style={{ width: `${Math.max(pct - completedPct, 0)}%` }} />
                         </div>
                       </div>
-                      {isOpen && allImpls.length > 0 && (
+                      {isOpen && (
                         <div className="bg-gray-50 px-5 py-3 border-t border-gray-100 space-y-2">
                           {allImpls.map((impl) => (
                             <div key={impl.id} className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gray-100">
@@ -708,6 +742,7 @@ export function PublicDashboard() {
                               </span>
                             </div>
                           ))}
+                          <PendingAgenciesList proposal={proposal} agencies={data.agencies} />
                         </div>
                       )}
                     </div>
@@ -859,7 +894,7 @@ export function PublicDashboard() {
                                       </div>
                                     </div>
 
-                                    {expandedProposal === proposalKey && allImpls.length > 0 && (
+                                    {expandedProposal === proposalKey && (
                                       <div className="bg-gray-50 px-8 py-3 space-y-2">
                                         {allImpls.map((impl) => (
                                           <div
@@ -886,6 +921,7 @@ export function PublicDashboard() {
                                             </span>
                                           </div>
                                         ))}
+                                        <PendingAgenciesList proposal={proposal} agencies={data.agencies} />
                                       </div>
                                     )}
                                   </div>
