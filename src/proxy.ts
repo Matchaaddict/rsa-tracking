@@ -13,7 +13,7 @@ export default auth((req) => {
   }
 
   // Agency routes require agency role
-  if (pathname.startsWith("/agency") && pathname !== "/agency/login") {
+  if (pathname.startsWith("/agency") && pathname !== "/agency/login" && pathname !== "/agency/first-time") {
     if (!session || session.user.role !== "agency") {
       return NextResponse.redirect(new URL("/agency/login", req.url));
     }
