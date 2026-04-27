@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FESTIVAL_TYPE_LABELS, festIcon, festTheme } from "@/lib/utils";
+import { FESTIVAL_TYPE_LABELS, STATUS_LABELS, festIcon, festTheme } from "@/lib/utils";
 import { Loader2, Printer } from "lucide-react";
 import { Button } from "./ui/button";
 
@@ -31,6 +31,7 @@ export function ReportPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedFestival, setSelectedFestival] = useState<string>("all");
+  const [includeDetails, setIncludeDetails] = useState(false);
 
   useEffect(() => {
     fetch("/api/public/dashboard").then(r => r.json()).then(d => { setData(d); setLoading(false); });
@@ -84,6 +85,17 @@ export function ReportPage() {
               </button>
             ))}
           </div>
+          <label className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${
+            includeDetails ? "bg-blue-50 border-blue-300 text-blue-700" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+          }`}>
+            <input
+              type="checkbox"
+              checked={includeDetails}
+              onChange={(e) => setIncludeDetails(e.target.checked)}
+              className="rounded text-blue-600 focus:ring-blue-500"
+            />
+            รวมรายละเอียดผลการดำเนินงาน
+          </label>
           <Button onClick={() => window.print()} className="gap-2">
             <Printer size={16} /> พิมพ์ / บันทึก PDF
           </Button>
@@ -331,6 +343,84 @@ export function ReportPage() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* 4. รายละเอียดผลการดำเนินงาน — แสดงเมื่อ user ติ๊ก checkbox */}
+        {includeDetails && (
+          <div className="print:break-before-page">
+            <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-1">
+              4. รายละเอียดผลการดำเนินงาน
+            </h2>
+            <p className="text-xs text-gray-500 mb-4">
+              ข้อมูลที่หน่วยงานรายงานล่าสุด ณ วันที่ {today}
+            </p>
+
+            <div className="space-y-4">
+              {proposals.map((p) => {
+                // เรียงตามสถานะ: เสร็จ → กำลังทำ → ไม่เกี่ยวข้อง
+                const order: Record<string, number> = { COMPLETED: 0, IN_PROGRESS: 1, NOT_RELEVANT: 2, NOT_STARTED: 3 };
+                const reported = p.implementations
+                  .filter((i) => i.status !== "NOT_STARTED")
+                  .slice()
+                  .sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9) || a.agency.name.localeCompare(b.agency.name, "th"));
+
+                return (
+                  <div key={p.id} className="border border-gray-200 rounded-lg p-4 print:break-inside-avoid">
+                    <div className="flex items-start gap-3 pb-3 mb-3 border-b border-gray-100">
+                      <div className="shrink-0 w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-sm font-bold text-blue-700">
+                        {p.orderNumber}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900">{p.title}</p>
+                        <div className="flex gap-1 mt-1 flex-wrap">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${festTheme(p.festival.type).pill}`}>
+                            {festIcon(p.festival.type)} {FESTIVAL_TYPE_LABELS[p.festival.type]} {p.festival.year}
+                          </span>
+                          {p.subCommittees.map((sc) => {
+                            const n = sc.subCommittee.name.match(/^C(\d+)/)?.[1];
+                            return (
+                              <span key={sc.subCommittee.id} className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                                {n ? `อนุฯ ${n}` : sc.subCommittee.name.replace(/^C\d+:\s*/, "")}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    {reported.length === 0 ? (
+                      <p className="text-sm text-gray-400 italic">ยังไม่มีหน่วยงานรายงานผล</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {reported.map((impl) => (
+                          <div key={impl.agencyId} className="flex items-start gap-3 print:break-inside-avoid">
+                            <span className={`shrink-0 mt-0.5 inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold ${STATUS_BG[impl.status]}`}>
+                              {STATUS_SYMBOL[impl.status]}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-sm font-medium text-gray-800">{impl.agency.name}</p>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${STATUS_BG[impl.status]}`}>
+                                  {STATUS_LABELS[impl.status]}
+                                </span>
+                              </div>
+                              {impl.content ? (
+                                <p className="text-sm text-gray-700 mt-0.5 whitespace-pre-wrap break-words">{impl.content}</p>
+                              ) : (
+                                <p className="text-sm text-gray-400 italic mt-0.5">
+                                  {impl.status === "NOT_RELEVANT" ? "(หน่วยงานระบุว่าไม่เกี่ยวข้อง)" : "(ยังไม่ได้กรอกรายละเอียด)"}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
