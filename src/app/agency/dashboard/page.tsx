@@ -30,7 +30,10 @@ export default async function AgencyDashboardPage() {
     include: {
       festival: true,
       subCommittees: { include: { subCommittee: true } },
-      implementations: { where: { agencyId } },
+      implementations: {
+        where: { agencyId },
+        include: { progressEntries: { orderBy: { createdAt: "desc" } } },
+      },
     },
   });
 
