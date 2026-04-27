@@ -50,7 +50,7 @@ export function FestivalManager() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("ลบเทศกาลนี้? ข้อเสนอทั้งหมดที่เกี่ยวข้องจะถูกลบด้วย")) return;
+    if (!confirm("ลบวาระนี้? ข้อเสนอทั้งหมดที่เกี่ยวข้องจะถูกลบด้วย")) return;
     await fetch(`/api/admin/festivals/${id}`, { method: "DELETE" });
     load();
   }
@@ -64,9 +64,9 @@ export function FestivalManager() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-lg font-semibold text-gray-800">จัดการเทศกาล</h2>
+        <h2 className="text-lg font-semibold text-gray-800">จัดการวาระ</h2>
         <Button size="sm" onClick={() => { setShowForm(true); setEditId(null); setForm(emptyForm); }}>
-          <Plus size={16} /> เพิ่มเทศกาล
+          <Plus size={16} /> เพิ่มวาระ
         </Button>
       </div>
 
@@ -76,12 +76,12 @@ export function FestivalManager() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-1">ชื่อเทศกาล</label>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">ชื่อวาระ</label>
                   <input
                     type="text"
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder="เช่น ปีใหม่ 68"
+                    placeholder="เช่น ปีใหม่ 68 หรือ มติ ครม. ก.พ. 68"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
@@ -130,7 +130,7 @@ export function FestivalManager() {
       {loading ? (
         <div className="flex justify-center py-8"><Loader2 className="animate-spin text-blue-600" size={24} /></div>
       ) : festivals.length === 0 ? (
-        <Card><CardContent className="py-10 text-center text-gray-400">ยังไม่มีเทศกาล</CardContent></Card>
+        <Card><CardContent className="py-10 text-center text-gray-400">ยังไม่มีวาระ</CardContent></Card>
       ) : (
         <div className="space-y-2">
           {festivals.map((f) => (

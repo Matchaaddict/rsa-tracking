@@ -201,14 +201,14 @@ export function ProposalManager() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">เทศกาล</label>
+                <label className="text-sm font-medium text-gray-700 block mb-1">วาระ</label>
                 <select
                   value={form.festivalId}
                   onChange={(e) => setForm({ ...form, festivalId: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 >
-                  <option value="">เลือกเทศกาล...</option>
+                  <option value="">เลือกวาระ...</option>
                   {festivals.map((f) => (
                     <option key={f.id} value={f.id}>
                       {f.name} ({FESTIVAL_TYPE_LABELS[f.type]} {f.year})
@@ -259,7 +259,7 @@ export function ProposalManager() {
         </Card>
       )}
 
-      {/* Filter by festival */}
+      {/* Filter by วาระ */}
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setFilterFestival("all")}
@@ -269,7 +269,7 @@ export function ProposalManager() {
               : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
           }`}
         >
-          ทุกเทศกาล
+          ทุกวาระ
         </button>
         {festivals.map((f) => (
           <button

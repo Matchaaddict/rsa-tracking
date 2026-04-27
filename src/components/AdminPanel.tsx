@@ -14,7 +14,7 @@ import { AdminManager } from "./admin/AdminManager";
 import { CalendarDays, Users, Building2, FileText, KeyRound, BarChart2, Globe, HelpCircle, MessageCircle, ShieldCheck } from "lucide-react";
 
 const ALL_TABS = [
-  { id: "festivals",     label: "เทศกาล",      icon: CalendarDays },
+  { id: "festivals",     label: "วาระ",        icon: CalendarDays },
   { id: "subcommittees", label: "อนุกรรมการ",   icon: Users },
   { id: "agencies",      label: "หน่วยงาน",     icon: Building2 },
   { id: "proposals",     label: "ข้อเสนอ",      icon: FileText },

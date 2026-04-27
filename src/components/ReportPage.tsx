@@ -60,7 +60,7 @@ export function ReportPage() {
   const totalNotStarted = proposals.reduce((acc, p) => acc + p.implementations.filter(i => i.status === "NOT_STARTED").length, 0);
 
   const festivalLabel = selectedFestival === "all"
-    ? "ทุกเทศกาล"
+    ? "ทุกวาระ"
     : (() => { const f = data.festivals.find(f => f.id === selectedFestival); return f ? `${FESTIVAL_TYPE_LABELS[f.type]} ${f.year}` : ""; })();
 
   return (
@@ -75,7 +75,7 @@ export function ReportPage() {
           <div className="flex gap-2 flex-wrap">
             <button onClick={() => setSelectedFestival("all")}
               className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${selectedFestival === "all" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200"}`}>
-              ทุกเทศกาล
+              ทุกวาระ
             </button>
             {data.festivals.map(f => (
               <button key={f.id} onClick={() => setSelectedFestival(f.id)}

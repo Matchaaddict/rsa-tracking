@@ -6,7 +6,7 @@ import { Button } from "../ui/button";
 import { Plus, Trash2, Loader2, Check, X, RefreshCw, ShieldCheck } from "lucide-react";
 
 const ALL_TABS = [
-  { id: "festivals",     label: "จัดการเทศกาล" },
+  { id: "festivals",     label: "จัดการวาระ" },
   { id: "subcommittees", label: "จัดการอนุกรรมการ" },
   { id: "agencies",      label: "จัดการหน่วยงาน" },
   { id: "proposals",     label: "จัดการข้อเสนอ" },

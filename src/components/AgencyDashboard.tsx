@@ -427,7 +427,7 @@ export function AgencyDashboard({
             </div>
           </div>
 
-          {/* Festival filter */}
+          {/* วาระ filter */}
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setSelectedFestival("all")}
@@ -435,7 +435,7 @@ export function AgencyDashboard({
                 selectedFestival === "all" ? "bg-emerald-600 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
               }`}
             >
-              ทุกเทศกาล
+              ทุกวาระ
             </button>
             {festivals.map((f) => (
               <button

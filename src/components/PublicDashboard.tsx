@@ -182,11 +182,23 @@ export function PublicDashboard() {
     { name: STATUS_LABELS.NOT_STARTED, value: overall.notStarted },
   ].filter((d) => d.value > 0);
 
-  const barData = filteredProposals.map((p) => {
+  const proposalBarData = filteredProposals.map((p) => {
     const s = computeProgress([p]);
     return {
       name: `ข้อ ${p.orderNumber}`,
       label: p.title.slice(0, 20) + (p.title.length > 20 ? "…" : ""),
+      completed: s.completed,
+      inProgress: s.inProgress,
+      notStarted: s.notStarted,
+    };
+  });
+
+  // เปรียบเทียบรายวาระ — โชว์เมื่อ selectedFestival === "all"
+  const festivalBarData = data.festivals.map((f) => {
+    const s = computeProgress(data.proposals.filter((p) => p.festivalId === f.id));
+    const icon = f.type === "NEW_YEAR" ? "🎆" : "💦";
+    return {
+      name: `${icon} ${FESTIVAL_TYPE_LABELS[f.type]} ${f.year}`,
       completed: s.completed,
       inProgress: s.inProgress,
       notStarted: s.notStarted,
@@ -332,7 +344,7 @@ export function PublicDashboard() {
         const allPct = computeProgress(data.proposals).activePct;
         return (
           <div className="flex flex-wrap gap-2 items-center">
-            <span className="text-xs text-gray-400 font-medium mr-1">กรองตามเทศกาล:</span>
+            <span className="text-xs text-gray-400 font-medium mr-1">กรองตามวาระ:</span>
             <button
               onClick={() => setSelectedFestival("all")}
               className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
@@ -341,7 +353,7 @@ export function PublicDashboard() {
                   : "bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700"
               }`}
             >
-              ทุกเทศกาล
+              ทุกวาระ
               <span className={`ml-1.5 text-xs ${selectedFestival === "all" ? "text-gray-300" : "text-gray-400"}`}>
                 {allPct}%
               </span>
@@ -374,8 +386,12 @@ export function PublicDashboard() {
 
 
       {/* Charts */}
-      {overall.total > 0 && (
-        <div className={`grid grid-cols-1 gap-4 ${selectedFestival !== "all" ? "lg:grid-cols-2" : ""}`}>
+      {overall.total > 0 && (() => {
+        const showCompareChart = selectedFestival === "all" && data.festivals.length >= 2;
+        const showPerProposalChart = selectedFestival !== "all" && proposalBarData.length > 0;
+        const sideBar = showCompareChart || showPerProposalChart;
+        return (
+        <div className={`grid grid-cols-1 gap-4 ${sideBar ? "lg:grid-cols-2" : ""}`}>
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <p className="text-sm font-semibold text-gray-700 mb-1">สัดส่วนสถานะการดำเนินงาน</p>
             <p className="text-xs text-gray-400 mb-3">ทั้งหมด {overall.total} รายการ</p>
@@ -402,12 +418,12 @@ export function PublicDashboard() {
             </ResponsiveContainer>
           </div>
 
-          {selectedFestival !== "all" && barData.length > 0 && (
+          {showPerProposalChart && (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
               <p className="text-sm font-semibold text-gray-700 mb-1">ความคืบหน้ารายข้อเสนอ</p>
               <p className="text-xs text-gray-400 mb-3">จำนวนหน่วยงานต่อสถานะ</p>
               <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={barData} margin={{ top: 0, right: 0, left: -24, bottom: 0 }} barSize={14}>
+                <BarChart data={proposalBarData} margin={{ top: 0, right: 0, left: -24, bottom: 0 }} barSize={14}>
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                   <Tooltip
@@ -429,8 +445,42 @@ export function PublicDashboard() {
               </ResponsiveContainer>
             </div>
           )}
+
+          {showCompareChart && (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <p className="text-sm font-semibold text-gray-700 mb-1">เปรียบเทียบรายวาระ</p>
+              <p className="text-xs text-gray-400 mb-3">จำนวนหน่วยงานต่อสถานะในแต่ละวาระ</p>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart
+                  data={festivalBarData}
+                  layout="vertical"
+                  margin={{ top: 0, right: 12, left: 0, bottom: 0 }}
+                  barSize={24}
+                >
+                  <XAxis type="number" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} width={120} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: 13 }}
+                    formatter={(value, name) => {
+                      const labels: Record<string, string> = {
+                        completed: STATUS_LABELS.COMPLETED,
+                        inProgress: STATUS_LABELS.IN_PROGRESS,
+                        notStarted: STATUS_LABELS.NOT_STARTED,
+                      };
+                      return [`${value} หน่วยงาน`, labels[name as string] || name];
+                    }}
+                    cursor={{ fill: "rgba(0,0,0,0.04)" }}
+                  />
+                  <Bar dataKey="completed" stackId="a" fill="#10b981" name="completed" />
+                  <Bar dataKey="inProgress" stackId="a" fill="#f59e0b" name="inProgress" />
+                  <Bar dataKey="notStarted" stackId="a" fill="#e5e7eb" name="notStarted" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
-      )}
+        );
+      })()}
 
       {/* Tabs + Search */}
       <div className="space-y-3">
@@ -846,11 +896,19 @@ export function PublicDashboard() {
                       {proposals.map((p) => {
                         const ps = computeProgress([p]);
                         const { activePct: pPct, completedPct: pDonePct } = ps;
+                        const festIcon = p.festival.type === "NEW_YEAR" ? "🎆" : "💦";
                         return (
                           <div key={p.id} className="px-6 py-3 flex items-center justify-between gap-4">
-                            <div>
-                              <span className="text-xs text-gray-400 mr-1.5">ข้อ {p.orderNumber}</span>
-                              <span className="text-sm text-gray-800">{p.title}</span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                                  p.festival.type === "NEW_YEAR" ? "bg-blue-50 text-blue-600" : "bg-orange-50 text-orange-600"
+                                }`}>
+                                  {festIcon} {FESTIVAL_TYPE_LABELS[p.festival.type]} {p.festival.year}
+                                </span>
+                                <span className="text-xs text-gray-400">ข้อ {p.orderNumber}</span>
+                              </div>
+                              <p className="text-sm text-gray-800 mt-0.5">{p.title}</p>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                               <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden flex">
