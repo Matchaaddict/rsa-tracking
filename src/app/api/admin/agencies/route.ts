@@ -15,6 +15,7 @@ const agencySelect = {
   username: true,
   plainPassword: true,
   resetRequested: true,
+  passwordChangedByAgency: true,
   createdAt: true,
   subCommittees: { include: { subCommittee: true } },
   _count: { select: { implementations: true } },

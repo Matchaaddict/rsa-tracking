@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
-import { Plus, Pencil, Trash2, Loader2, X, Check, Copy, RefreshCw } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, X, Check, Copy, RefreshCw, Download } from "lucide-react";
 
 interface SubCommittee {
   id: string;
@@ -17,6 +17,7 @@ interface Agency {
   username: string;
   plainPassword: string | null;
   resetRequested: boolean;
+  passwordChangedByAgency: boolean;
   subCommittees: { subCommittee: SubCommittee }[];
   _count?: { implementations: number };
 }
@@ -138,25 +139,39 @@ export function AgencyManager() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-2">
         <h2 className="text-lg font-semibold text-gray-800">
           จัดการหน่วยงาน ({agencies.length} หน่วย)
         </h2>
-        <Button
-          size="sm"
-          onClick={() => {
-            setShowForm(true);
-            setEditId(null);
-            setForm({
-              name: "",
-              username: `agency${(agencies.length + 1).toString().padStart(3, "0")}`,
-              password: generatePassword(),
-              subCommitteeIds: [],
-            });
-          }}
-        >
-          <Plus size={16} /> เพิ่มหน่วยงาน
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          <a href="/api/admin/export?type=agencies" download
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors">
+            <Download size={14} /> หน่วยงาน
+          </a>
+          <a href="/api/admin/export?type=subcommittees" download
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors">
+            <Download size={14} /> อนุกรรมการ
+          </a>
+          <a href="/api/admin/export?type=credentials" download
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors">
+            <Download size={14} /> Username/Password
+          </a>
+          <Button
+            size="sm"
+            onClick={() => {
+              setShowForm(true);
+              setEditId(null);
+              setForm({
+                name: "",
+                username: `agency${(agencies.length + 1).toString().padStart(3, "0")}`,
+                password: generatePassword(),
+                subCommitteeIds: [],
+              });
+            }}
+          >
+            <Plus size={16} /> เพิ่มหน่วยงาน
+          </Button>
+        </div>
       </div>
 
       {showForm && (
@@ -297,12 +312,14 @@ export function AgencyManager() {
                     user: <span className="font-semibold">{a.username}</span>
                   </p>
                   <p className="text-xs mt-0.5">
-                    {a.plainPassword ? (
+                    {a.passwordChangedByAgency ? (
+                      <span className="text-green-600 text-xs">✓ เปลี่ยนรหัสเองแล้ว</span>
+                    ) : a.plainPassword ? (
                       <span className="font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
                         pass: {a.plainPassword}
                       </span>
                     ) : (
-                      <span className="text-green-600 text-xs">✓ เปลี่ยนรหัสเองแล้ว</span>
+                      <span className="text-amber-600 text-xs">⚠️ ไม่ทราบรหัส (กดรีเซ็ตเพื่อสร้างใหม่)</span>
                     )}
                   </p>
                   <div className="flex flex-wrap gap-1 mt-1">

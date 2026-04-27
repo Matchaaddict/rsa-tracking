@@ -39,7 +39,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     },
     select: {
       id: true, name: true, username: true, plainPassword: true,
-      resetRequested: true, createdAt: true,
+      resetRequested: true, passwordChangedByAgency: true, createdAt: true,
       subCommittees: { include: { subCommittee: true } },
       _count: { select: { implementations: true } },
     },

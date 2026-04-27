@@ -135,8 +135,10 @@ async function main() {
   console.log(`✓ ${SUB_COMMITTEES.length} sub-committees created`);
 
   // Agencies (86 หน่วยงาน)
-  const defaultPassword = await bcrypt.hash("pass1234", 10);
+  const DEFAULT_PASS = "pass1234";
+  const defaultPassword = await bcrypt.hash(DEFAULT_PASS, 10);
   let count = 0;
+  let backfilled = 0;
   for (let i = 0; i < AGENCIES_DATA.length; i++) {
     const ag = AGENCIES_DATA[i];
     const username = `agency${(i + 1).toString().padStart(3, "0")}`;
@@ -147,15 +149,23 @@ async function main() {
           name: ag.org,
           username,
           password: defaultPassword,
+          plainPassword: DEFAULT_PASS,
           subCommittees: {
             create: ag.committees.map((cKey) => ({ subCommitteeId: scMap[cKey] })),
           },
         },
       });
       count++;
+    } else if (!existing.passwordChangedByAgency && !existing.plainPassword) {
+      // Backfill plainPassword for agencies seeded before this field existed
+      await prisma.agency.update({
+        where: { id: existing.id },
+        data: { plainPassword: DEFAULT_PASS },
+      });
+      backfilled++;
     }
   }
-  console.log(`✓ ${count} agencies created (total: ${AGENCIES_DATA.length}, password: pass1234)`);
+  console.log(`✓ ${count} agencies created, ${backfilled} backfilled (total: ${AGENCIES_DATA.length}, password: ${DEFAULT_PASS})`);
   console.log("  Usernames: agency001 ... agency086");
 
   // Site config defaults
