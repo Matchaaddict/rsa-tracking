@@ -56,7 +56,9 @@ interface ProgressEntry {
   id: string;
   content: string;
   status: string;
-  reportedBy: string | null;
+  contactName: string;
+  contactTitle: string;
+  contactPhone: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -66,9 +68,6 @@ interface Implementation {
   status: string;
   content: string | null;
   evidenceUrl: string | null;
-  contactName: string | null;
-  contactTitle: string | null;
-  contactPhone: string | null;
   progressEntries: ProgressEntry[];
 }
 
@@ -113,18 +112,23 @@ function buildInitialEntries(proposals: Proposal[]): Record<string, ProgressEntr
   return e;
 }
 
-function buildInitialContact(proposals: Proposal[]): ContactInfo {
-  for (const p of proposals) {
-    const impl = p.implementations[0];
-    if (impl?.contactName) {
-      return {
-        contactName: impl.contactName || "",
-        contactTitle: impl.contactTitle || "",
-        contactPhone: impl.contactPhone || "",
-      };
-    }
-  }
-  return { contactName: "", contactTitle: "", contactPhone: "" };
+// Newest entry across all proposals — used to pre-fill contact info
+// when starting a new report. Falls back to localStorage for empty agencies.
+function findLatestContact(entries: Record<string, ProgressEntry[]>): ContactInfo | null {
+  let latest: ProgressEntry | null = null;
+  Object.values(entries).forEach((list) => {
+    list.forEach((e) => {
+      if (!latest || new Date(e.createdAt) > new Date(latest.createdAt)) latest = e;
+    });
+  });
+  if (!latest) return null;
+  const e = latest as ProgressEntry;
+  if (!e.contactName && !e.contactTitle && !e.contactPhone) return null;
+  return {
+    contactName: e.contactName,
+    contactTitle: e.contactTitle,
+    contactPhone: e.contactPhone,
+  };
 }
 
 function formatThaiDate(iso: string) {
@@ -152,7 +156,12 @@ export function AgencyDashboard({
   const [proposals] = useState<Proposal[]>(initialProposals);
   const [meta, setMeta] = useState<Record<string, MetadataState>>(() => buildInitialMeta(initialProposals));
   const [entries, setEntries] = useState<Record<string, ProgressEntry[]>>(() => buildInitialEntries(initialProposals));
-  const [contact, setContact] = useState<ContactInfo>(() => buildInitialContact(initialProposals));
+  // Pre-fill contact for next "เพิ่มรายงาน" form. Updated whenever the user
+  // submits an entry so subsequent forms remember who's working today.
+  const initialEntries = buildInitialEntries(initialProposals);
+  const [lastContact, setLastContact] = useState<ContactInfo>(
+    () => findLatestContact(initialEntries) ?? { contactName: "", contactTitle: "", contactPhone: "" }
+  );
   const [dirty, setDirty] = useState<Record<string, boolean>>({});
   const [saveError, setSaveError] = useState<Record<string, boolean>>({});
   const [savingCount, setSavingCount] = useState(0);
@@ -161,6 +170,30 @@ export function AgencyDashboard({
   const hasImpl = useRef<Set<string>>(
     new Set(initialProposals.filter((p) => p.implementations[0]).map((p) => p.id))
   );
+
+  // Persist last-used contact in localStorage so reopening the page in a
+  // fresh browser session for an empty agency still benefits from prefill.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("rsat_last_contact");
+      if (raw) {
+        const parsed = JSON.parse(raw) as ContactInfo;
+        if (!lastContact.contactName && parsed?.contactName) setLastContact(parsed);
+      }
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function rememberContact(c: ContactInfo) {
+    setLastContact(c);
+    try {
+      localStorage.setItem("rsat_last_contact", JSON.stringify(c));
+    } catch {
+      // ignore
+    }
+  }
 
   // Warn before closing/navigating away if there are unsaved or pending changes
   useEffect(() => {
@@ -171,13 +204,8 @@ export function AgencyDashboard({
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty, saveError]);
 
-  async function saveMetadata(proposalId: string, metaData: MetadataState, contactData: ContactInfo = contact) {
-    const isEmpty =
-      !metaData.evidenceUrl?.trim() &&
-      !contactData.contactName?.trim() &&
-      !contactData.contactTitle?.trim() &&
-      !contactData.contactPhone?.trim();
-    if (isEmpty && !hasImpl.current.has(proposalId)) {
+  async function saveMetadata(proposalId: string, metaData: MetadataState) {
+    if (!metaData.evidenceUrl?.trim() && !hasImpl.current.has(proposalId)) {
       setDirty((d) => ({ ...d, [proposalId]: false }));
       return;
     }
@@ -190,7 +218,6 @@ export function AgencyDashboard({
         body: JSON.stringify({
           proposalId,
           evidenceUrl: metaData.evidenceUrl,
-          ...contactData,
         }),
       });
       if (!res.ok) throw new Error("server error");
@@ -211,34 +238,26 @@ export function AgencyDashboard({
     timers.current[proposalId] = setTimeout(() => saveMetadata(proposalId, newMeta), 1500);
   }
 
-  function handleContactChange(field: keyof ContactInfo, value: string) {
-    const newContact = { ...contact, [field]: value };
-    setContact(newContact);
-    Object.keys(meta).forEach((proposalId) => {
-      if (hasImpl.current.has(proposalId)) {
-        clearTimeout(timers.current[`contact_${proposalId}`]);
-        timers.current[`contact_${proposalId}`] = setTimeout(
-          () => saveMetadata(proposalId, meta[proposalId], newContact),
-          2000
-        );
-      }
-    });
-  }
-
-  async function addEntry(proposalId: string, content: string, status: string, reportedBy: string) {
+  async function addEntry(
+    proposalId: string,
+    content: string,
+    status: string,
+    contactInfo: ContactInfo
+  ) {
     setSavingCount((n) => n + 1);
     setSaveError((e) => ({ ...e, [proposalId]: false }));
     try {
       const res = await fetch("/api/agency/progress", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proposalId, content, status, reportedBy }),
+        body: JSON.stringify({ proposalId, content, status, ...contactInfo }),
       });
       if (!res.ok) throw new Error("server error");
       const entry = (await res.json()) as ProgressEntry;
       setEntries((e) => ({ ...e, [proposalId]: [entry, ...(e[proposalId] ?? [])] }));
       setMeta((m) => ({ ...m, [proposalId]: { ...m[proposalId], status } }));
       hasImpl.current.add(proposalId);
+      rememberContact(contactInfo);
       return true;
     } catch {
       setSaveError((e) => ({ ...e, [proposalId]: true }));
@@ -248,13 +267,19 @@ export function AgencyDashboard({
     }
   }
 
-  async function updateEntry(proposalId: string, entryId: string, content: string, status: string, reportedBy: string) {
+  async function updateEntry(
+    proposalId: string,
+    entryId: string,
+    content: string,
+    status: string,
+    contactInfo: ContactInfo
+  ) {
     setSavingCount((n) => n + 1);
     try {
       const res = await fetch(`/api/agency/progress/${entryId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, status, reportedBy }),
+        body: JSON.stringify({ content, status, ...contactInfo }),
       });
       if (!res.ok) throw new Error("server error");
       const updated = (await res.json()) as ProgressEntry;
@@ -262,11 +287,11 @@ export function AgencyDashboard({
         ...e,
         [proposalId]: (e[proposalId] ?? []).map((x) => (x.id === entryId ? updated : x)),
       }));
-      // If this is the latest entry, mirror its status onto meta
       const isLatest = (entries[proposalId] ?? [])[0]?.id === entryId;
       if (isLatest) {
         setMeta((m) => ({ ...m, [proposalId]: { ...m[proposalId], status } }));
       }
+      rememberContact(contactInfo);
       return true;
     } catch {
       return false;
@@ -402,47 +427,6 @@ export function AgencyDashboard({
             </div>
           </div>
 
-          {/* Contact info panel */}
-          <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <User size={15} className="text-emerald-600" />
-              <p className="text-sm font-semibold text-gray-700">ข้อมูลผู้รายงาน</p>
-              <span className="text-xs text-gray-400">(บันทึกครั้งเดียวใช้ได้ทุกข้อ)</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">ชื่อ-นามสกุล</label>
-                <input
-                  type="text"
-                  value={contact.contactName}
-                  onChange={(e) => handleContactChange("contactName", e.target.value)}
-                  placeholder="นายสมชาย ใจดี"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">ตำแหน่ง</label>
-                <input
-                  type="text"
-                  value={contact.contactTitle}
-                  onChange={(e) => handleContactChange("contactTitle", e.target.value)}
-                  placeholder="นักวิเคราะห์นโยบายและแผน"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">เบอร์โทรศัพท์</label>
-                <input
-                  type="text"
-                  value={contact.contactPhone}
-                  onChange={(e) => handleContactChange("contactPhone", e.target.value)}
-                  placeholder="เช่น 081-234-5678"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-            </div>
-          </div>
-
           {/* Festival filter */}
           <div className="flex flex-wrap gap-2">
             <button
@@ -483,11 +467,11 @@ export function AgencyDashboard({
                   status={meta[proposal.id]?.status ?? "NOT_STARTED"}
                   evidenceUrl={meta[proposal.id]?.evidenceUrl ?? ""}
                   entries={entries[proposal.id] ?? []}
-                  defaultReporter={contact.contactName}
+                  defaultContact={lastContact}
                   isError={!!saveError[proposal.id]}
                   isDirty={!!dirty[proposal.id]}
-                  onAdd={(content, status, reportedBy) => addEntry(proposal.id, content, status, reportedBy)}
-                  onUpdate={(id, content, status, reportedBy) => updateEntry(proposal.id, id, content, status, reportedBy)}
+                  onAdd={(content, status, contactInfo) => addEntry(proposal.id, content, status, contactInfo)}
+                  onUpdate={(id, content, status, contactInfo) => updateEntry(proposal.id, id, content, status, contactInfo)}
                   onDelete={(id) => deleteEntry(proposal.id, id)}
                   onEvidenceChange={(v) => handleEvidenceChange(proposal.id, v)}
                 />
@@ -505,7 +489,7 @@ function ProposalProgressCard({
   status,
   evidenceUrl,
   entries,
-  defaultReporter,
+  defaultContact,
   isError,
   isDirty,
   onAdd,
@@ -517,29 +501,47 @@ function ProposalProgressCard({
   status: string;
   evidenceUrl: string;
   entries: ProgressEntry[];
-  defaultReporter: string;
+  defaultContact: ContactInfo;
   isError: boolean;
   isDirty: boolean;
-  onAdd: (content: string, status: string, reportedBy: string) => Promise<boolean>;
-  onUpdate: (id: string, content: string, status: string, reportedBy: string) => Promise<boolean>;
+  onAdd: (content: string, status: string, contact: ContactInfo) => Promise<boolean>;
+  onUpdate: (id: string, content: string, status: string, contact: ContactInfo) => Promise<boolean>;
   onDelete: (id: string) => void;
   onEvidenceChange: (v: string) => void;
 }) {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState({ content: "", status: "IN_PROGRESS", reportedBy: "" });
+  const [draft, setDraft] = useState({
+    content: "",
+    status: "IN_PROGRESS",
+    contactName: "",
+    contactTitle: "",
+    contactPhone: "",
+  });
   const [submitting, setSubmitting] = useState(false);
 
   function openAdd() {
     setEditingId(null);
-    setDraft({ content: "", status: "IN_PROGRESS", reportedBy: defaultReporter });
+    setDraft({
+      content: "",
+      status: "IN_PROGRESS",
+      contactName: defaultContact.contactName,
+      contactTitle: defaultContact.contactTitle,
+      contactPhone: defaultContact.contactPhone,
+    });
     setAdding(true);
   }
 
   function openEdit(entry: ProgressEntry) {
     setAdding(false);
     setEditingId(entry.id);
-    setDraft({ content: entry.content, status: entry.status, reportedBy: entry.reportedBy ?? "" });
+    setDraft({
+      content: entry.content,
+      status: entry.status,
+      contactName: entry.contactName,
+      contactTitle: entry.contactTitle,
+      contactPhone: entry.contactPhone,
+    });
   }
 
   function cancel() {
@@ -547,12 +549,22 @@ function ProposalProgressCard({
     setEditingId(null);
   }
 
+  const contactValid =
+    !!draft.contactName.trim() && !!draft.contactTitle.trim() && !!draft.contactPhone.trim();
+  const contentValid = draft.status === "NOT_RELEVANT" || !!draft.content.trim();
+  const canSubmit = contactValid && contentValid;
+
   async function submit() {
-    if (!draft.content.trim() && draft.status !== "NOT_RELEVANT") return;
+    if (!canSubmit) return;
     setSubmitting(true);
+    const contactInfo: ContactInfo = {
+      contactName: draft.contactName.trim(),
+      contactTitle: draft.contactTitle.trim(),
+      contactPhone: draft.contactPhone.trim(),
+    };
     const ok = editingId
-      ? await onUpdate(editingId, draft.content, draft.status, draft.reportedBy)
-      : await onAdd(draft.content, draft.status, draft.reportedBy);
+      ? await onUpdate(editingId, draft.content, draft.status, contactInfo)
+      : await onAdd(draft.content, draft.status, contactInfo);
     setSubmitting(false);
     if (ok) cancel();
   }
@@ -640,24 +652,56 @@ function ProposalProgressCard({
                   />
                 </div>
               )}
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1.5">ผู้รายงาน (ไม่บังคับ)</label>
-                <input
-                  type="text"
-                  value={draft.reportedBy}
-                  onChange={(e) => setDraft((d) => ({ ...d, reportedBy: e.target.value }))}
-                  placeholder="ชื่อผู้กรอกรายงานนี้"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
-                />
+              <div className="border-t border-emerald-200 pt-3">
+                <p className="text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1.5">
+                  <User size={12} className="text-emerald-600" />
+                  ข้อมูลผู้รายงาน <span className="text-red-500">*</span>
+                  <span className="text-[10px] font-normal text-gray-400">(บังคับกรอกทั้ง 3 ช่อง)</span>
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <input
+                    type="text"
+                    value={draft.contactName}
+                    onChange={(e) => setDraft((d) => ({ ...d, contactName: e.target.value }))}
+                    placeholder="ชื่อ-นามสกุล"
+                    required
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white ${
+                      !draft.contactName.trim() ? "border-red-200" : "border-gray-300"
+                    }`}
+                  />
+                  <input
+                    type="text"
+                    value={draft.contactTitle}
+                    onChange={(e) => setDraft((d) => ({ ...d, contactTitle: e.target.value }))}
+                    placeholder="ตำแหน่ง"
+                    required
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white ${
+                      !draft.contactTitle.trim() ? "border-red-200" : "border-gray-300"
+                    }`}
+                  />
+                  <input
+                    type="text"
+                    value={draft.contactPhone}
+                    onChange={(e) => setDraft((d) => ({ ...d, contactPhone: e.target.value }))}
+                    placeholder="เบอร์โทรศัพท์"
+                    required
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white ${
+                      !draft.contactPhone.trim() ? "border-red-200" : "border-gray-300"
+                    }`}
+                  />
+                </div>
               </div>
               <div className="flex gap-2">
-                <Button size="sm" onClick={submit} disabled={submitting || (!draft.content.trim() && draft.status !== "NOT_RELEVANT")}>
+                <Button size="sm" onClick={submit} disabled={submitting || !canSubmit}>
                   {submitting ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
                   {editingId ? "บันทึกการแก้ไข" : "เพิ่มรายงาน"}
                 </Button>
                 <Button size="sm" variant="secondary" onClick={cancel} disabled={submitting}>
                   <X size={13} /> ยกเลิก
                 </Button>
+                {!canSubmit && (
+                  <span className="text-xs text-red-500 self-center">กรอกข้อมูลให้ครบก่อน</span>
+                )}
               </div>
             </div>
           )}
@@ -695,13 +739,18 @@ function ProposalProgressCard({
                         >
                           {STATUS_LABELS[entry.status]}
                         </span>
-                        {entry.reportedBy && (
-                          <span className="text-gray-400">โดย {entry.reportedBy}</span>
-                        )}
                       </div>
                       <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">
                         {entry.content || <span className="italic text-gray-400">(ไม่เกี่ยวข้อง)</span>}
                       </p>
+                      {entry.contactName && (
+                        <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
+                          <User size={10} />
+                          รายงานโดย {entry.contactName}
+                          {entry.contactTitle && ` · ${entry.contactTitle}`}
+                          {entry.contactPhone && ` · ${entry.contactPhone}`}
+                        </p>
+                      )}
                     </div>
                     {!editingId && !adding && (
                       <div className="flex gap-1 shrink-0">

@@ -48,42 +48,27 @@ export async function GET() {
   return NextResponse.json({ agency, proposals });
 }
 
-// PUT updates only the per-implementation metadata (contact info, evidence URL).
-// Progress entries are managed via /api/agency/progress.
+// PUT updates evidence URL only. Contact info now lives per-entry.
 export async function PUT(req: NextRequest) {
   const session = await requireAgency();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const agencyId = session.user.id!;
-  const body = await req.json();
-  const { proposalId, evidenceUrl, contactName, contactTitle, contactPhone } = body;
+  const { proposalId, evidenceUrl } = await req.json();
 
   const existing = await prisma.implementation.findUnique({
     where: { proposalId_agencyId: { proposalId, agencyId } },
     select: { id: true },
   });
 
-  const isEmpty =
-    !evidenceUrl?.trim() &&
-    !contactName?.trim() &&
-    !contactTitle?.trim() &&
-    !contactPhone?.trim();
-
-  if (isEmpty && !existing) {
+  if (!evidenceUrl?.trim() && !existing) {
     return NextResponse.json({ skipped: true });
   }
 
   const impl = await prisma.implementation.upsert({
     where: { proposalId_agencyId: { proposalId, agencyId } },
-    update: { evidenceUrl, contactName, contactTitle, contactPhone },
-    create: {
-      proposalId,
-      agencyId,
-      evidenceUrl,
-      contactName,
-      contactTitle,
-      contactPhone,
-    },
+    update: { evidenceUrl },
+    create: { proposalId, agencyId, evidenceUrl },
   });
 
   return NextResponse.json(impl);

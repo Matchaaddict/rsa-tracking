@@ -19,13 +19,16 @@ async function syncLatest(implementationId: string) {
   const latest = await prisma.progressEntry.findFirst({
     where: { implementationId },
     orderBy: { createdAt: "desc" },
-    select: { content: true, status: true },
+    select: { content: true, status: true, contactName: true, contactTitle: true, contactPhone: true },
   });
   await prisma.implementation.update({
     where: { id: implementationId },
     data: {
       content: latest?.content ?? "",
       status: latest?.status ?? "NOT_STARTED",
+      contactName: latest?.contactName ?? null,
+      contactTitle: latest?.contactTitle ?? null,
+      contactPhone: latest?.contactPhone ?? null,
     },
   });
 }
@@ -42,9 +45,12 @@ export async function PATCH(
   const entry = await loadOwnedEntry(id, agencyId);
   if (!entry) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { content, status, reportedBy } = await req.json();
+  const { content, status, contactName, contactTitle, contactPhone } = await req.json();
   if (!content?.trim() && status !== "NOT_RELEVANT") {
     return NextResponse.json({ error: "Content required" }, { status: 400 });
+  }
+  if (!contactName?.trim() || !contactTitle?.trim() || !contactPhone?.trim()) {
+    return NextResponse.json({ error: "Reporter contact required" }, { status: 400 });
   }
 
   const updated = await prisma.progressEntry.update({
@@ -52,7 +58,9 @@ export async function PATCH(
     data: {
       content: content ?? "",
       status,
-      reportedBy: reportedBy?.trim() || null,
+      contactName: contactName.trim(),
+      contactTitle: contactTitle.trim(),
+      contactPhone: contactPhone.trim(),
     },
   });
 

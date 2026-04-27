@@ -8,14 +8,12 @@ async function requireAgency() {
   return session;
 }
 
-// Create a new progress entry. Also denormalises the latest content/status
-// onto the parent Implementation so dashboard queries stay cheap.
 export async function POST(req: NextRequest) {
   const session = await requireAgency();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const agencyId = session.user.id!;
-  const { proposalId, content, status, reportedBy } = await req.json();
+  const { proposalId, content, status, contactName, contactTitle, contactPhone } = await req.json();
 
   if (!proposalId || !status) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
@@ -23,11 +21,28 @@ export async function POST(req: NextRequest) {
   if (!content?.trim() && status !== "NOT_RELEVANT") {
     return NextResponse.json({ error: "Content required" }, { status: 400 });
   }
+  if (!contactName?.trim() || !contactTitle?.trim() || !contactPhone?.trim()) {
+    return NextResponse.json({ error: "Reporter contact required" }, { status: 400 });
+  }
 
   const impl = await prisma.implementation.upsert({
     where: { proposalId_agencyId: { proposalId, agencyId } },
-    update: { content: content ?? "", status },
-    create: { proposalId, agencyId, content: content ?? "", status },
+    update: {
+      content: content ?? "",
+      status,
+      contactName,
+      contactTitle,
+      contactPhone,
+    },
+    create: {
+      proposalId,
+      agencyId,
+      content: content ?? "",
+      status,
+      contactName,
+      contactTitle,
+      contactPhone,
+    },
   });
 
   const entry = await prisma.progressEntry.create({
@@ -35,7 +50,9 @@ export async function POST(req: NextRequest) {
       implementationId: impl.id,
       content: content ?? "",
       status,
-      reportedBy: reportedBy?.trim() || null,
+      contactName: contactName.trim(),
+      contactTitle: contactTitle.trim(),
+      contactPhone: contactPhone.trim(),
     },
   });
 

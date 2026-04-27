@@ -105,6 +105,9 @@ model ProgressEntry {
   content          String
   status           String
   reportedBy       String?
+  contactName      String         @default("")
+  contactTitle     String         @default("")
+  contactPhone     String         @default("")
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 

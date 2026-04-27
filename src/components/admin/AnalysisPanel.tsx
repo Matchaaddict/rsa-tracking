@@ -10,7 +10,9 @@ interface ProgressEntry {
   id: string;
   content: string;
   status: string;
-  reportedBy: string | null;
+  contactName: string;
+  contactTitle: string;
+  contactPhone: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -277,27 +279,26 @@ export function AnalysisPanel() {
                                           <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-medium ${STATUS_COLORS[entry.status] ?? "bg-gray-100 text-gray-600"}`}>
                                             {STATUS_LABELS[entry.status] ?? entry.status}
                                           </span>
-                                          {entry.reportedBy && <span>โดย {entry.reportedBy}</span>}
                                         </div>
                                         <p className="text-xs text-gray-600 whitespace-pre-wrap break-words">{entry.content}</p>
+                                        {entry.contactName && (
+                                          <p className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1">
+                                            <User size={9} />
+                                            {entry.contactName}
+                                            {entry.contactTitle && ` · ${entry.contactTitle}`}
+                                            {entry.contactPhone && ` · ${entry.contactPhone}`}
+                                          </p>
+                                        )}
                                       </li>
                                     ))}
                                   </ol>
                                 )}
-                                {(p.evidenceUrl || p.contactName) && (
-                                  <div className="mt-1.5 space-y-1">
-                                    {p.evidenceUrl && (
-                                      <a href={p.evidenceUrl} target="_blank" rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                                        <Link2 size={11} /> ดูหลักฐาน
-                                      </a>
-                                    )}
-                                    {p.contactName && (
-                                      <div className="flex items-center gap-1 text-xs text-gray-400">
-                                        <User size={11} />
-                                        {p.contactName}{p.contactTitle ? ` · ${p.contactTitle}` : ""}{p.contactPhone ? ` · ${p.contactPhone}` : ""}
-                                      </div>
-                                    )}
+                                {p.evidenceUrl && (
+                                  <div className="mt-1.5">
+                                    <a href={p.evidenceUrl} target="_blank" rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                                      <Link2 size={11} /> ดูหลักฐาน
+                                    </a>
                                   </div>
                                 )}
                               </div>
