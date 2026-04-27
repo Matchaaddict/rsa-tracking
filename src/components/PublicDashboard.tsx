@@ -26,6 +26,7 @@ import {
   Loader2,
   Search,
   X,
+  Download,
 } from "lucide-react";
 import { FAQSection } from "./FAQSection";
 
@@ -112,6 +113,57 @@ function computeProgress(proposals: Proposal[]) {
 }
 
 const PIE_COLORS = ["#22c55e", "#eab308", "#9ca3af"];
+
+function DownloadMenu({ festivalId }: { festivalId: string | null }) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [open]);
+
+  const qs = festivalId ? `&festivalId=${encodeURIComponent(festivalId)}` : "";
+  const items = [
+    { type: "detail", label: "รายละเอียดทั้งหมด", desc: "ทุกข้อ × ทุกหน่วยงาน รวมรายละเอียดล่าสุด" },
+    { type: "summary", label: "สรุปรายหน่วยงาน", desc: "ความคืบหน้ารวมต่อหน่วยงาน" },
+    { type: "pending", label: "หน่วยงานที่ยังไม่รายงาน", desc: "ใช้สำหรับติดตามทวงรายงาน" },
+    { type: "history", label: "ประวัติการรายงาน", desc: "ทุก progress entry พร้อมผู้รายงาน" },
+  ];
+
+  return (
+    <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border border-gray-200 bg-white text-gray-600 hover:border-gray-400 hover:text-gray-700 transition-all"
+      >
+        <Download size={14} /> ดาวน์โหลด CSV
+        <ChevronDown size={13} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="absolute right-0 mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-lg z-20 overflow-hidden">
+          {items.map((it) => (
+            <a
+              key={it.type}
+              href={`/api/public/export?type=${it.type}${qs}`}
+              download
+              onClick={() => setOpen(false)}
+              className="block px-4 py-2.5 hover:bg-gray-50 border-b border-gray-100 last:border-0"
+            >
+              <div className="text-sm font-medium text-gray-800">{it.label}</div>
+              <div className="text-xs text-gray-500 mt-0.5">{it.desc}</div>
+            </a>
+          ))}
+          <div className="bg-gray-50 px-4 py-2 text-[10px] text-gray-400 border-t border-gray-100">
+            {festivalId ? "เฉพาะวาระที่กรองอยู่" : "รวมทุกวาระ"} · เปิดด้วย Excel ได้เลย (UTF-8 BOM)
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function PublicDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -377,6 +429,9 @@ export function PublicDashboard() {
                 </button>
               );
             })}
+            <div className="ml-auto">
+              <DownloadMenu festivalId={selectedFestival === "all" ? null : selectedFestival} />
+            </div>
           </div>
         );
       })()}

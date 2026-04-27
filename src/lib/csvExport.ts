@@ -1,0 +1,190 @@
+import { FESTIVAL_TYPE_LABELS, STATUS_LABELS } from "./utils";
+
+const BOM = "﻿";
+
+export function csvEscape(v: string | number | null | undefined): string {
+  if (v == null || v === "") return "";
+  return `"${String(v).replace(/"/g, '""')}"`;
+}
+
+function festivalLabel(type: string): string {
+  return FESTIVAL_TYPE_LABELS[type] ?? type;
+}
+
+function statusLabel(status: string): string {
+  return STATUS_LABELS[status] ?? status;
+}
+
+function thaiDate(d: Date): string {
+  return d.toLocaleDateString("th-TH", { year: "numeric", month: "2-digit", day: "2-digit" });
+}
+
+// ---- types matching prisma include shapes ----
+
+export interface DetailProposal {
+  orderNumber: number;
+  title: string;
+  festival: { type: string; year: number };
+  subCommittees: { subCommittee: { name: string } }[];
+  implementations: {
+    status: string;
+    content: string | null;
+    evidenceUrl: string | null;
+    contactName: string | null;
+    contactTitle: string | null;
+    contactPhone: string | null;
+    updatedAt: Date;
+    agency: { name: string };
+  }[];
+}
+
+export function buildDetailCsv(proposals: DetailProposal[]): string {
+  let csv = BOM + [
+    "วาระ", "ปี", "อนุกรรมการ", "ข้อที่", "ชื่อข้อเสนอ",
+    "หน่วยงาน", "สถานะ", "รายละเอียดล่าสุด",
+    "ผู้รายงาน", "ตำแหน่ง", "เบอร์", "ลิงก์หลักฐาน", "วันที่อัพเดต",
+  ].join(",") + "\n";
+
+  for (const p of proposals) {
+    const fest = festivalLabel(p.festival.type);
+    const yr = String(p.festival.year);
+    const scs = p.subCommittees.map((s) => s.subCommittee.name).join("; ");
+    if (p.implementations.length === 0) {
+      csv += [
+        csvEscape(fest), yr, csvEscape(scs), p.orderNumber, csvEscape(p.title),
+        csvEscape("(ยังไม่มีหน่วยงาน)"), "", "", "", "", "", "", "",
+      ].join(",") + "\n";
+      continue;
+    }
+    for (const impl of p.implementations) {
+      csv += [
+        csvEscape(fest), yr, csvEscape(scs), p.orderNumber, csvEscape(p.title),
+        csvEscape(impl.agency.name), csvEscape(statusLabel(impl.status)),
+        csvEscape(impl.content), csvEscape(impl.contactName),
+        csvEscape(impl.contactTitle), csvEscape(impl.contactPhone),
+        csvEscape(impl.evidenceUrl), csvEscape(thaiDate(impl.updatedAt)),
+      ].join(",") + "\n";
+    }
+  }
+  return csv;
+}
+
+export interface SummaryAgency {
+  name: string;
+  subCommittees: { subCommittee: { name: string } }[];
+  implementations: { status: string }[];
+}
+
+export function buildSummaryCsv(agencies: SummaryAgency[]): string {
+  let csv = BOM + [
+    "หน่วยงาน", "อนุกรรมการ",
+    "ดำเนินการแล้ว", "กำลังดำเนินการ", "ยังไม่เริ่ม", "ไม่เกี่ยวข้อง", "รวม",
+    "%ดำเนินการแล้ว", "%เสร็จสมบูรณ์",
+  ].join(",") + "\n";
+
+  for (const a of agencies) {
+    const scNames = a.subCommittees.map((s) => s.subCommittee.name).join("; ");
+    const done = a.implementations.filter((i) => i.status === "COMPLETED").length;
+    const prog = a.implementations.filter((i) => i.status === "IN_PROGRESS").length;
+    const none = a.implementations.filter((i) => i.status === "NOT_STARTED").length;
+    const nr = a.implementations.filter((i) => i.status === "NOT_RELEVANT").length;
+    const total = done + prog + none;
+    const activePct = total > 0 ? Math.round(((done + prog) / total) * 100) : 0;
+    const donePct = total > 0 ? Math.round((done / total) * 100) : 0;
+    csv += [
+      csvEscape(a.name), csvEscape(scNames),
+      done, prog, none, nr, total,
+      `${activePct}%`, `${donePct}%`,
+    ].join(",") + "\n";
+  }
+  return csv;
+}
+
+export interface PendingProposal {
+  orderNumber: number;
+  title: string;
+  festival: { type: string; year: number };
+  subCommittees: { subCommittee: { id: string; name: string } }[];
+  implementations: { agencyId: string; status: string }[];
+}
+export interface PendingAgency {
+  id: string;
+  name: string;
+  subCommittees: { subCommittee: { id: string } }[];
+}
+
+// One row per (proposal × agency) where the agency is expected (SC overlap)
+// but has either no implementation row or is still NOT_STARTED.
+export function buildPendingCsv(proposals: PendingProposal[], agencies: PendingAgency[]): string {
+  let csv = BOM + [
+    "วาระ", "ปี", "อนุกรรมการ", "ข้อที่", "ชื่อข้อเสนอ", "หน่วยงานที่ยังไม่รายงาน",
+  ].join(",") + "\n";
+
+  for (const p of proposals) {
+    const fest = festivalLabel(p.festival.type);
+    const yr = String(p.festival.year);
+    const propScIds = new Set(p.subCommittees.map((s) => s.subCommittee.id));
+    const reportedAgencyIds = new Set(
+      p.implementations.filter((i) => i.status !== "NOT_STARTED").map((i) => i.agencyId)
+    );
+    const scNames = p.subCommittees.map((s) => s.subCommittee.name).join("; ");
+
+    for (const a of agencies) {
+      const inScope = a.subCommittees.some((s) => propScIds.has(s.subCommittee.id));
+      if (!inScope) continue;
+      if (reportedAgencyIds.has(a.id)) continue;
+      csv += [
+        csvEscape(fest), yr, csvEscape(scNames), p.orderNumber, csvEscape(p.title),
+        csvEscape(a.name),
+      ].join(",") + "\n";
+    }
+  }
+  return csv;
+}
+
+export interface HistoryProposal {
+  orderNumber: number;
+  title: string;
+  festival: { type: string; year: number };
+  implementations: {
+    agency: { name: string };
+    progressEntries: {
+      status: string;
+      content: string;
+      contactName: string;
+      contactTitle: string;
+      contactPhone: string;
+      createdAt: Date;
+    }[];
+  }[];
+}
+
+// Every progress entry as a row — full audit trail for sub-committee meetings.
+export function buildHistoryCsv(proposals: HistoryProposal[]): string {
+  let csv = BOM + [
+    "วาระ", "ปี", "ข้อที่", "ชื่อข้อเสนอ", "หน่วยงาน",
+    "วันที่รายงาน", "สถานะ", "รายละเอียด",
+    "ผู้รายงาน", "ตำแหน่ง", "เบอร์",
+  ].join(",") + "\n";
+
+  for (const p of proposals) {
+    const fest = festivalLabel(p.festival.type);
+    const yr = String(p.festival.year);
+    for (const impl of p.implementations) {
+      // Oldest first so meeting attendees can read the timeline top-down
+      const sorted = [...impl.progressEntries].sort(
+        (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
+      );
+      for (const e of sorted) {
+        csv += [
+          csvEscape(fest), yr, p.orderNumber, csvEscape(p.title),
+          csvEscape(impl.agency.name),
+          csvEscape(thaiDate(e.createdAt)), csvEscape(statusLabel(e.status)),
+          csvEscape(e.content),
+          csvEscape(e.contactName), csvEscape(e.contactTitle), csvEscape(e.contactPhone),
+        ].join(",") + "\n";
+      }
+    }
+  }
+  return csv;
+}

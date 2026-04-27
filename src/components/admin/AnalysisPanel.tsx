@@ -169,6 +169,14 @@ export function AnalysisPanel() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
             <Download size={13} /> CSV สรุปรายหน่วยงาน
           </a>
+          <a href="/api/admin/export?type=pending" download
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-amber-300 rounded-lg text-amber-700 hover:bg-amber-50 transition-colors">
+            <Download size={13} /> CSV ค้างรายงาน
+          </a>
+          <a href="/api/admin/export?type=history" download
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
+            <Download size={13} /> CSV ประวัติทั้งหมด
+          </a>
           <a href="/report" target="_blank"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-blue-300 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors">
             <Download size={13} /> พิมพ์ PDF
