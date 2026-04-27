@@ -7,10 +7,12 @@ datasource db {
 }
 
 model Admin {
-  id        String   @id @default(cuid())
-  username  String   @unique
-  password  String
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  username     String   @unique
+  password     String
+  isSuperAdmin Boolean  @default(false)
+  permissions  String   @default("[]")
+  createdAt    DateTime @default(now())
 }
 
 model Festival {

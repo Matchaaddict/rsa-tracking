@@ -24,7 +24,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           admin.password
         );
         if (!valid) return null;
-        return { id: admin.id, name: admin.username, role: "admin" };
+        return {
+          id: admin.id,
+          name: admin.username,
+          role: "admin",
+          isSuperAdmin: admin.isSuperAdmin,
+          permissions: admin.permissions,
+        };
       },
     }),
     Credentials({
@@ -52,14 +58,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     jwt({ token, user }) {
       if (user) {
-        token.role = (user as { role: string }).role;
+        const u = user as { role: string; isSuperAdmin?: boolean; permissions?: string };
+        token.role = u.role;
         token.id = user.id;
+        token.isSuperAdmin = u.isSuperAdmin ?? false;
+        token.permissions = u.permissions ?? "[]";
       }
       return token;
     },
     session({ session, token }) {
       session.user.role = token.role as string;
       session.user.id = token.id as string;
+      session.user.isSuperAdmin = token.isSuperAdmin as boolean;
+      session.user.permissions = token.permissions as string;
       return session;
     },
   },

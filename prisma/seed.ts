@@ -117,8 +117,8 @@ async function main() {
   const adminPassword = await bcrypt.hash("admin1234", 10);
   await prisma.admin.upsert({
     where: { username: "admin" },
-    update: {},
-    create: { username: "admin", password: adminPassword },
+    update: { isSuperAdmin: true },
+    create: { username: "admin", password: adminPassword, isSuperAdmin: true },
   });
   console.log("✓ Admin created: admin / admin1234");
 

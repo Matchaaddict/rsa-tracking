@@ -10,24 +10,40 @@ import { AnalysisPanel } from "./admin/AnalysisPanel";
 import { SiteConfigManager } from "./admin/SiteConfigManager";
 import { FAQManager } from "./admin/FAQManager";
 import { MessagesManager } from "./admin/MessagesManager";
-import { CalendarDays, Users, Building2, FileText, KeyRound, BarChart2, Globe, HelpCircle, MessageCircle } from "lucide-react";
+import { AdminManager } from "./admin/AdminManager";
+import { CalendarDays, Users, Building2, FileText, KeyRound, BarChart2, Globe, HelpCircle, MessageCircle, ShieldCheck } from "lucide-react";
 
-const TABS = [
-  { id: "festivals", label: "เทศกาล", icon: CalendarDays },
-  { id: "subcommittees", label: "อนุกรรมการ", icon: Users },
-  { id: "agencies", label: "หน่วยงาน", icon: Building2 },
-  { id: "proposals", label: "ข้อเสนอ", icon: FileText },
-  { id: "analysis", label: "วิเคราะห์", icon: BarChart2 },
-  { id: "siteconfig", label: "หน้าเว็บ", icon: Globe },
-  { id: "faq", label: "FAQ", icon: HelpCircle },
-  { id: "messages", label: "ข้อความ", icon: MessageCircle },
-  { id: "account", label: "รหัสผ่าน", icon: KeyRound },
+const ALL_TABS = [
+  { id: "festivals",     label: "เทศกาล",      icon: CalendarDays },
+  { id: "subcommittees", label: "อนุกรรมการ",   icon: Users },
+  { id: "agencies",      label: "หน่วยงาน",     icon: Building2 },
+  { id: "proposals",     label: "ข้อเสนอ",      icon: FileText },
+  { id: "analysis",      label: "วิเคราะห์",    icon: BarChart2 },
+  { id: "siteconfig",    label: "หน้าเว็บ",      icon: Globe },
+  { id: "faq",           label: "FAQ",           icon: HelpCircle },
+  { id: "messages",      label: "ข้อความ",       icon: MessageCircle },
+  { id: "account",       label: "รหัสผ่าน",      icon: KeyRound },
+  { id: "admins",        label: "แอดมิน",        icon: ShieldCheck },
 ] as const;
 
-type TabId = (typeof TABS)[number]["id"];
+type TabId = (typeof ALL_TABS)[number]["id"];
 
-export function AdminPanel() {
-  const [activeTab, setActiveTab] = useState<TabId>("festivals");
+export function AdminPanel({
+  isSuperAdmin,
+  permissions,
+  adminId,
+}: {
+  isSuperAdmin: boolean;
+  permissions: string;
+  adminId: string;
+}) {
+  const allowedTabIds: Set<string> = isSuperAdmin
+    ? new Set(ALL_TABS.map((t) => t.id))
+    : new Set([...(JSON.parse(permissions) as string[]), "account"]);
+
+  const TABS = ALL_TABS.filter((t) => allowedTabIds.has(t.id));
+
+  const [activeTab, setActiveTab] = useState<TabId>(TABS[0]?.id ?? "account");
   const [unreadMessages, setUnreadMessages] = useState(0);
 
   useEffect(() => {
@@ -91,6 +107,7 @@ export function AdminPanel() {
           } />
         )}
         {activeTab === "account" && <AccountSettings />}
+        {activeTab === "admins" && <AdminManager currentAdminId={adminId} />}
       </div>
     </div>
   );

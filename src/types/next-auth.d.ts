@@ -3,6 +3,8 @@ import "next-auth";
 declare module "next-auth" {
   interface User {
     role?: string;
+    isSuperAdmin?: boolean;
+    permissions?: string;
   }
   interface Session {
     user: {
@@ -11,6 +13,8 @@ declare module "next-auth" {
       email?: string | null;
       image?: string | null;
       role?: string;
+      isSuperAdmin?: boolean;
+      permissions?: string;
     };
   }
 }
@@ -19,5 +23,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     role?: string;
     id?: string;
+    isSuperAdmin?: boolean;
+    permissions?: string;
   }
 }
