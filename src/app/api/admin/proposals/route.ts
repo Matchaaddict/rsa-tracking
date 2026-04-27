@@ -17,6 +17,7 @@ export async function GET() {
     include: {
       festival: true,
       subCommittees: { include: { subCommittee: true } },
+      implementations: { select: { agencyId: true, status: true, content: true } },
       _count: { select: { implementations: true } },
     },
   });
