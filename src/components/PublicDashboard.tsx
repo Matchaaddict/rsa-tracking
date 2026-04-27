@@ -52,6 +52,7 @@ interface Implementation {
   proposalId: string;
   content: string | null;
   status: string;
+  updatedAt: string;
   agency: Agency;
 }
 
@@ -70,7 +71,7 @@ interface AgencyData {
   id: string;
   name: string;
   subCommittees: { subCommittee: SubCommittee }[];
-  implementations: { status: string; content: string | null; proposal: { festival: Festival } }[];
+  implementations: { status: string; content: string | null; updatedAt: string; proposal: { festival: Festival } }[];
 }
 
 interface DashboardData {
@@ -588,9 +589,14 @@ export function PublicDashboard() {
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium text-gray-800">{impl.agency.name}</p>
                                 {impl.content
-                                  ? <p className="text-sm text-gray-600 mt-0.5">{impl.content}</p>
+                                  ? <p className="text-sm text-gray-600 mt-0.5 whitespace-pre-wrap break-words">{impl.content}</p>
                                   : <p className="text-sm text-gray-400 italic mt-0.5">ยังไม่ได้กรอกข้อมูล</p>
                                 }
+                                {impl.content && (
+                                  <p className="text-[10px] text-gray-400 mt-1">
+                                    อัปเดตล่าสุด: {new Date(impl.updatedAt).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" })}
+                                  </p>
+                                )}
                               </div>
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0 ${STATUS_COLORS[impl.status as keyof typeof STATUS_COLORS]}`}>
                                 {STATUS_LABELS[impl.status as keyof typeof STATUS_LABELS]}
@@ -777,9 +783,14 @@ export function PublicDashboard() {
                                             <div className="flex-1 min-w-0">
                                               <p className="text-sm font-medium text-gray-800">{impl.agency.name}</p>
                                               {impl.content ? (
-                                                <p className="text-sm text-gray-600 mt-0.5">{impl.content}</p>
+                                                <p className="text-sm text-gray-600 mt-0.5 whitespace-pre-wrap break-words">{impl.content}</p>
                                               ) : (
                                                 <p className="text-sm text-gray-400 italic mt-0.5">ยังไม่ได้กรอกข้อมูล</p>
+                                              )}
+                                              {impl.content && (
+                                                <p className="text-[10px] text-gray-400 mt-1">
+                                                  อัปเดตล่าสุด: {new Date(impl.updatedAt).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" })}
+                                                </p>
                                               )}
                                             </div>
                                             <span
@@ -935,9 +946,14 @@ export function PublicDashboard() {
                             </span>
                           </div>
                           {impl.content ? (
-                            <p className="text-sm text-gray-600">{impl.content}</p>
+                            <p className="text-sm text-gray-600 whitespace-pre-wrap break-words">{impl.content}</p>
                           ) : (
                             <p className="text-sm text-gray-400 italic">ยังไม่กรอกข้อมูล</p>
+                          )}
+                          {impl.content && (
+                            <p className="text-[10px] text-gray-400 mt-1">
+                              อัปเดตล่าสุด: {new Date(impl.updatedAt).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" })}
+                            </p>
                           )}
                         </div>
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0 ${STATUS_COLORS[impl.status]}`}>

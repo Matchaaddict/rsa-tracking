@@ -6,11 +6,13 @@ import { Button } from "../ui/button";
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/utils";
 import { ChevronDown, ChevronRight, Sparkles, Loader2, CheckCircle2, Circle, Download, Link2, User, History } from "lucide-react";
 
-interface ImplLog {
+interface ProgressEntry {
   id: string;
-  oldStatus: string | null;
-  newStatus: string | null;
-  changedAt: string;
+  content: string;
+  status: string;
+  reportedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface ProposalDetail {
@@ -25,7 +27,8 @@ interface ProposalDetail {
   contactName: string | null;
   contactTitle: string | null;
   contactPhone: string | null;
-  logs: ImplLog[];
+  progressEntries: ProgressEntry[];
+  updatedAt: string | null;
 }
 
 interface AgencyAnalysis {
@@ -261,10 +264,27 @@ export function AnalysisPanel() {
                                     {STATUS_LABELS[p.status] ?? p.status}
                                   </span>
                                 </div>
-                                {p.content && (
-                                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{p.content}</p>
+                                {p.progressEntries.length > 0 && (
+                                  <ol className="mt-1.5 space-y-1.5 ml-1">
+                                    {p.progressEntries.map((entry, idx) => (
+                                      <li
+                                        key={entry.id}
+                                        className={`relative pl-3 border-l-2 ${idx === 0 ? "border-emerald-300" : "border-gray-200"}`}
+                                      >
+                                        <div className="flex items-center gap-1.5 text-[10px] text-gray-400 mb-0.5">
+                                          <History size={10} />
+                                          <span>{new Date(entry.createdAt).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                                          <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-medium ${STATUS_COLORS[entry.status] ?? "bg-gray-100 text-gray-600"}`}>
+                                            {STATUS_LABELS[entry.status] ?? entry.status}
+                                          </span>
+                                          {entry.reportedBy && <span>โดย {entry.reportedBy}</span>}
+                                        </div>
+                                        <p className="text-xs text-gray-600 whitespace-pre-wrap break-words">{entry.content}</p>
+                                      </li>
+                                    ))}
+                                  </ol>
                                 )}
-                                {(p.evidenceUrl || p.contactName || p.logs.length > 0) && (
+                                {(p.evidenceUrl || p.contactName) && (
                                   <div className="mt-1.5 space-y-1">
                                     {p.evidenceUrl && (
                                       <a href={p.evidenceUrl} target="_blank" rel="noopener noreferrer"
@@ -276,13 +296,6 @@ export function AnalysisPanel() {
                                       <div className="flex items-center gap-1 text-xs text-gray-400">
                                         <User size={11} />
                                         {p.contactName}{p.contactTitle ? ` · ${p.contactTitle}` : ""}{p.contactPhone ? ` · ${p.contactPhone}` : ""}
-                                      </div>
-                                    )}
-                                    {p.logs.length > 0 && (
-                                      <div className="flex items-center gap-1 text-xs text-gray-400">
-                                        <History size={11} />
-                                        อัปเดตล่าสุด: {new Date(p.logs[0].changedAt).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-                                        {p.logs.length > 1 && ` (${p.logs.length} ครั้ง)`}
                                       </div>
                                     )}
                                   </div>

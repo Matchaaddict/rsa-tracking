@@ -1,0 +1,43 @@
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+
+async function requireAgency() {
+  const session = await auth();
+  if (!session || session.user.role !== "agency") return null;
+  return session;
+}
+
+// Create a new progress entry. Also denormalises the latest content/status
+// onto the parent Implementation so dashboard queries stay cheap.
+export async function POST(req: NextRequest) {
+  const session = await requireAgency();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const agencyId = session.user.id!;
+  const { proposalId, content, status, reportedBy } = await req.json();
+
+  if (!proposalId || !status) {
+    return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+  }
+  if (!content?.trim() && status !== "NOT_RELEVANT") {
+    return NextResponse.json({ error: "Content required" }, { status: 400 });
+  }
+
+  const impl = await prisma.implementation.upsert({
+    where: { proposalId_agencyId: { proposalId, agencyId } },
+    update: { content: content ?? "", status },
+    create: { proposalId, agencyId, content: content ?? "", status },
+  });
+
+  const entry = await prisma.progressEntry.create({
+    data: {
+      implementationId: impl.id,
+      content: content ?? "",
+      status,
+      reportedBy: reportedBy?.trim() || null,
+    },
+  });
+
+  return NextResponse.json(entry);
+}

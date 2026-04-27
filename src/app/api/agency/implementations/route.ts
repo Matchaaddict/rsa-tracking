@@ -38,6 +38,9 @@ export async function GET() {
       subCommittees: { include: { subCommittee: true } },
       implementations: {
         where: { agencyId },
+        include: {
+          progressEntries: { orderBy: { createdAt: "desc" } },
+        },
       },
     },
   });
@@ -45,52 +48,43 @@ export async function GET() {
   return NextResponse.json({ agency, proposals });
 }
 
+// PUT updates only the per-implementation metadata (contact info, evidence URL).
+// Progress entries are managed via /api/agency/progress.
 export async function PUT(req: NextRequest) {
   const session = await requireAgency();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const agencyId = session.user.id!;
   const body = await req.json();
-  const { proposalId, content, status, evidenceUrl, contactName, contactTitle, contactPhone } = body;
+  const { proposalId, evidenceUrl, contactName, contactTitle, contactPhone } = body;
 
   const existing = await prisma.implementation.findUnique({
     where: { proposalId_agencyId: { proposalId, agencyId } },
-    select: { id: true, status: true, content: true },
+    select: { id: true },
   });
 
   const isEmpty =
-    (!status || status === "NOT_STARTED") &&
-    !content?.trim() &&
     !evidenceUrl?.trim() &&
     !contactName?.trim() &&
     !contactTitle?.trim() &&
     !contactPhone?.trim();
 
-  // Don't create empty NOT_STARTED records (e.g. when user just clicks
-  // around without entering data). If one already exists, leave it alone.
   if (isEmpty && !existing) {
     return NextResponse.json({ skipped: true });
   }
 
   const impl = await prisma.implementation.upsert({
     where: { proposalId_agencyId: { proposalId, agencyId } },
-    update: { content, status, evidenceUrl, contactName, contactTitle, contactPhone },
-    create: { proposalId, agencyId, content, status, evidenceUrl, contactName, contactTitle, contactPhone },
+    update: { evidenceUrl, contactName, contactTitle, contactPhone },
+    create: {
+      proposalId,
+      agencyId,
+      evidenceUrl,
+      contactName,
+      contactTitle,
+      contactPhone,
+    },
   });
-
-  const statusChanged = existing && existing.status !== status;
-  const contentChanged = existing && existing.content !== content;
-  if (!existing || statusChanged || contentChanged) {
-    await prisma.implementationLog.create({
-      data: {
-        implementationId: impl.id,
-        oldStatus: existing?.status ?? null,
-        newStatus: status,
-        oldContent: statusChanged ? (existing?.content ?? null) : null,
-        newContent: statusChanged ? content : null,
-      },
-    });
-  }
 
   return NextResponse.json(impl);
 }

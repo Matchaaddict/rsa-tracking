@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
           subCommittees: { include: { subCommittee: true } },
           implementations: {
             include: {
-              logs: { orderBy: { changedAt: "desc" }, take: 10 },
+              progressEntries: { orderBy: { createdAt: "desc" } },
             },
           },
         },
@@ -66,7 +66,8 @@ export async function GET(req: NextRequest) {
           contactName: impl?.contactName ?? null,
           contactTitle: impl?.contactTitle ?? null,
           contactPhone: impl?.contactPhone ?? null,
-          logs: impl?.logs ?? [],
+          progressEntries: impl?.progressEntries ?? [],
+          updatedAt: impl?.updatedAt ?? null,
         };
       });
 

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { STATUS_LABELS, STATUS_COLORS, FESTIVAL_TYPE_LABELS } from "@/lib/utils";
-import { Loader2, FileText, MessageCircle, KeyRound, ShieldAlert, CheckCircle2, AlertCircle, RefreshCw, Link2, User } from "lucide-react";
+import { Loader2, FileText, MessageCircle, KeyRound, ShieldAlert, CheckCircle2, AlertCircle, Link2, User, Plus, Pencil, Trash2, X, Check, Clock } from "lucide-react";
 
 function AutoResizeTextarea({
   value,
@@ -52,6 +52,15 @@ interface SubCommittee {
   name: string;
 }
 
+interface ProgressEntry {
+  id: string;
+  content: string;
+  status: string;
+  reportedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface Implementation {
   id?: string;
   status: string;
@@ -60,6 +69,7 @@ interface Implementation {
   contactName: string | null;
   contactTitle: string | null;
   contactPhone: string | null;
+  progressEntries: ProgressEntry[];
 }
 
 interface Proposal {
@@ -72,8 +82,7 @@ interface Proposal {
   implementations: Implementation[];
 }
 
-interface FormState {
-  content: string;
+interface MetadataState {
   status: string;
   evidenceUrl: string;
 }
@@ -84,17 +93,24 @@ interface ContactInfo {
   contactPhone: string;
 }
 
-function buildInitialForms(proposals: Proposal[]): Record<string, FormState> {
-  const forms: Record<string, FormState> = {};
+function buildInitialMeta(proposals: Proposal[]): Record<string, MetadataState> {
+  const m: Record<string, MetadataState> = {};
   proposals.forEach((p) => {
     const impl = p.implementations[0];
-    forms[p.id] = {
-      content: impl?.content || "",
+    m[p.id] = {
       status: impl?.status || "NOT_STARTED",
       evidenceUrl: impl?.evidenceUrl || "",
     };
   });
-  return forms;
+  return m;
+}
+
+function buildInitialEntries(proposals: Proposal[]): Record<string, ProgressEntry[]> {
+  const e: Record<string, ProgressEntry[]> = {};
+  proposals.forEach((p) => {
+    e[p.id] = p.implementations[0]?.progressEntries ?? [];
+  });
+  return e;
 }
 
 function buildInitialContact(proposals: Proposal[]): ContactInfo {
@@ -111,6 +127,17 @@ function buildInitialContact(proposals: Proposal[]): ContactInfo {
   return { contactName: "", contactTitle: "", contactPhone: "" };
 }
 
+function formatThaiDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("th-TH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function AgencyDashboard({
   agencyName,
   initialProposals,
@@ -123,16 +150,14 @@ export function AgencyDashboard({
   const [activeTab, setActiveTab] = useState<"proposals" | "messages" | "password">("proposals");
   const [isDefaultPassword, setIsDefaultPassword] = useState(initialIsDefault);
   const [proposals] = useState<Proposal[]>(initialProposals);
-  const [forms, setForms] = useState<Record<string, FormState>>(() => buildInitialForms(initialProposals));
+  const [meta, setMeta] = useState<Record<string, MetadataState>>(() => buildInitialMeta(initialProposals));
+  const [entries, setEntries] = useState<Record<string, ProgressEntry[]>>(() => buildInitialEntries(initialProposals));
   const [contact, setContact] = useState<ContactInfo>(() => buildInitialContact(initialProposals));
   const [dirty, setDirty] = useState<Record<string, boolean>>({});
   const [saveError, setSaveError] = useState<Record<string, boolean>>({});
   const [savingCount, setSavingCount] = useState(0);
   const [selectedFestival, setSelectedFestival] = useState<string>("all");
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  // Tracks which proposals already have an implementation row in the DB.
-  // Empty NOT_STARTED forms for proposals NOT in this set are skipped
-  // by autoSave so we don't pollute the public dashboard.
   const hasImpl = useRef<Set<string>>(
     new Set(initialProposals.filter((p) => p.implementations[0]).map((p) => p.id))
   );
@@ -146,11 +171,9 @@ export function AgencyDashboard({
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty, saveError]);
 
-  async function autoSave(proposalId: string, formData: FormState, contactData: ContactInfo = contact) {
+  async function saveMetadata(proposalId: string, metaData: MetadataState, contactData: ContactInfo = contact) {
     const isEmpty =
-      (!formData.status || formData.status === "NOT_STARTED") &&
-      !formData.content?.trim() &&
-      !formData.evidenceUrl?.trim() &&
+      !metaData.evidenceUrl?.trim() &&
       !contactData.contactName?.trim() &&
       !contactData.contactTitle?.trim() &&
       !contactData.contactPhone?.trim();
@@ -164,7 +187,11 @@ export function AgencyDashboard({
       const res = await fetch("/api/agency/implementations", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proposalId, ...formData, ...contactData }),
+        body: JSON.stringify({
+          proposalId,
+          evidenceUrl: metaData.evidenceUrl,
+          ...contactData,
+        }),
       });
       if (!res.ok) throw new Error("server error");
       hasImpl.current.add(proposalId);
@@ -176,41 +203,92 @@ export function AgencyDashboard({
     }
   }
 
-  function handleStatusChange(proposalId: string, status: string) {
-    const newForm = { ...forms[proposalId], status };
-    setForms((f) => ({ ...f, [proposalId]: newForm }));
-    setDirty((d) => ({ ...d, [proposalId]: true }));
-    clearTimeout(timers.current[proposalId]);
-    autoSave(proposalId, newForm);
-  }
-
-  function handleContentChange(proposalId: string, content: string) {
-    const newForm = { ...forms[proposalId], content };
-    setForms((f) => ({ ...f, [proposalId]: newForm }));
-    setDirty((d) => ({ ...d, [proposalId]: true }));
-    clearTimeout(timers.current[proposalId]);
-    timers.current[proposalId] = setTimeout(() => autoSave(proposalId, newForm), 1500);
-  }
-
   function handleEvidenceChange(proposalId: string, evidenceUrl: string) {
-    const newForm = { ...forms[proposalId], evidenceUrl };
-    setForms((f) => ({ ...f, [proposalId]: newForm }));
+    const newMeta = { ...meta[proposalId], evidenceUrl };
+    setMeta((m) => ({ ...m, [proposalId]: newMeta }));
     setDirty((d) => ({ ...d, [proposalId]: true }));
     clearTimeout(timers.current[proposalId]);
-    timers.current[proposalId] = setTimeout(() => autoSave(proposalId, newForm), 1500);
+    timers.current[proposalId] = setTimeout(() => saveMetadata(proposalId, newMeta), 1500);
   }
 
   function handleContactChange(field: keyof ContactInfo, value: string) {
     const newContact = { ...contact, [field]: value };
     setContact(newContact);
-    // Re-save all dirty or existing proposals with updated contact
-    Object.keys(forms).forEach((proposalId) => {
-      const form = forms[proposalId];
-      if (form.status !== "NOT_STARTED" || form.content || form.evidenceUrl) {
+    Object.keys(meta).forEach((proposalId) => {
+      if (hasImpl.current.has(proposalId)) {
         clearTimeout(timers.current[`contact_${proposalId}`]);
-        timers.current[`contact_${proposalId}`] = setTimeout(() => autoSave(proposalId, form, newContact), 2000);
+        timers.current[`contact_${proposalId}`] = setTimeout(
+          () => saveMetadata(proposalId, meta[proposalId], newContact),
+          2000
+        );
       }
     });
+  }
+
+  async function addEntry(proposalId: string, content: string, status: string, reportedBy: string) {
+    setSavingCount((n) => n + 1);
+    setSaveError((e) => ({ ...e, [proposalId]: false }));
+    try {
+      const res = await fetch("/api/agency/progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ proposalId, content, status, reportedBy }),
+      });
+      if (!res.ok) throw new Error("server error");
+      const entry = (await res.json()) as ProgressEntry;
+      setEntries((e) => ({ ...e, [proposalId]: [entry, ...(e[proposalId] ?? [])] }));
+      setMeta((m) => ({ ...m, [proposalId]: { ...m[proposalId], status } }));
+      hasImpl.current.add(proposalId);
+      return true;
+    } catch {
+      setSaveError((e) => ({ ...e, [proposalId]: true }));
+      return false;
+    } finally {
+      setSavingCount((n) => n - 1);
+    }
+  }
+
+  async function updateEntry(proposalId: string, entryId: string, content: string, status: string, reportedBy: string) {
+    setSavingCount((n) => n + 1);
+    try {
+      const res = await fetch(`/api/agency/progress/${entryId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content, status, reportedBy }),
+      });
+      if (!res.ok) throw new Error("server error");
+      const updated = (await res.json()) as ProgressEntry;
+      setEntries((e) => ({
+        ...e,
+        [proposalId]: (e[proposalId] ?? []).map((x) => (x.id === entryId ? updated : x)),
+      }));
+      // If this is the latest entry, mirror its status onto meta
+      const isLatest = (entries[proposalId] ?? [])[0]?.id === entryId;
+      if (isLatest) {
+        setMeta((m) => ({ ...m, [proposalId]: { ...m[proposalId], status } }));
+      }
+      return true;
+    } catch {
+      return false;
+    } finally {
+      setSavingCount((n) => n - 1);
+    }
+  }
+
+  async function deleteEntry(proposalId: string, entryId: string) {
+    setSavingCount((n) => n + 1);
+    try {
+      const res = await fetch(`/api/agency/progress/${entryId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("server error");
+      const remaining = (entries[proposalId] ?? []).filter((x) => x.id !== entryId);
+      setEntries((e) => ({ ...e, [proposalId]: remaining }));
+      const newStatus = remaining[0]?.status ?? "NOT_STARTED";
+      setMeta((m) => ({ ...m, [proposalId]: { ...m[proposalId], status: newStatus } }));
+    } catch {
+      // ignore
+    } finally {
+      setSavingCount((n) => n - 1);
+    }
   }
 
   const festivals = Array.from(new Map(proposals.map((p) => [p.festival.id, p.festival])).values());
@@ -218,11 +296,11 @@ export function AgencyDashboard({
 
   const total = proposals.length;
   const filled = proposals.filter((p) => {
-    const f = forms[p.id];
-    return f && (f.status !== "NOT_STARTED" || f.content.trim() !== "");
+    const m = meta[p.id];
+    return m && (m.status !== "NOT_STARTED" || (entries[p.id]?.length ?? 0) > 0);
   }).length;
-  const completed = proposals.filter((p) => forms[p.id]?.status === "COMPLETED").length;
-  const inProg = proposals.filter((p) => forms[p.id]?.status === "IN_PROGRESS").length;
+  const completed = proposals.filter((p) => meta[p.id]?.status === "COMPLETED").length;
+  const inProg = proposals.filter((p) => meta[p.id]?.status === "IN_PROGRESS").length;
   const pct = total > 0 ? Math.round((filled / total) * 100) : 0;
 
   const hasDirty = Object.values(dirty).some(Boolean);
@@ -398,115 +476,280 @@ export function AgencyDashboard({
             </Card>
           ) : (
             <div className="space-y-4">
-              {filtered.map((proposal) => {
-                const form = forms[proposal.id] || { content: "", status: "NOT_STARTED" };
-                const isDirty = dirty[proposal.id];
-                const isError = saveError[proposal.id];
-
-                return (
-                  <Card
-                    key={proposal.id}
-                    className={`transition-all ${isError ? "border-l-4 border-l-red-400" : isDirty ? "border-l-4 border-l-amber-300" : ""}`}
-                  >
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <span className="text-xs text-gray-400 font-medium">ข้อ {proposal.orderNumber}</span>
-                            <Badge variant={proposal.festival.type === "NEW_YEAR" ? "default" : "warning"}>
-                              {FESTIVAL_TYPE_LABELS[proposal.festival.type]} {proposal.festival.year}
-                            </Badge>
-                            {proposal.subCommittees.map((sc) => {
-                              const n = sc.subCommittee.name.match(/^C(\d+)/)?.[1];
-                              return <Badge key={sc.subCommittee.id} variant="gray">{n ? `อนุฯ ${n}` : sc.subCommittee.name}</Badge>;
-                            })}
-                          </div>
-                          <CardTitle className="text-base">{proposal.title}</CardTitle>
-                          {proposal.description && (
-                            <p className="text-sm text-gray-500 mt-1">{proposal.description}</p>
-                          )}
-                        </div>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0 ${STATUS_COLORS[form.status]}`}>
-                          {STATUS_LABELS[form.status]}
-                        </span>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-0 space-y-3">
-                      {/* Status selector */}
-                      <div>
-                        <label className="text-sm font-medium text-gray-700 block mb-2">สถานะการดำเนินงาน</label>
-                        <div className="flex gap-2 flex-wrap">
-                          {(["NOT_STARTED", "IN_PROGRESS", "COMPLETED", "NOT_RELEVANT"] as const).map((s) => (
-                            <button
-                              key={s}
-                              onClick={() => handleStatusChange(proposal.id, s)}
-                              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-                                form.status === s
-                                  ? s === "COMPLETED" ? "bg-green-500 text-white border-green-500"
-                                    : s === "IN_PROGRESS" ? "bg-yellow-500 text-white border-yellow-500"
-                                    : s === "NOT_RELEVANT" ? "bg-slate-400 text-white border-slate-400"
-                                    : "bg-gray-400 text-white border-gray-400"
-                                  : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                              }`}
-                            >
-                              {STATUS_LABELS[s]}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {form.status !== "NOT_RELEVANT" && (
-                        <>
-                          <div>
-                            <label className="text-sm font-medium text-gray-700 block mb-2">รายละเอียดผลการดำเนินงาน</label>
-                            <AutoResizeTextarea
-                              value={form.content}
-                              onChange={(v) => handleContentChange(proposal.id, v)}
-                              placeholder="อธิบายผลการดำเนินงาน..."
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-gray-700 flex items-center gap-1.5 mb-1">
-                              <Link2 size={13} className="text-gray-400" />
-                              ลิงก์หลักฐาน
-                              <span className="text-xs font-normal text-gray-400">(ไม่บังคับ — ใส่ลิงก์ Google Drive, OneDrive หรืออื่นๆ)</span>
-                            </label>
-                            <input
-                              type="url"
-                              value={form.evidenceUrl}
-                              onChange={(e) => handleEvidenceChange(proposal.id, e.target.value)}
-                              placeholder="https://drive.google.com/..."
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                            />
-                          </div>
-                        </>
-                      )}
-
-                      {isError && (
-                        <div className="flex items-center justify-between gap-3 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                          <div className="flex items-center gap-2 text-sm text-red-600">
-                            <AlertCircle size={14} className="shrink-0" />
-                            บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => autoSave(proposal.id, forms[proposal.id])}
-                            className="shrink-0 text-red-600 border-red-200 hover:bg-red-100"
-                          >
-                            <RefreshCw size={13} /> ลองใหม่
-                          </Button>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
+              {filtered.map((proposal) => (
+                <ProposalProgressCard
+                  key={proposal.id}
+                  proposal={proposal}
+                  status={meta[proposal.id]?.status ?? "NOT_STARTED"}
+                  evidenceUrl={meta[proposal.id]?.evidenceUrl ?? ""}
+                  entries={entries[proposal.id] ?? []}
+                  defaultReporter={contact.contactName}
+                  isError={!!saveError[proposal.id]}
+                  isDirty={!!dirty[proposal.id]}
+                  onAdd={(content, status, reportedBy) => addEntry(proposal.id, content, status, reportedBy)}
+                  onUpdate={(id, content, status, reportedBy) => updateEntry(proposal.id, id, content, status, reportedBy)}
+                  onDelete={(id) => deleteEntry(proposal.id, id)}
+                  onEvidenceChange={(v) => handleEvidenceChange(proposal.id, v)}
+                />
+              ))}
             </div>
           )}
         </>
       )}
     </div>
+  );
+}
+
+function ProposalProgressCard({
+  proposal,
+  status,
+  evidenceUrl,
+  entries,
+  defaultReporter,
+  isError,
+  isDirty,
+  onAdd,
+  onUpdate,
+  onDelete,
+  onEvidenceChange,
+}: {
+  proposal: Proposal;
+  status: string;
+  evidenceUrl: string;
+  entries: ProgressEntry[];
+  defaultReporter: string;
+  isError: boolean;
+  isDirty: boolean;
+  onAdd: (content: string, status: string, reportedBy: string) => Promise<boolean>;
+  onUpdate: (id: string, content: string, status: string, reportedBy: string) => Promise<boolean>;
+  onDelete: (id: string) => void;
+  onEvidenceChange: (v: string) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState({ content: "", status: "IN_PROGRESS", reportedBy: "" });
+  const [submitting, setSubmitting] = useState(false);
+
+  function openAdd() {
+    setEditingId(null);
+    setDraft({ content: "", status: "IN_PROGRESS", reportedBy: defaultReporter });
+    setAdding(true);
+  }
+
+  function openEdit(entry: ProgressEntry) {
+    setAdding(false);
+    setEditingId(entry.id);
+    setDraft({ content: entry.content, status: entry.status, reportedBy: entry.reportedBy ?? "" });
+  }
+
+  function cancel() {
+    setAdding(false);
+    setEditingId(null);
+  }
+
+  async function submit() {
+    if (!draft.content.trim() && draft.status !== "NOT_RELEVANT") return;
+    setSubmitting(true);
+    const ok = editingId
+      ? await onUpdate(editingId, draft.content, draft.status, draft.reportedBy)
+      : await onAdd(draft.content, draft.status, draft.reportedBy);
+    setSubmitting(false);
+    if (ok) cancel();
+  }
+
+  return (
+    <Card
+      className={`transition-all ${isError ? "border-l-4 border-l-red-400" : isDirty ? "border-l-4 border-l-amber-300" : ""}`}
+    >
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <span className="text-xs text-gray-400 font-medium">ข้อ {proposal.orderNumber}</span>
+              <Badge variant={proposal.festival.type === "NEW_YEAR" ? "default" : "warning"}>
+                {FESTIVAL_TYPE_LABELS[proposal.festival.type]} {proposal.festival.year}
+              </Badge>
+              {proposal.subCommittees.map((sc) => {
+                const n = sc.subCommittee.name.match(/^C(\d+)/)?.[1];
+                return (
+                  <Badge key={sc.subCommittee.id} variant="gray">
+                    {n ? `อนุฯ ${n}` : sc.subCommittee.name}
+                  </Badge>
+                );
+              })}
+            </div>
+            <CardTitle className="text-base">{proposal.title}</CardTitle>
+            {proposal.description && (
+              <p className="text-sm text-gray-500 mt-1">{proposal.description}</p>
+            )}
+          </div>
+          <span
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0 ${STATUS_COLORS[status]}`}
+          >
+            {STATUS_LABELS[status]}
+          </span>
+        </div>
+      </CardHeader>
+
+      <CardContent className="pt-0 space-y-4">
+        {/* Timeline */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-gray-700">ประวัติการรายงานความคืบหน้า</p>
+            {!adding && !editingId && (
+              <Button size="sm" onClick={openAdd}>
+                <Plus size={13} /> เพิ่มรายงาน
+              </Button>
+            )}
+          </div>
+
+          {/* Add/Edit form */}
+          {(adding || editingId) && (
+            <div className="border border-emerald-200 bg-emerald-50/30 rounded-lg p-3 space-y-3">
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1.5">สถานะ ณ การรายงานนี้</label>
+                <div className="flex gap-2 flex-wrap">
+                  {(["IN_PROGRESS", "COMPLETED", "NOT_RELEVANT"] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setDraft((d) => ({ ...d, status: s }))}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                        draft.status === s
+                          ? s === "COMPLETED"
+                            ? "bg-green-500 text-white border-green-500"
+                            : s === "IN_PROGRESS"
+                            ? "bg-yellow-500 text-white border-yellow-500"
+                            : "bg-slate-400 text-white border-slate-400"
+                          : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                      }`}
+                    >
+                      {STATUS_LABELS[s]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {draft.status !== "NOT_RELEVANT" && (
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1.5">รายละเอียดผลการดำเนินงาน</label>
+                  <AutoResizeTextarea
+                    value={draft.content}
+                    onChange={(v) => setDraft((d) => ({ ...d, content: v }))}
+                    placeholder="อธิบายความคืบหน้าในช่วงนี้..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none bg-white"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1.5">ผู้รายงาน (ไม่บังคับ)</label>
+                <input
+                  type="text"
+                  value={draft.reportedBy}
+                  onChange={(e) => setDraft((d) => ({ ...d, reportedBy: e.target.value }))}
+                  placeholder="ชื่อผู้กรอกรายงานนี้"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={submit} disabled={submitting || (!draft.content.trim() && draft.status !== "NOT_RELEVANT")}>
+                  {submitting ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                  {editingId ? "บันทึกการแก้ไข" : "เพิ่มรายงาน"}
+                </Button>
+                <Button size="sm" variant="secondary" onClick={cancel} disabled={submitting}>
+                  <X size={13} /> ยกเลิก
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {entries.length === 0 && !adding && !editingId && (
+            <p className="text-sm text-gray-400 italic py-4 text-center bg-gray-50 rounded-lg">
+              ยังไม่มีรายงาน — กดปุ่ม &ldquo;เพิ่มรายงาน&rdquo; เพื่อเริ่มต้น
+            </p>
+          )}
+
+          {entries.length > 0 && (
+            <ol className="space-y-2 mt-3">
+              {entries.map((entry, idx) => (
+                <li
+                  key={entry.id}
+                  className={`relative pl-4 border-l-2 ${
+                    idx === 0 ? "border-emerald-400" : "border-gray-200"
+                  }`}
+                >
+                  <span
+                    className={`absolute left-[-5px] top-1 w-2 h-2 rounded-full ${
+                      idx === 0 ? "bg-emerald-500" : "bg-gray-300"
+                    }`}
+                  />
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap text-xs text-gray-500 mb-1">
+                        <Clock size={11} />
+                        <span>{formatThaiDate(entry.createdAt)}</span>
+                        {entry.updatedAt !== entry.createdAt && (
+                          <span className="text-gray-400">(แก้ไข {formatThaiDate(entry.updatedAt)})</span>
+                        )}
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_COLORS[entry.status]}`}
+                        >
+                          {STATUS_LABELS[entry.status]}
+                        </span>
+                        {entry.reportedBy && (
+                          <span className="text-gray-400">โดย {entry.reportedBy}</span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">
+                        {entry.content || <span className="italic text-gray-400">(ไม่เกี่ยวข้อง)</span>}
+                      </p>
+                    </div>
+                    {!editingId && !adding && (
+                      <div className="flex gap-1 shrink-0">
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(entry)} title="แก้ไข">
+                          <Pencil size={12} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (confirm("ลบรายงานนี้?")) onDelete(entry.id);
+                          }}
+                          title="ลบ"
+                        >
+                          <Trash2 size={12} />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+
+        {/* Evidence URL (per implementation, not per entry) */}
+        <div>
+          <label className="text-sm font-medium text-gray-700 flex items-center gap-1.5 mb-1">
+            <Link2 size={13} className="text-gray-400" />
+            ลิงก์หลักฐาน
+            <span className="text-xs font-normal text-gray-400">(ไม่บังคับ — Google Drive, OneDrive ฯลฯ)</span>
+          </label>
+          <input
+            type="url"
+            value={evidenceUrl}
+            onChange={(e) => onEvidenceChange(e.target.value)}
+            placeholder="https://drive.google.com/..."
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          />
+        </div>
+
+        {isError && (
+          <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            <AlertCircle size={14} className="shrink-0" />
+            บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

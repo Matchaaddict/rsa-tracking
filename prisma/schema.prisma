@@ -93,8 +93,22 @@ model Implementation {
   updatedAt      DateTime            @updatedAt
   createdAt      DateTime            @default(now())
   logs           ImplementationLog[]
+  progressEntries ProgressEntry[]
 
   @@unique([proposalId, agencyId])
+}
+
+model ProgressEntry {
+  id               String         @id @default(cuid())
+  implementation   Implementation @relation(fields: [implementationId], references: [id], onDelete: Cascade)
+  implementationId String
+  content          String
+  status           String
+  reportedBy       String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([implementationId, createdAt])
 }
 
 model ImplementationLog {
