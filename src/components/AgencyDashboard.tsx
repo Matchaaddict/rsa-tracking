@@ -337,10 +337,10 @@ export function AgencyDashboard({
               <div>
                 <label className="text-xs font-medium text-gray-600 block mb-1">เบอร์โทรศัพท์</label>
                 <input
-                  type="tel"
+                  type="text"
                   value={contact.contactPhone}
                   onChange={(e) => handleContactChange("contactPhone", e.target.value)}
-                  placeholder="02-xxx-xxxx"
+                  placeholder="เช่น 081-234-5678"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
