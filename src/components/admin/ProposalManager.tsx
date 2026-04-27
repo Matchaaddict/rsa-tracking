@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
-import { FESTIVAL_TYPE_LABELS, STATUS_LABELS, STATUS_COLORS } from "@/lib/utils";
+import { FESTIVAL_TYPE_LABELS, STATUS_LABELS, STATUS_COLORS, festIcon, festTheme } from "@/lib/utils";
 import {
   Plus, Pencil, Trash2, Loader2, X, Check, ChevronDown, ChevronUp,
 } from "lucide-react";
@@ -305,8 +305,8 @@ export function ProposalManager() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         <span className="text-xs text-gray-400">ข้อ {proposal.orderNumber}</span>
-                        <Badge variant={proposal.festival.type === "NEW_YEAR" ? "default" : "warning"}>
-                          {FESTIVAL_TYPE_LABELS[proposal.festival.type]} {proposal.festival.year}
+                        <Badge variant={festTheme(proposal.festival.type).badgeVariant}>
+                          {festIcon(proposal.festival.type)} {FESTIVAL_TYPE_LABELS[proposal.festival.type]} {proposal.festival.year}
                         </Badge>
                         {proposal.subCommittees.map((sc) => {
                           const n = sc.subCommittee.name.match(/^C(\d+)/)?.[1];

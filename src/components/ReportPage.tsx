@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FESTIVAL_TYPE_LABELS } from "@/lib/utils";
+import { FESTIVAL_TYPE_LABELS, festIcon, festTheme } from "@/lib/utils";
 import { Loader2, Printer } from "lucide-react";
 import { Button } from "./ui/button";
 
@@ -144,8 +144,8 @@ export function ReportPage() {
                         <div>
                           <p className="text-sm font-medium text-gray-900">{p.title}</p>
                           <div className="flex gap-1 mt-1 flex-wrap">
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.festival.type === "NEW_YEAR" ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"}`}>
-                              {FESTIVAL_TYPE_LABELS[p.festival.type]} {p.festival.year}
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${festTheme(p.festival.type).pill}`}>
+                              {festIcon(p.festival.type)} {FESTIVAL_TYPE_LABELS[p.festival.type]} {p.festival.year}
                             </span>
                             {p.subCommittees.map(sc => {
                               const n = sc.subCommittee.name.match(/^C(\d+)/)?.[1];

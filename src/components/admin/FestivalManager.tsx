@@ -95,6 +95,7 @@ export function FestivalManager() {
                   >
                     <option value="NEW_YEAR">ปีใหม่</option>
                     <option value="SONGKRAN">สงกรานต์</option>
+                    <option value="CABINET">ตามมติ ครม.</option>
                   </select>
                 </div>
                 <div>

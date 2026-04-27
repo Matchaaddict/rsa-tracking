@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { STATUS_LABELS, STATUS_COLORS, FESTIVAL_TYPE_LABELS } from "@/lib/utils";
+import { STATUS_LABELS, STATUS_COLORS, FESTIVAL_TYPE_LABELS, festIcon, festTheme } from "@/lib/utils";
 import { Loader2, FileText, MessageCircle, KeyRound, ShieldAlert, CheckCircle2, AlertCircle, Link2, User, Plus, Pencil, Trash2, X, Check, Clock } from "lucide-react";
 
 function AutoResizeTextarea({
@@ -443,11 +443,11 @@ export function AgencyDashboard({
                 onClick={() => setSelectedFestival(f.id)}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                   selectedFestival === f.id
-                    ? f.type === "NEW_YEAR" ? "bg-blue-600 text-white" : "bg-orange-500 text-white"
+                    ? `${festTheme(f.type).bgSolid} text-white`
                     : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
                 }`}
               >
-                {FESTIVAL_TYPE_LABELS[f.type]} {f.year}
+                {festIcon(f.type)} {FESTIVAL_TYPE_LABELS[f.type]} {f.year}
               </button>
             ))}
           </div>
@@ -578,8 +578,8 @@ function ProposalProgressCard({
           <div>
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <span className="text-xs text-gray-400 font-medium">ข้อ {proposal.orderNumber}</span>
-              <Badge variant={proposal.festival.type === "NEW_YEAR" ? "default" : "warning"}>
-                {FESTIVAL_TYPE_LABELS[proposal.festival.type]} {proposal.festival.year}
+              <Badge variant={festTheme(proposal.festival.type).badgeVariant}>
+                {festIcon(proposal.festival.type)} {FESTIVAL_TYPE_LABELS[proposal.festival.type]} {proposal.festival.year}
               </Badge>
               {proposal.subCommittees.map((sc) => {
                 const n = sc.subCommittee.name.match(/^C(\d+)/)?.[1];

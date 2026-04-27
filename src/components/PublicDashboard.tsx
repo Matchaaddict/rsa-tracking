@@ -15,7 +15,7 @@ import {
   Cell,
   Legend,
 } from "recharts";
-import { STATUS_LABELS, STATUS_COLORS, FESTIVAL_TYPE_LABELS } from "@/lib/utils";
+import { STATUS_LABELS, STATUS_COLORS, FESTIVAL_TYPE_LABELS, festIcon, festTheme } from "@/lib/utils";
 import {
   Building2,
   FileText,
@@ -196,9 +196,8 @@ export function PublicDashboard() {
   // เปรียบเทียบรายวาระ — โชว์เมื่อ selectedFestival === "all"
   const festivalBarData = data.festivals.map((f) => {
     const s = computeProgress(data.proposals.filter((p) => p.festivalId === f.id));
-    const icon = f.type === "NEW_YEAR" ? "🎆" : "💦";
     return {
-      name: `${icon} ${FESTIVAL_TYPE_LABELS[f.type]} ${f.year}`,
+      name: `${festIcon(f.type)} ${FESTIVAL_TYPE_LABELS[f.type]} ${f.year}`,
       completed: s.completed,
       inProgress: s.inProgress,
       notStarted: s.notStarted,
@@ -367,13 +366,11 @@ export function PublicDashboard() {
                   onClick={() => setSelectedFestival(f.id)}
                   className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
                     isActive
-                      ? f.type === "NEW_YEAR"
-                        ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-                        : "bg-orange-500 text-white border-orange-500 shadow-sm"
+                      ? `${festTheme(f.type).bgSolid} text-white shadow-sm`
                       : "bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700"
                   }`}
                 >
-                  {f.type === "NEW_YEAR" ? "🎆" : "💦"} {FESTIVAL_TYPE_LABELS[f.type]} {f.year}
+                  {festIcon(f.type)} {FESTIVAL_TYPE_LABELS[f.type]} {f.year}
                   <span className={`ml-1.5 text-xs ${isActive ? "opacity-80" : "text-gray-400"}`}>
                     {pct}%
                   </span>
@@ -608,8 +605,8 @@ export function PublicDashboard() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap mb-1">
                               <span className="text-xs text-gray-400">ข้อ {proposal.orderNumber}</span>
-                              <Badge variant={proposal.festival.type === "NEW_YEAR" ? "default" : "warning"}>
-                                {proposal.festival.type === "NEW_YEAR" ? "🎆" : "💦"} {FESTIVAL_TYPE_LABELS[proposal.festival.type]} {proposal.festival.year}
+                              <Badge variant={festTheme(proposal.festival.type).badgeVariant}>
+                                {festIcon(proposal.festival.type)} {FESTIVAL_TYPE_LABELS[proposal.festival.type]} {proposal.festival.year}
                               </Badge>
                               {proposal.subCommittees.map(({ subCommittee }) => {
                                 const n = subCommittee.name.match(/^C(\d+)/)?.[1];
@@ -732,8 +729,8 @@ export function PublicDashboard() {
 
                       const fStats = computeProgress(festProposals);
                       const { completed: fDone, total: fTotal, activePct: fPct, completedPct: fDonePct } = fStats;
-                      const festColor = festival.type === "NEW_YEAR" ? "text-blue-600" : "text-orange-500";
-                      const festBg = festival.type === "NEW_YEAR" ? "bg-blue-50 hover:bg-blue-100" : "bg-orange-50 hover:bg-orange-100";
+                      const festColor = festTheme(festival.type).text;
+                      const festBg = festTheme(festival.type).bgSoft;
 
                       return (
                         <div key={festKey} className="border-t border-gray-100">
@@ -896,15 +893,12 @@ export function PublicDashboard() {
                       {proposals.map((p) => {
                         const ps = computeProgress([p]);
                         const { activePct: pPct, completedPct: pDonePct } = ps;
-                        const festIcon = p.festival.type === "NEW_YEAR" ? "🎆" : "💦";
                         return (
                           <div key={p.id} className="px-6 py-3 flex items-center justify-between gap-4">
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                                  p.festival.type === "NEW_YEAR" ? "bg-blue-50 text-blue-600" : "bg-orange-50 text-orange-600"
-                                }`}>
-                                  {festIcon} {FESTIVAL_TYPE_LABELS[p.festival.type]} {p.festival.year}
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${festTheme(p.festival.type).badge}`}>
+                                  {festIcon(p.festival.type)} {FESTIVAL_TYPE_LABELS[p.festival.type]} {p.festival.year}
                                 </span>
                                 <span className="text-xs text-gray-400">ข้อ {p.orderNumber}</span>
                               </div>
@@ -980,12 +974,8 @@ export function PublicDashboard() {
                       <div key={idx} className="flex items-start gap-3 p-3 bg-white rounded-xl border border-gray-100">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                              impl.proposal.festival.type === "NEW_YEAR"
-                                ? "bg-blue-50 text-blue-600"
-                                : "bg-orange-50 text-orange-600"
-                            }`}>
-                              {impl.proposal.festival.type === "NEW_YEAR" ? "🎆" : "💦"}{" "}
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${festTheme(impl.proposal.festival.type).badge}`}>
+                              {festIcon(impl.proposal.festival.type)}{" "}
                               {FESTIVAL_TYPE_LABELS[impl.proposal.festival.type]} {impl.proposal.festival.year}
                             </span>
                           </div>
