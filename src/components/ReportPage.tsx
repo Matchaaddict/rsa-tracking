@@ -31,6 +31,7 @@ export function ReportPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedFestival, setSelectedFestival] = useState<string>("all");
+  const [selectedSC, setSelectedSC] = useState<string>("all");
   const [includeDetails, setIncludeDetails] = useState(false);
 
   useEffect(() => {
@@ -44,9 +45,15 @@ export function ReportPage() {
   );
   if (!data) return null;
 
-  const proposals = selectedFestival === "all"
-    ? data.proposals
-    : data.proposals.filter(p => p.festivalId === selectedFestival);
+  const allSubCommittees = [...new Map(
+    data.proposals.flatMap(p => p.subCommittees.map(s => [s.subCommittee.id, s.subCommittee] as const))
+  ).values()].sort((a, b) => a.name.localeCompare(b.name, "th"));
+
+  const proposals = data.proposals.filter(p => {
+    if (selectedFestival !== "all" && p.festivalId !== selectedFestival) return false;
+    if (selectedSC !== "all" && !p.subCommittees.some(s => s.subCommittee.id === selectedSC)) return false;
+    return true;
+  });
 
   const today = new Date().toLocaleDateString("th-TH", { year: "numeric", month: "long", day: "numeric" });
 
@@ -63,6 +70,17 @@ export function ReportPage() {
   const festivalLabel = selectedFestival === "all"
     ? "ทุกวาระ"
     : (() => { const f = data.festivals.find(f => f.id === selectedFestival); return f ? `${FESTIVAL_TYPE_LABELS[f.type]} ${f.year}` : ""; })();
+
+  const scLabel = selectedSC === "all"
+    ? ""
+    : (() => {
+        const sc = allSubCommittees.find(s => s.id === selectedSC);
+        if (!sc) return "";
+        const m = sc.name.match(/^C(\d+)/);
+        return m ? `อนุฯ ${m[1]}` : sc.name;
+      })();
+
+  const reportLabel = [festivalLabel, scLabel].filter(Boolean).join(" · ");
 
   return (
     <div className="space-y-6">
@@ -85,6 +103,25 @@ export function ReportPage() {
               </button>
             ))}
           </div>
+          <select
+            value={selectedSC}
+            onChange={(e) => setSelectedSC(e.target.value)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              selectedSC === "all"
+                ? "bg-white text-gray-600 border-gray-200"
+                : "bg-blue-50 text-blue-700 border-blue-300"
+            }`}
+          >
+            <option value="all">ทุกอนุฯ</option>
+            {allSubCommittees.map((sc) => {
+              const m = sc.name.match(/^C(\d+)/);
+              return (
+                <option key={sc.id} value={sc.id}>
+                  {m ? `อนุฯ ${m[1]} — ${sc.name.replace(/^C\d+:\s*/, "")}` : sc.name}
+                </option>
+              );
+            })}
+          </select>
           <label className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${
             includeDetails ? "bg-blue-50 border-blue-300 text-blue-700" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
           }`}>
@@ -106,11 +143,11 @@ export function ReportPage() {
 
         {/* หัวรายงาน */}
         <div className="text-center border-b pb-5">
-          <p className="text-sm text-gray-400 mb-1">Road Safety Action Thailand (RSAT)</p>
+          <p className="text-sm text-gray-400 mb-1">Road Safety Actions Tracking (RSAT)</p>
           <h1 className="text-lg font-bold text-gray-900 leading-snug">
             รายงานสรุปผลการติดตามข้อเสนอแนวทางในการป้องกันและลดอุบัติเหตุทางถนน
           </h1>
-          <p className="text-base font-semibold text-blue-700 mt-1">{festivalLabel}</p>
+          <p className="text-base font-semibold text-blue-700 mt-1">{reportLabel}</p>
           <p className="text-xs text-gray-400 mt-1">วันที่พิมพ์: {today}</p>
         </div>
 
