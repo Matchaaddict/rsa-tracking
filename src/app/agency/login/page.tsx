@@ -5,7 +5,7 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, HelpCircle, Sparkles } from "lucide-react";
+import { Building2, HelpCircle, LogIn } from "lucide-react";
 import Link from "next/link";
 
 export default function AgencyLoginPage() {
@@ -108,7 +108,7 @@ export default function AgencyLoginPage() {
           <div className="mt-4 space-y-2 text-center">
             <Link href="/agency/first-time"
               className="text-sm text-emerald-600 hover:text-emerald-700 flex items-center gap-1 mx-auto justify-center">
-              <Sparkles size={13} /> เข้าใช้งานครั้งแรก? คลิกที่นี่
+              <LogIn size={13} /> เข้าใช้งานครั้งแรก? คลิกที่นี่
             </Link>
             <button onClick={() => { setShowForgot(!showForgot); setForgotDone(false); setForgotError(""); }}
               className="text-sm text-gray-400 hover:text-emerald-600 flex items-center gap-1 mx-auto">
