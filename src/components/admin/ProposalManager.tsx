@@ -221,20 +221,23 @@ export function ProposalManager() {
                   อนุกรรมการที่รับผิดชอบ
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  {subCommittees.map((sc) => (
-                    <button
-                      key={sc.id}
-                      type="button"
-                      onClick={() => toggleSc(sc.id)}
-                      className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
-                        form.subCommitteeIds.includes(sc.id)
-                          ? "bg-blue-600 text-white border-blue-600"
-                          : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                      }`}
-                    >
-                      {sc.name}
-                    </button>
-                  ))}
+                  {subCommittees.map((sc) => {
+                    const n = sc.name.match(/^C(\d+)/)?.[1];
+                    return (
+                      <button
+                        key={sc.id}
+                        type="button"
+                        onClick={() => toggleSc(sc.id)}
+                        className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+                          form.subCommitteeIds.includes(sc.id)
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                        }`}
+                      >
+                        {n ? `อนุฯ ${n}` : sc.name}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               <div className="flex gap-2">
@@ -305,9 +308,10 @@ export function ProposalManager() {
                         <Badge variant={proposal.festival.type === "NEW_YEAR" ? "default" : "warning"}>
                           {FESTIVAL_TYPE_LABELS[proposal.festival.type]} {proposal.festival.year}
                         </Badge>
-                        {proposal.subCommittees.map((sc) => (
-                          <Badge key={sc.subCommittee.id} variant="gray">{sc.subCommittee.name}</Badge>
-                        ))}
+                        {proposal.subCommittees.map((sc) => {
+                          const n = sc.subCommittee.name.match(/^C(\d+)/)?.[1];
+                          return <Badge key={sc.subCommittee.id} variant="gray">{n ? `อนุฯ ${n}` : sc.subCommittee.name}</Badge>;
+                        })}
                       </div>
                       <p className="font-medium text-gray-900">{proposal.title}</p>
                       {proposal.description && (

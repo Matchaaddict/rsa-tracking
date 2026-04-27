@@ -240,7 +240,7 @@ export function AgencyManager() {
                           : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
                       }`}
                     >
-                      {sc.name}
+                      {(() => { const n = sc.name.match(/^C(\d+)/)?.[1]; return n ? `อนุฯ ${n}` : sc.name; })()}
                     </button>
                   ))}
                 </div>
@@ -280,9 +280,10 @@ export function AgencyManager() {
           className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="all">ทุกอนุกรรมการ</option>
-          {subCommittees.map((sc) => (
-            <option key={sc.id} value={sc.id}>{sc.name}</option>
-          ))}
+          {subCommittees.map((sc) => {
+            const n = sc.name.match(/^C(\d+)/)?.[1];
+            return <option key={sc.id} value={sc.id}>{n ? `อนุฯ ${n}: ${sc.name.replace(/^C\d+:\s*/, "")}` : sc.name}</option>;
+          })}
         </select>
       </div>
 
@@ -323,11 +324,10 @@ export function AgencyManager() {
                     )}
                   </p>
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {a.subCommittees.map((sc) => (
-                      <Badge key={sc.subCommittee.id} variant="gray">
-                        {sc.subCommittee.name}
-                      </Badge>
-                    ))}
+                    {a.subCommittees.map((sc) => {
+                      const n = sc.subCommittee.name.match(/^C(\d+)/)?.[1];
+                      return <Badge key={sc.subCommittee.id} variant="gray">{n ? `อนุฯ ${n}` : sc.subCommittee.name}</Badge>;
+                    })}
                   </div>
                 </div>
                 <div className="flex gap-1 shrink-0 flex-wrap justify-end">

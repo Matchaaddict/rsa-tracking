@@ -306,9 +306,10 @@ export function AgencyDashboard({
                             <Badge variant={proposal.festival.type === "NEW_YEAR" ? "default" : "warning"}>
                               {FESTIVAL_TYPE_LABELS[proposal.festival.type]} {proposal.festival.year}
                             </Badge>
-                            {proposal.subCommittees.map((sc) => (
-                              <Badge key={sc.subCommittee.id} variant="gray">{sc.subCommittee.name}</Badge>
-                            ))}
+                            {proposal.subCommittees.map((sc) => {
+                              const n = sc.subCommittee.name.match(/^C(\d+)/)?.[1];
+                              return <Badge key={sc.subCommittee.id} variant="gray">{n ? `อนุฯ ${n}` : sc.subCommittee.name}</Badge>;
+                            })}
                           </div>
                           <CardTitle className="text-base">{proposal.title}</CardTitle>
                           {proposal.description && (

@@ -558,9 +558,10 @@ export function PublicDashboard() {
                               <Badge variant={proposal.festival.type === "NEW_YEAR" ? "default" : "warning"}>
                                 {proposal.festival.type === "NEW_YEAR" ? "🎆" : "💦"} {FESTIVAL_TYPE_LABELS[proposal.festival.type]} {proposal.festival.year}
                               </Badge>
-                              {proposal.subCommittees.map(({ subCommittee }) => (
-                                <Badge key={subCommittee.id} variant="gray">{subCommittee.name}</Badge>
-                              ))}
+                              {proposal.subCommittees.map(({ subCommittee }) => {
+                                const n = subCommittee.name.match(/^C(\d+)/)?.[1];
+                                return <Badge key={subCommittee.id} variant="gray">{n ? `อนุฯ ${n}` : subCommittee.name}</Badge>;
+                              })}
                             </div>
                             <p className="font-medium text-gray-900">{proposal.title}</p>
                             {proposal.description && (
@@ -644,7 +645,7 @@ export function PublicDashboard() {
                         ? <ChevronUp size={18} className="text-blue-500 shrink-0" />
                         : <ChevronDown size={18} className="text-gray-400 shrink-0" />}
                       <div>
-                        <p className="font-semibold text-gray-900">{sc.name}</p>
+                        <p className="font-semibold text-gray-900">{sc.name.replace(/^C(\d+):/, (_, n) => `อนุฯ ${n}:`)}</p>
                         <p className="text-xs text-gray-400 mt-0.5">{proposals.length} ข้อเสนอ</p>
                       </div>
                     </div>
@@ -835,7 +836,7 @@ export function PublicDashboard() {
                     {isOpen ? <ChevronUp size={15} className="text-gray-400 shrink-0" /> : <ChevronDown size={15} className="text-gray-400 shrink-0" />}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="font-semibold text-gray-900 text-sm">{sc.name}</p>
+                        <p className="font-semibold text-gray-900 text-sm">{sc.name.replace(/^C(\d+):/, (_, n) => `อนุฯ ${n}:`)}</p>
                         <span className={`text-sm font-bold shrink-0 ${pct >= 80 ? "text-emerald-600" : pct >= 50 ? "text-amber-500" : "text-gray-400"}`}>
                           {done}/{total} ({pct}%)
                         </span>

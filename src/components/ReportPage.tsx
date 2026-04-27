@@ -147,11 +147,14 @@ export function ReportPage() {
                             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.festival.type === "NEW_YEAR" ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"}`}>
                               {FESTIVAL_TYPE_LABELS[p.festival.type]} {p.festival.year}
                             </span>
-                            {p.subCommittees.map(sc => (
-                              <span key={sc.subCommittee.id} className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
-                                {sc.subCommittee.name.replace(/^C\d+:\s*/, "")}
-                              </span>
-                            ))}
+                            {p.subCommittees.map(sc => {
+                              const n = sc.subCommittee.name.match(/^C(\d+)/)?.[1];
+                              return (
+                                <span key={sc.subCommittee.id} className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                                  {n ? `อนุฯ ${n}` : sc.subCommittee.name.replace(/^C\d+:\s*/, "")}
+                                </span>
+                              );
+                            })}
                           </div>
                         </div>
                         <div className="text-right shrink-0">
@@ -217,7 +220,7 @@ export function ReportPage() {
                   {/* หัวอนุกรรมการ */}
                   <div className="flex items-center justify-between bg-blue-600 text-white px-4 py-3 rounded-t-lg print:rounded-none">
                     <div>
-                      <p className="font-bold text-base">{sc.name}</p>
+                      <p className="font-bold text-base">{sc.name.replace(/^C(\d+):/, (_, n) => `อนุฯ ${n}:`)}</p>
                       <p className="text-blue-100 text-xs mt-0.5">
                         {scProposals.length} ข้อเสนอ · {scAgencies.length} หน่วยงาน
                       </p>
