@@ -10,6 +10,7 @@ const ALL_TABS = [
   { id: "subcommittees", label: "จัดการอนุกรรมการ" },
   { id: "agencies",      label: "จัดการหน่วยงาน" },
   { id: "proposals",     label: "จัดการข้อเสนอ" },
+  { id: "import",        label: "นำเข้าจาก Markdown" },
   { id: "analysis",      label: "วิเคราะห์ความคืบหน้า" },
   { id: "siteconfig",    label: "ตั้งค่าหน้าเว็บ" },
   { id: "faq",           label: "จัดการ FAQ" },

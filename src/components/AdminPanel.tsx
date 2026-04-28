@@ -11,13 +11,15 @@ import { SiteConfigManager } from "./admin/SiteConfigManager";
 import { FAQManager } from "./admin/FAQManager";
 import { MessagesManager } from "./admin/MessagesManager";
 import { AdminManager } from "./admin/AdminManager";
-import { CalendarDays, Users, Building2, FileText, KeyRound, BarChart2, Globe, HelpCircle, MessageCircle, ShieldCheck } from "lucide-react";
+import { MarkdownImporter } from "./admin/MarkdownImporter";
+import { CalendarDays, Users, Building2, FileText, KeyRound, BarChart2, Globe, HelpCircle, MessageCircle, ShieldCheck, Upload } from "lucide-react";
 
 const ALL_TABS = [
   { id: "festivals",     label: "วาระ",        icon: CalendarDays },
   { id: "subcommittees", label: "อนุกรรมการ",   icon: Users },
   { id: "agencies",      label: "หน่วยงาน",     icon: Building2 },
   { id: "proposals",     label: "ข้อเสนอ",      icon: FileText },
+  { id: "import",        label: "นำเข้า",       icon: Upload },
   { id: "analysis",      label: "วิเคราะห์",    icon: BarChart2 },
   { id: "siteconfig",    label: "หน้าเว็บ",      icon: Globe },
   { id: "faq",           label: "FAQ",           icon: HelpCircle },
@@ -98,6 +100,7 @@ export function AdminPanel({
         {activeTab === "subcommittees" && <SubCommitteeManager />}
         {activeTab === "agencies" && <AgencyManager />}
         {activeTab === "proposals" && <ProposalManager />}
+        {activeTab === "import" && <MarkdownImporter />}
         {activeTab === "analysis" && <AnalysisPanel />}
         {activeTab === "siteconfig" && <SiteConfigManager />}
         {activeTab === "faq" && <FAQManager />}
