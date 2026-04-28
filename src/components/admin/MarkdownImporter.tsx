@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { FESTIVAL_TYPE_LABELS } from "@/lib/utils";
 import { parseMarkdownProposals, type ParsedProposal } from "@/lib/parseMarkdownProposals";
-import { Loader2, AlertTriangle, Check, Trash2, Wand2 } from "lucide-react";
+import { Loader2, AlertTriangle, Check, Trash2, Wand2, Upload } from "lucide-react";
 
 interface Festival { id: string; name: string; type: string; year: number }
 interface SubCommittee { id: string; name: string }
@@ -27,6 +27,8 @@ export function MarkdownImporter() {
   const [importing, setImporting] = useState(false);
   const [done, setDone] = useState<{ count: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     Promise.all([
@@ -39,6 +41,34 @@ export function MarkdownImporter() {
       })
       .catch(() => setError("โหลดข้อมูลวาระ/อนุฯ ไม่สำเร็จ"));
   }, []);
+
+  function loadText(text: string) {
+    setMd(text);
+    setDone(null);
+    setError(null);
+    setParsed([]);
+    setWarnings([]);
+  }
+
+  function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => loadText(ev.target?.result as string ?? "");
+    reader.readAsText(file, "utf-8");
+    e.target.value = "";
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => loadText(ev.target?.result as string ?? "");
+      reader.readAsText(file, "utf-8");
+    }
+  }
 
   function handleParse() {
     setDone(null);
@@ -144,24 +174,54 @@ export function MarkdownImporter() {
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">Markdown ต้นฉบับ</label>
-            <textarea
-              value={md}
-              onChange={(e) => setMd(e.target.value)}
-              rows={10}
-              placeholder={
-                "วาง markdown table 2 คอลัมน์:\n  คอลัมน์ 1 = ชื่ออนุฯ ขึ้นต้นด้วยเลข 1-8 (รับเลขไทยและอารบิก)\n  คอลัมน์ 2 = ข้อย่อยคั่นด้วย <br>\n\nระบบจะแปลงเลขไทยเป็นอารบิกอัตโนมัติ"
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <div className="flex items-center justify-between mt-2">
-              <button
-                type="button"
-                onClick={() => setMd(SAMPLE_MD)}
-                className="text-xs text-blue-600 hover:underline"
-              >
-                ใช้ตัวอย่าง
-              </button>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-sm font-medium text-gray-700">Markdown ต้นฉบับ</label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMd(SAMPLE_MD)}
+                  className="text-xs text-blue-600 hover:underline"
+                >
+                  ใช้ตัวอย่าง
+                </button>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".md,.txt"
+                  onChange={handleFileInput}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-700"
+                >
+                  <Upload size={11} /> เลือกไฟล์ .md
+                </button>
+              </div>
+            </div>
+            <div
+              onDrop={handleDrop}
+              onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+              onDragLeave={() => setDragging(false)}
+              className={`relative rounded-lg transition-colors ${dragging ? "ring-2 ring-blue-400 bg-blue-50" : ""}`}
+            >
+              {dragging && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-blue-50 border-2 border-dashed border-blue-400 pointer-events-none">
+                  <p className="text-sm font-medium text-blue-600">วางไฟล์ที่นี่</p>
+                </div>
+              )}
+              <textarea
+                value={md}
+                onChange={(e) => setMd(e.target.value)}
+                rows={10}
+                placeholder={
+                  "วาง markdown table หรือ drag & drop ไฟล์ .md มาที่นี่\n\nรูปแบบที่รองรับ:\n  คอลัมน์ 1 = ชื่ออนุฯ ขึ้นต้นด้วยเลข 1-8 (รับเลขไทยและอารบิก)\n  คอลัมน์ 2 = ข้อย่อยคั่นด้วย <br>\n\nระบบจะแปลงเลขไทย ๑-๙ เป็น 1-9 อัตโนมัติ"
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div className="flex justify-end mt-2">
               <Button size="sm" onClick={handleParse} disabled={!md.trim()}>
                 <Wand2 size={14} /> วิเคราะห์
               </Button>
