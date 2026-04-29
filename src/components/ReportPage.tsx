@@ -22,6 +22,7 @@ interface Proposal {
   festival: Festival; festivalId: string;
   subCommittees: { subCommittee: SubCommittee }[];
   implementations: Implementation[];
+  expectedAgencyIds: string[];
 }
 interface DashboardData { festivals: Festival[]; proposals: Proposal[]; agencies: Agency[] }
 
@@ -114,10 +115,14 @@ export function ReportPage() {
   proposals.forEach(p => p.subCommittees.forEach(s => scMap.set(s.subCommittee.id, s.subCommittee)));
   const subCommittees = [...scMap.values()].sort((a, b) => a.name.localeCompare(b.name));
 
-  // summary stats
+  // summary stats — ใช้ expectedAgencyIds เป็นตัวหารเมื่อดูภาพรวม (สอดคล้องกับหน้าแรก)
   const totalDone = proposals.reduce((acc, p) => acc + p.implementations.filter(i => i.status === "COMPLETED").length, 0);
   const totalInProg = proposals.reduce((acc, p) => acc + p.implementations.filter(i => i.status === "IN_PROGRESS").length, 0);
-  const totalNotStarted = proposals.reduce((acc, p) => acc + p.implementations.filter(i => i.status === "NOT_STARTED").length, 0);
+  const totalNotRel = proposals.reduce((acc, p) => acc + p.implementations.filter(i => i.status === "NOT_RELEVANT").length, 0);
+  const totalRelevant = selectedAgency === "all"
+    ? proposals.reduce((acc, p) => acc + p.expectedAgencyIds.length, 0) - totalNotRel
+    : proposals.reduce((acc, p) => acc + p.implementations.filter(i => i.status !== "NOT_RELEVANT").length, 0);
+  const totalNotStarted = Math.max(totalRelevant - totalDone - totalInProg, 0);
 
   const festivalLabel = selectedFestival === "all"
     ? "ทุกวาระ"
@@ -320,12 +325,13 @@ export function ReportPage() {
                 )}
                 <div className="space-y-2">
                   {groupProposals.map(p => {
-                    const relevant = p.implementations.filter(i => i.status !== "NOT_RELEVANT");
-                    const done = relevant.filter(i => i.status === "COMPLETED").length;
-                    const inProg = relevant.filter(i => i.status === "IN_PROGRESS").length;
-                    const notStarted = relevant.filter(i => i.status === "NOT_STARTED").length;
+                    const done = p.implementations.filter(i => i.status === "COMPLETED").length;
+                    const inProg = p.implementations.filter(i => i.status === "IN_PROGRESS").length;
+                    const notStarted = p.implementations.filter(i => i.status === "NOT_STARTED").length;
                     const notRel = p.implementations.filter(i => i.status === "NOT_RELEVANT").length;
-                    const total = relevant.length;
+                    const total = selectedAgency === "all"
+                      ? Math.max(p.expectedAgencyIds.length - notRel, 0)
+                      : Math.max(p.implementations.filter(i => i.status !== "NOT_RELEVANT").length, 0);
                     const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
                     return (
@@ -425,12 +431,15 @@ export function ReportPage() {
                 .filter(a => selectedAgency === "all" || a.id === selectedAgency);
               if (scAgencies.length === 0) return null;
 
-              // summary ของอนุนี้
+              // summary ของอนุนี้ — ใช้ expectedAgencyIds เป็นตัวหาร (สอดคล้องหน้าแรก)
               const scDone = scProposals.reduce((acc, p) =>
                 acc + p.implementations.filter(i => i.status === "COMPLETED").length, 0);
-              const scRelevant = scProposals.reduce((acc, p) =>
-                acc + p.implementations.filter(i => i.status !== "NOT_RELEVANT").length, 0);
-              const scPct = scRelevant > 0 ? Math.round((scDone / scRelevant) * 100) : 0;
+              const scNotRel = scProposals.reduce((acc, p) =>
+                acc + p.implementations.filter(i => i.status === "NOT_RELEVANT").length, 0);
+              const scTotal = selectedAgency === "all"
+                ? scProposals.reduce((acc, p) => acc + p.expectedAgencyIds.length, 0) - scNotRel
+                : scProposals.reduce((acc, p) => acc + p.implementations.filter(i => i.status !== "NOT_RELEVANT").length, 0);
+              const scPct = scTotal > 0 ? Math.round((scDone / scTotal) * 100) : 0;
 
               return (
                 <div key={sc.id} className={`${scIdx > 0 ? "mt-8 print:mt-0 print:break-before-page" : ""}`}>
@@ -444,7 +453,7 @@ export function ReportPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-2xl font-bold">{scPct}%</p>
-                      <p className="text-blue-200 text-xs">เสร็จสิ้น {scDone}/{scRelevant}</p>
+                      <p className="text-blue-200 text-xs">เสร็จสิ้น {scDone}/{scTotal}</p>
                     </div>
                   </div>
 
@@ -490,7 +499,8 @@ export function ReportPage() {
                             )
                           );
                           const done = [...implMap.values()].filter(i => i.status === "COMPLETED").length;
-                          const relevant = [...implMap.values()].filter(i => i.status !== "NOT_RELEVANT").length;
+                          const notRelForAgency = [...implMap.values()].filter(i => i.status === "NOT_RELEVANT").length;
+                          const relevant = scProposals.length - notRelForAgency;
 
                           return (
                             <tr key={agency.id} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
