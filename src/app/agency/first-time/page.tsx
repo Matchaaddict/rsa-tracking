@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Building2, Search, Loader2, Copy, Check, KeyRound, ArrowLeft, ShieldAlert, AlertTriangle } from "lucide-react";
+import { Building2, Search, Loader2, Copy, Check, KeyRound, ArrowLeft, ShieldAlert, AlertTriangle, Lock } from "lucide-react";
 import Link from "next/link";
 
 interface AgencyItem {
@@ -23,6 +23,7 @@ interface Credentials {
 export default function FirstTimePage() {
   const [agencies, setAgencies] = useState<AgencyItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [disabled, setDisabled] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [creds, setCreds] = useState<Credentials | null>(null);
@@ -32,8 +33,12 @@ export default function FirstTimePage() {
 
   useEffect(() => {
     fetch("/api/public/first-time")
-      .then((r) => r.json())
-      .then((d) => { setAgencies(d); setLoading(false); });
+      .then(async (r) => {
+        if (r.status === 503) { setDisabled(true); setLoading(false); return; }
+        const d = await r.json();
+        setAgencies(d);
+        setLoading(false);
+      });
   }, []);
 
   async function handleSelect(id: string) {
@@ -63,6 +68,31 @@ export default function FirstTimePage() {
   const filtered = agencies.filter((a) =>
     !search || a.name.toLowerCase().includes(search.toLowerCase())
   );
+
+  if (disabled) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-8 pb-8 text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="w-14 h-14 bg-gray-200 rounded-full flex items-center justify-center">
+                <Lock size={26} className="text-gray-500" />
+              </div>
+            </div>
+            <div>
+              <p className="text-base font-semibold text-gray-700">ระบบนี้ปิดให้บริการชั่วคราว</p>
+              <p className="text-sm text-gray-400 mt-1">
+                กรุณาติดต่อผู้ดูแลระบบเพื่อรับ Username และรหัสผ่านของท่าน
+              </p>
+            </div>
+            <Link href="/agency/login">
+              <Button variant="secondary" size="sm" className="mt-2">ไปหน้าเข้าสู่ระบบ</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (selectedId && (creds || credLoading || error)) {
     return (

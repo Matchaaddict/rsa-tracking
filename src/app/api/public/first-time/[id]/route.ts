@@ -18,6 +18,11 @@ function isRateLimited(ip: string): boolean {
 }
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const config = await prisma.siteConfig.findUnique({ where: { key: "first_time_login_enabled" } });
+  if (config?.value !== "true") {
+    return NextResponse.json({ error: "disabled" }, { status: 503 });
+  }
+
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
     req.headers.get("x-real-ip") ??

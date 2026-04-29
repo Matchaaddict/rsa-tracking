@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
-import { Loader2, Check, Globe } from "lucide-react";
+import { Loader2, Check, Globe, KeyRound } from "lucide-react";
 
 const FIELDS = [
   { key: "site_page_title", label: "ชื่อแท็บเบราว์เซอร์", placeholder: "ระบบติดตามข้อเสนอแนวทางฯ | RSAT", textarea: false },
@@ -81,6 +81,51 @@ export function SiteConfigManager() {
           </div>
         </CardContent>
       </Card>
+
+      {/* First-time login toggle */}
+      <div className="mt-8">
+        <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2 mb-1">
+          <KeyRound size={18} /> ระบบเข้าใช้งานครั้งแรก
+        </h2>
+        <p className="text-sm text-gray-500 mb-3">
+          เปิดหรือปิดหน้า &quot;เข้าใช้งานครั้งแรก&quot; ที่แสดง Username/Password ชั่วคราวให้หน่วยงาน
+        </p>
+        <Card>
+          <CardContent className="pt-5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-gray-700">หน้าดูข้อมูลเข้าสู่ระบบครั้งแรก</p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {values.first_time_login_enabled === "true"
+                    ? "เปิดอยู่ — หน่วยงานสามารถเข้าดู Username/Password ได้"
+                    : "ปิดอยู่ — หน้าดังกล่าวจะแสดงข้อความปิดระบบชั่วคราว"}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  const next = values.first_time_login_enabled === "true" ? "false" : "true";
+                  const newValues = { ...values, first_time_login_enabled: next };
+                  setValues(newValues);
+                  fetch("/api/admin/site-config", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ first_time_login_enabled: next }),
+                  });
+                }}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                  values.first_time_login_enabled === "true" ? "bg-emerald-500" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                    values.first_time_login_enabled === "true" ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Preview */}
       <div>
