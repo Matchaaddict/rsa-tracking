@@ -338,6 +338,11 @@ export function ReportPage() {
                             <div className="flex items-start justify-between gap-2">
                               <div>
                                 <p className="text-sm font-medium text-gray-900">{p.title}</p>
+                                {p.description && p.description.trim() !== p.title.trim() && (
+                                  <p className="text-xs text-gray-600 mt-1 leading-relaxed whitespace-pre-wrap">
+                                    {p.description}
+                                  </p>
+                                )}
                                 {!multiGroup && (
                                   <div className="flex gap-1 mt-1 flex-wrap">
                                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${festTheme(p.festival.type).pill}`}>
