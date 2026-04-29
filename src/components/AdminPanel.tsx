@@ -13,6 +13,7 @@ import { MessagesManager } from "./admin/MessagesManager";
 import { AdminManager } from "./admin/AdminManager";
 import { MarkdownImporter } from "./admin/MarkdownImporter";
 import { DemoSeeder } from "./admin/DemoSeeder";
+import { BackupPanel } from "./admin/BackupPanel";
 import { CalendarDays, Users, Building2, FileText, KeyRound, BarChart2, Globe, HelpCircle, MessageCircle, ShieldCheck, Upload } from "lucide-react";
 
 const ALL_TABS = [
@@ -103,6 +104,7 @@ export function AdminPanel({
         {activeTab === "proposals" && <ProposalManager />}
         {activeTab === "import" && (
           <div className="space-y-8">
+            <BackupPanel />
             <MarkdownImporter />
             <DemoSeeder />
           </div>
