@@ -206,7 +206,7 @@ export function PublicDashboard() {
   const agenciesWithDataForFilter = new Set(
     filteredProposals.flatMap((p) =>
       p.implementations
-        .filter((i) => i.content && i.status !== "NOT_RELEVANT")
+        .filter((i) => i.status !== "NOT_RELEVANT")
         .map((i) => i.agencyId)
     )
   ).size;

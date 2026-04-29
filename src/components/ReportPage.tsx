@@ -534,15 +534,18 @@ export function ReportPage() {
                             รวม
                           </td>
                           {scProposals.map(p => {
-                            const rel = p.implementations.filter(i => i.status !== "NOT_RELEVANT");
-                            const d = rel.filter(i => i.status === "COMPLETED").length;
-                            const pct = rel.length > 0 ? Math.round((d / rel.length) * 100) : 0;
+                            const notRelCount = p.implementations.filter(i => i.status === "NOT_RELEVANT").length;
+                            const footTotal = selectedAgency === "all"
+                              ? Math.max(p.expectedAgencyIds.length - notRelCount, 0)
+                              : Math.max(p.implementations.filter(i => i.status !== "NOT_RELEVANT").length, 0);
+                            const d = p.implementations.filter(i => i.status === "COMPLETED").length;
+                            const pct = footTotal > 0 ? Math.round((d / footTotal) * 100) : 0;
                             return (
                               <td key={p.id} className="border-t border-r border-gray-200 text-center py-2">
                                 <div className={`text-sm font-bold ${pct === 100 ? "text-green-700" : pct > 0 ? "text-yellow-700" : "text-gray-400"}`}>
                                   {pct}%
                                 </div>
-                                <div className="text-xs text-gray-400">{d}/{rel.length}</div>
+                                <div className="text-xs text-gray-400">{d}/{footTotal}</div>
                               </td>
                             );
                           })}
