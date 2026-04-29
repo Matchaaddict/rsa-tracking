@@ -386,7 +386,7 @@ export function ReportPage() {
               const scPct = scRelevant > 0 ? Math.round((scDone / scRelevant) * 100) : 0;
 
               return (
-                <div key={sc.id} className={`print:break-before-page ${scIdx > 0 ? "mt-8 print:mt-0" : ""}`}>
+                <div key={sc.id} className={`${scIdx > 0 ? "mt-8 print:mt-0 print:break-before-page" : ""}`}>
                   {/* หัวอนุกรรมการ */}
                   <div className="flex items-center justify-between bg-blue-600 text-white px-4 py-3 rounded-t-lg print:rounded-none">
                     <div>
@@ -402,11 +402,11 @@ export function ReportPage() {
                   </div>
 
                   {/* ตาราง */}
-                  <div className="overflow-x-auto border border-t-0 border-gray-200 rounded-b-lg">
+                  <div className="overflow-x-auto print:overflow-visible border border-t-0 border-gray-200 rounded-b-lg">
                     <table className="w-full text-xs border-collapse">
                       <thead>
                         <tr className="bg-gray-50">
-                          <th className="border-b border-r border-gray-200 px-3 py-2 text-left font-semibold text-gray-700 min-w-[160px] sticky left-0 bg-gray-50">
+                          <th className="border-b border-r border-gray-200 px-3 py-2 text-left font-semibold text-gray-700 min-w-[160px] sticky left-0 bg-gray-50 print:static">
                             หน่วยงาน
                           </th>
                           {scProposals.map(p => (
@@ -420,7 +420,7 @@ export function ReportPage() {
                         </tr>
                         {/* แถวชื่อข้อเสนอ */}
                         <tr className="bg-blue-50">
-                          <td className="border-b border-r border-gray-200 px-3 py-1.5 text-gray-500 italic text-xs sticky left-0 bg-blue-50">
+                          <td className="border-b border-r border-gray-200 px-3 py-1.5 text-gray-500 italic text-xs sticky left-0 bg-blue-50 print:static">
                             ชื่อข้อเสนอ
                           </td>
                           {scProposals.map(p => (
@@ -447,7 +447,7 @@ export function ReportPage() {
 
                           return (
                             <tr key={agency.id} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
-                              <td className={`border-b border-r border-gray-100 px-3 py-2 font-medium text-gray-800 sticky left-0 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
+                              <td className={`border-b border-r border-gray-100 px-3 py-2 font-medium text-gray-800 sticky left-0 print:static ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
                                 {agency.name}
                               </td>
                               {scProposals.map(p => {
@@ -473,7 +473,7 @@ export function ReportPage() {
                       {/* Summary row */}
                       <tfoot>
                         <tr className="bg-gray-100 font-semibold">
-                          <td className="border-t border-r border-gray-200 px-3 py-2 text-gray-700 sticky left-0 bg-gray-100">
+                          <td className="border-t border-r border-gray-200 px-3 py-2 text-gray-700 sticky left-0 bg-gray-100 print:static">
                             รวม
                           </td>
                           {scProposals.map(p => {
@@ -515,10 +515,10 @@ export function ReportPage() {
             </p>
 
             <div className="space-y-6">
-              {festivalGroups.map(({ festival, proposals: groupProposals }) => (
+              {festivalGroups.map(({ festival, proposals: groupProposals }, fgIdx) => (
                 <div key={festival.id}>
                   {multiGroup && (
-                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg mb-3 text-sm font-semibold print:break-before-page ${festTheme(festival.type).pill}`}>
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg mb-3 text-sm font-semibold ${fgIdx > 0 ? "print:break-before-page" : ""} ${festTheme(festival.type).pill}`}>
                       {festIcon(festival.type)} {FESTIVAL_TYPE_LABELS[festival.type]} {festival.year}
                     </div>
                   )}

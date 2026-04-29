@@ -13,14 +13,29 @@ body {
 
 @media print {
   @page {
-    size: A4;
-    margin: 1.5cm;
+    size: A4 landscape;
+    margin: 1cm;
   }
   body {
     background: white;
-    font-size: 11px;
+    font-size: 10px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* บังคับให้สีพื้นหลังของทุก element พิมพ์ออกมา */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
   .print\:hidden { display: none !important; }
   .print\:break-before-page { break-before: page; }
   .print\:break-inside-avoid { break-inside: avoid; }
+  .print\:static { position: static !important; }
+  .print\:overflow-visible { overflow: visible !important; }
+  /* ห้ามแยก thead กับ row แรก / row กลางคัน */
+  thead { display: table-header-group; }
+  tfoot { display: table-row-group; }
+  tr { break-inside: avoid; page-break-inside: avoid; }
+  /* หัวข้อ section ไม่ตกท้ายหน้า */
+  h1, h2, h3 { break-after: avoid; }
 }
