@@ -252,7 +252,7 @@ export function PublicDashboard() {
 
         <div className="relative px-6 pt-7 pb-6 space-y-5">
           {/* Title row */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap xs:flex-nowrap">
             {/* Completion Ring: yellow = ดำเนินการแล้ว (active), green = เสร็จสมบูรณ์ overlays */}
             <svg width={88} height={88} viewBox="0 0 130 130" className="shrink-0">
               <circle cx={65} cy={65} r={ringR} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={12} />
@@ -344,7 +344,7 @@ export function PublicDashboard() {
                   }`}>
                     {idx + 1}
                   </div>
-                  <div className="w-28 sm:w-44 shrink-0">
+                  <div className="w-24 sm:w-44 shrink-0">
                     <p className="text-xs text-gray-600 leading-snug line-clamp-2">{sc.name}</p>
                   </div>
                   <div className="flex-1 relative">
@@ -516,22 +516,24 @@ export function PublicDashboard() {
 
       {/* Tabs + Search */}
       <div className="space-y-3">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {([
             { key: "proposals", label: "รายข้อเสนอ", count: filteredProposals.length },
-            { key: "subcommittees", label: "รายอนุกรรมการ", count: data.subCommittees.length },
+            { key: "subcommittees", label: "รายอนุฯ", labelFull: "รายอนุกรรมการ", count: data.subCommittees.length },
             { key: "agencies", label: "รายหน่วยงาน", count: data.agencies.length },
           ] as const).map((t) => (
             <button
               key={t.key}
               onClick={() => { setActiveTab(t.key); setSearchQuery(""); setSelectedSC(null); }}
-              className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
                 activeTab === t.key
                   ? "bg-blue-600 text-white shadow-sm"
                   : "bg-white text-gray-500 border border-gray-200 hover:border-gray-400"
               }`}
             >
-              {t.label}
+              {"labelFull" in t ? (
+                <><span className="sm:hidden">{t.label}</span><span className="hidden sm:inline">{t.labelFull}</span></>
+              ) : t.label}
               {t.count !== null && (
                 <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
                   activeTab === t.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
@@ -808,7 +810,7 @@ export function PublicDashboard() {
                                 return (
                                   <div key={proposalKey}>
                                     <div
-                                      className="px-8 py-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                                      className="px-4 sm:px-8 py-4 cursor-pointer hover:bg-gray-50 transition-colors"
                                       onClick={() =>
                                         setExpandedProposal(expandedProposal === proposalKey ? null : proposalKey)
                                       }
@@ -841,7 +843,7 @@ export function PublicDashboard() {
                                     </div>
 
                                     {expandedProposal === proposalKey && (
-                                      <div className="bg-gray-50 px-8 py-3 space-y-2">
+                                      <div className="bg-gray-50 px-4 sm:px-8 py-3 space-y-2">
                                         {allImpls.map((impl) => (
                                           <div
                                             key={impl.id}
