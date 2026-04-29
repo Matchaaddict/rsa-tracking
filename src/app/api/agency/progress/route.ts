@@ -25,35 +25,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Reporter contact required" }, { status: 400 });
   }
 
-  const impl = await prisma.implementation.upsert({
-    where: { proposalId_agencyId: { proposalId, agencyId } },
-    update: {
-      content: content ?? "",
-      status,
-      contactName,
-      contactTitle,
-      contactPhone,
-    },
-    create: {
-      proposalId,
-      agencyId,
-      content: content ?? "",
-      status,
-      contactName,
-      contactTitle,
-      contactPhone,
-    },
-  });
+  const entry = await prisma.$transaction(async (tx) => {
+    const impl = await tx.implementation.upsert({
+      where: { proposalId_agencyId: { proposalId, agencyId } },
+      update: {
+        content: content ?? "",
+        status,
+        contactName,
+        contactTitle,
+        contactPhone,
+      },
+      create: {
+        proposalId,
+        agencyId,
+        content: content ?? "",
+        status,
+        contactName,
+        contactTitle,
+        contactPhone,
+      },
+    });
 
-  const entry = await prisma.progressEntry.create({
-    data: {
-      implementationId: impl.id,
-      content: content ?? "",
-      status,
-      contactName: contactName.trim(),
-      contactTitle: contactTitle.trim(),
-      contactPhone: contactPhone.trim(),
-    },
+    return await tx.progressEntry.create({
+      data: {
+        implementationId: impl.id,
+        content: content ?? "",
+        status,
+        contactName: contactName.trim(),
+        contactTitle: contactTitle.trim(),
+        contactPhone: contactPhone.trim(),
+      },
+    });
   });
 
   return NextResponse.json(entry);

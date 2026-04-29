@@ -28,20 +28,24 @@ export async function POST(req: NextRequest) {
   });
   let nextOrder = (last?.orderNumber ?? 0) + 1;
 
-  let created = 0;
-  for (const p of proposals) {
-    if (!p.title?.trim() || !p.description?.trim() || !p.scId) continue;
-    await prisma.proposal.create({
-      data: {
-        title: p.title.trim(),
-        description: p.description.trim(),
-        festivalId,
-        orderNumber: nextOrder++,
-        subCommittees: { create: [{ subCommitteeId: p.scId }] },
-      },
-    });
-    created++;
-  }
+  // ส่ง create เป็น batch transaction รอบเดียว แทน sequential await ในลูป
+  // (100 ข้อ × 50ms = 5s → เหลือ 1 round-trip)
+  const ops = proposals
+    .filter((p) => p.title?.trim() && p.description?.trim() && p.scId)
+    .map((p) =>
+      prisma.proposal.create({
+        data: {
+          title: p.title.trim(),
+          description: p.description.trim(),
+          festivalId,
+          orderNumber: nextOrder++,
+          subCommittees: { create: [{ subCommitteeId: p.scId }] },
+        },
+      })
+    );
 
-  return NextResponse.json({ created });
+  if (ops.length === 0) return NextResponse.json({ created: 0 });
+
+  const createdRows = await prisma.$transaction(ops);
+  return NextResponse.json({ created: createdRows.length });
 }

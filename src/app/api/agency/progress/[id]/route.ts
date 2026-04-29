@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -15,13 +16,13 @@ async function loadOwnedEntry(id: string, agencyId: string) {
   });
 }
 
-async function syncLatest(implementationId: string) {
-  const latest = await prisma.progressEntry.findFirst({
+async function syncLatest(tx: Prisma.TransactionClient, implementationId: string) {
+  const latest = await tx.progressEntry.findFirst({
     where: { implementationId },
     orderBy: { createdAt: "desc" },
     select: { content: true, status: true, contactName: true, contactTitle: true, contactPhone: true },
   });
-  await prisma.implementation.update({
+  await tx.implementation.update({
     where: { id: implementationId },
     data: {
       content: latest?.content ?? "",
@@ -53,18 +54,21 @@ export async function PATCH(
     return NextResponse.json({ error: "Reporter contact required" }, { status: 400 });
   }
 
-  const updated = await prisma.progressEntry.update({
-    where: { id },
-    data: {
-      content: content ?? "",
-      status,
-      contactName: contactName.trim(),
-      contactTitle: contactTitle.trim(),
-      contactPhone: contactPhone.trim(),
-    },
+  const updated = await prisma.$transaction(async (tx) => {
+    const u = await tx.progressEntry.update({
+      where: { id },
+      data: {
+        content: content ?? "",
+        status,
+        contactName: contactName.trim(),
+        contactTitle: contactTitle.trim(),
+        contactPhone: contactPhone.trim(),
+      },
+    });
+    await syncLatest(tx, entry.implementation.id);
+    return u;
   });
 
-  await syncLatest(entry.implementation.id);
   return NextResponse.json(updated);
 }
 
@@ -80,8 +84,10 @@ export async function DELETE(
   const entry = await loadOwnedEntry(id, agencyId);
   if (!entry) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  await prisma.progressEntry.delete({ where: { id } });
-  await syncLatest(entry.implementation.id);
+  await prisma.$transaction(async (tx) => {
+    await tx.progressEntry.delete({ where: { id } });
+    await syncLatest(tx, entry.implementation.id);
+  });
 
   return NextResponse.json({ ok: true });
 }

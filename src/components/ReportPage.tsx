@@ -57,7 +57,7 @@ export function ReportPage() {
   const [historyMode, setHistoryMode] = useState<"current" | "all">("current");
 
   useEffect(() => {
-    fetch("/api/public/dashboard").then(r => r.json()).then(d => { setData(d); setLoading(false); });
+    fetch("/api/public/dashboard?fullHistory=true").then(r => r.json()).then(d => { setData(d); setLoading(false); });
   }, []);
 
   if (loading) return (

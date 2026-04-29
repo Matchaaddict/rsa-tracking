@@ -1,7 +1,33 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // หน้าแรกใช้ default — ไม่ต้องส่ง progressEntries มาด้วย เพราะใช้แค่ status/content ปัจจุบัน
+  // หน้า ReportPage ที่ต้องการประวัติเต็มเรียกด้วย ?fullHistory=true
+  const fullHistory = new URL(req.url).searchParams.get("fullHistory") === "true";
+
+  const implementationsInclude = fullHistory
+    ? {
+        where: { agency: { isVisible: true } },
+        include: {
+          agency: { select: { id: true, name: true } },
+          progressEntries: {
+            orderBy: { createdAt: "desc" as const },
+            select: {
+              id: true,
+              content: true,
+              status: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+          },
+        },
+      }
+    : {
+        where: { agency: { isVisible: true } },
+        include: { agency: { select: { id: true, name: true } } },
+      };
+
   const [festivals, proposalsRaw, agencies, subCommittees, siteConfigs] = await Promise.all([
     prisma.festival.findMany({ orderBy: [{ year: "desc" }, { type: "asc" }] }),
     prisma.proposal.findMany({
@@ -9,22 +35,7 @@ export async function GET() {
       include: {
         festival: true,
         subCommittees: { include: { subCommittee: true } },
-        implementations: {
-          where: { agency: { isVisible: true } },
-          include: {
-            agency: { select: { id: true, name: true } },
-            progressEntries: {
-              orderBy: { createdAt: "desc" },
-              select: {
-                id: true,
-                content: true,
-                status: true,
-                createdAt: true,
-                updatedAt: true,
-              },
-            },
-          },
-        },
+        implementations: implementationsInclude,
       },
     }),
     prisma.agency.findMany({
