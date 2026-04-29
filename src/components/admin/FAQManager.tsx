@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
-import { Plus, Pencil, Trash2, Loader2, Check, X, Eye, EyeOff, ChevronUp, ChevronDown } from "lucide-react";
+import { FAQMarkdownImporter } from "./FAQMarkdownImporter";
+import { Plus, Pencil, Trash2, Loader2, Check, X, Eye, EyeOff, ChevronUp, ChevronDown, Upload } from "lucide-react";
 
 interface FAQ { id: string; question: string; answer: string; published: boolean; orderNum: number; }
 const emptyForm = { question: "", answer: "" };
@@ -14,6 +15,7 @@ export function FAQManager() {
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [showImporter, setShowImporter] = useState(false);
   const [saving, setSaving] = useState(false);
   const [moving, setMoving] = useState(false);
 
@@ -62,12 +64,24 @@ export function FAQManager() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-2">
         <h2 className="text-lg font-semibold text-gray-800">จัดการ FAQ</h2>
-        <Button size="sm" onClick={() => { setShowForm(true); setEditId(null); setForm(emptyForm); }}>
-          <Plus size={15} /> เพิ่ม FAQ
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="secondary" onClick={() => { setShowImporter(true); setShowForm(false); }}>
+            <Upload size={14} /> นำเข้าจาก MD
+          </Button>
+          <Button size="sm" onClick={() => { setShowForm(true); setShowImporter(false); setEditId(null); setForm(emptyForm); }}>
+            <Plus size={15} /> เพิ่ม FAQ
+          </Button>
+        </div>
       </div>
+
+      {showImporter && (
+        <FAQMarkdownImporter
+          onImported={() => { setShowImporter(false); load(); }}
+          onCancel={() => setShowImporter(false)}
+        />
+      )}
 
       {showForm && (
         <Card><CardContent className="pt-4">
