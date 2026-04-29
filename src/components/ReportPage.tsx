@@ -79,7 +79,7 @@ export function ReportPage() {
   const proposalsRaw = data.proposals.filter(p => {
     if (selectedFestival !== "all" && p.festivalId !== selectedFestival) return false;
     if (selectedSC !== "all" && !p.subCommittees.some(s => s.subCommittee.id === selectedSC)) return false;
-    if (selectedAgency !== "all" && !p.implementations.some(i => i.agencyId === selectedAgency)) return false;
+    if (selectedAgency !== "all" && !p.expectedAgencyIds.includes(selectedAgency)) return false;
     if (kwTokens.length > 0) {
       const haystack = [
         p.title,
@@ -331,7 +331,7 @@ export function ReportPage() {
                     const notRel = p.implementations.filter(i => i.status === "NOT_RELEVANT").length;
                     const total = selectedAgency === "all"
                       ? Math.max(p.expectedAgencyIds.length - notRel, 0)
-                      : Math.max(p.implementations.filter(i => i.status !== "NOT_RELEVANT").length, 0);
+                      : Math.max(1 - notRel, 0); // single agency: expected exactly 1
                     const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
                     return (
@@ -537,7 +537,7 @@ export function ReportPage() {
                             const notRelCount = p.implementations.filter(i => i.status === "NOT_RELEVANT").length;
                             const footTotal = selectedAgency === "all"
                               ? Math.max(p.expectedAgencyIds.length - notRelCount, 0)
-                              : Math.max(p.implementations.filter(i => i.status !== "NOT_RELEVANT").length, 0);
+                              : Math.max(1 - notRelCount, 0); // single agency: expected exactly 1
                             const d = p.implementations.filter(i => i.status === "COMPLETED").length;
                             const pct = footTotal > 0 ? Math.round((d / footTotal) * 100) : 0;
                             return (
