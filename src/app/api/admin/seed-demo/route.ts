@@ -114,48 +114,97 @@ export async function POST() {
   let implCreated = 0;
   const skipped: string[] = [];
 
+  const now = Date.now();
+  const daysAgo = (n: number) => new Date(now - n * 86400_000);
+
   for (let i = 0; i < MOCK_AGENCIES.length; i++) {
     const mock = MOCK_AGENCIES[i];
     const existing = await prisma.agency.findFirst({ where: { name: mock.name } });
     if (existing) { skipped.push(mock.name); continue; }
 
     const scIds = mock.scNums.map((n) => scByNum.get(n)).filter(Boolean) as string[];
-    const agency = await prisma.agency.create({
-      data: {
-        name: mock.name,
-        username: mock.name.replace(/\s/g, "").toLowerCase(),
-        password,
-        plainPassword: "test1234",
-        isVisible: true,
-        subCommittees: { create: scIds.map((id) => ({ subCommitteeId: id })) },
-      },
-    });
-    agencyCreated++;
-
     const pattern = STATUS_PATTERNS[i];
-    let propIdx = 0;
-    for (const proposal of proposals) {
-      const proposalScNums = proposal.subCommittees
+
+    // คัดข้อเสนอที่เกี่ยวข้องกับ agency นี้ก่อน เพื่อให้รู้ทั้งหมดที่จะสร้าง
+    const relevantProposals = proposals.filter((p) => {
+      const propScNums = p.subCommittees
         .map((s) => { const m = s.subCommittee.name.match(/^C(\d+)/); return m ? Number(m[1]) : null; })
         .filter(Boolean) as number[];
-      if (!proposalScNums.some((n) => mock.scNums.includes(n))) continue;
+      return propScNums.some((n) => mock.scNums.includes(n));
+    });
 
-      const { status, content } = pattern[propIdx % pattern.length];
-      propIdx++;
-
-      await prisma.implementation.create({
+    // ห่อ transaction: ถ้า impl loop พังกลางทาง agency จะถูก rollback
+    const result = await prisma.$transaction(async (tx) => {
+      const agency = await tx.agency.create({
         data: {
-          proposalId: proposal.id,
-          agencyId: agency.id,
-          status,
-          content,
-          contactName: `เจ้าหน้าที่ ${mock.name}`,
-          contactTitle: "นักวิเคราะห์นโยบายและแผน",
-          contactPhone: "02-000-0000",
+          name: mock.name,
+          username: mock.name.replace(/\s/g, "").toLowerCase(),
+          password,
+          plainPassword: "test1234",
+          isVisible: true,
+          subCommittees: { create: scIds.map((id) => ({ subCommitteeId: id })) },
         },
       });
-      implCreated++;
-    }
+
+      let count = 0;
+      for (let propIdx = 0; propIdx < relevantProposals.length; propIdx++) {
+        const proposal = relevantProposals[propIdx];
+        const { status, content } = pattern[propIdx % pattern.length];
+
+        const impl = await tx.implementation.create({
+          data: {
+            proposalId: proposal.id,
+            agencyId: agency.id,
+            status,
+            content,
+            contactName: `เจ้าหน้าที่ ${mock.name}`,
+            contactTitle: "นักวิเคราะห์นโยบายและแผน",
+            contactPhone: "02-000-0000",
+          },
+        });
+
+        // Seed progressEntries เพื่อให้ history mode ในหน้าสรุปทำงานได้
+        // - COMPLETED: 2 entries (อดีต IN_PROGRESS → ปัจจุบัน COMPLETED)
+        // - IN_PROGRESS / NOT_RELEVANT: 1 entry
+        // - NOT_STARTED: 0 entries (ยังไม่รายงาน)
+        if (status === "COMPLETED" && content) {
+          await tx.progressEntry.create({
+            data: {
+              implementationId: impl.id,
+              status: "IN_PROGRESS",
+              content: "อยู่ระหว่างดำเนินการตามแผน — รายงานเบื้องต้น",
+              createdAt: daysAgo(45),
+              updatedAt: daysAgo(45),
+            },
+          });
+          await tx.progressEntry.create({
+            data: {
+              implementationId: impl.id,
+              status: "COMPLETED",
+              content,
+              createdAt: daysAgo(7),
+              updatedAt: daysAgo(7),
+            },
+          });
+        } else if ((status === "IN_PROGRESS" || status === "NOT_RELEVANT") && content) {
+          await tx.progressEntry.create({
+            data: {
+              implementationId: impl.id,
+              status,
+              content,
+              createdAt: daysAgo(status === "NOT_RELEVANT" ? 30 : 14),
+              updatedAt: daysAgo(status === "NOT_RELEVANT" ? 30 : 14),
+            },
+          });
+        }
+
+        count++;
+      }
+      return count;
+    }, { timeout: 30000 });
+
+    agencyCreated++;
+    implCreated += result;
   }
 
   return NextResponse.json({
