@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { FESTIVAL_TYPE_LABELS, STATUS_LABELS, festIcon, festTheme } from "@/lib/utils";
-import { Loader2, Printer } from "lucide-react";
+import { Loader2, Printer, Search, X } from "lucide-react";
 import { Button } from "./ui/button";
 
 interface Festival { id: string; name: string; type: string; year: number }
@@ -32,6 +32,8 @@ export function ReportPage() {
   const [loading, setLoading] = useState(true);
   const [selectedFestival, setSelectedFestival] = useState<string>("all");
   const [selectedSC, setSelectedSC] = useState<string>("all");
+  const [selectedAgency, setSelectedAgency] = useState<string>("all");
+  const [keyword, setKeyword] = useState("");
   const [includeDetails, setIncludeDetails] = useState(false);
 
   useEffect(() => {
@@ -49,11 +51,29 @@ export function ReportPage() {
     data.proposals.flatMap(p => p.subCommittees.map(s => [s.subCommittee.id, s.subCommittee] as const))
   ).values()].sort((a, b) => a.name.localeCompare(b.name, "th"));
 
-  const proposals = data.proposals.filter(p => {
+  const allAgencies = [...data.agencies].sort((a, b) => a.name.localeCompare(b.name, "th"));
+
+  const kw = keyword.trim().toLowerCase();
+  const kwTokens = kw.split(/\s+/).filter(Boolean);
+  const proposalsRaw = data.proposals.filter(p => {
     if (selectedFestival !== "all" && p.festivalId !== selectedFestival) return false;
     if (selectedSC !== "all" && !p.subCommittees.some(s => s.subCommittee.id === selectedSC)) return false;
+    if (selectedAgency !== "all" && !p.implementations.some(i => i.agencyId === selectedAgency)) return false;
+    if (kwTokens.length > 0) {
+      const haystack = [
+        p.title,
+        p.description ?? "",
+        ...p.implementations.map(i => i.content ?? ""),
+      ].join("  ").toLowerCase();
+      if (!kwTokens.every(t => haystack.includes(t))) return false;
+    }
     return true;
   });
+
+  // เมื่อกรองหน่วยงาน ให้เหลือเฉพาะ implementation ของหน่วยงานนั้นใน section ต่างๆ
+  const proposals: Proposal[] = selectedAgency === "all"
+    ? proposalsRaw
+    : proposalsRaw.map(p => ({ ...p, implementations: p.implementations.filter(i => i.agencyId === selectedAgency) }));
 
   // When "ทุกวาระ", group by festival (year desc) so ข้อ numbers from different years don't mix
   const festivalGroups: { festival: Festival; proposals: Proposal[] }[] = (() => {
@@ -92,7 +112,15 @@ export function ReportPage() {
         return m ? `อนุฯ ${m[1]}` : sc.name;
       })();
 
-  const reportLabel = [festivalLabel, scLabel].filter(Boolean).join(" · ");
+  const agencyLabel = selectedAgency === "all"
+    ? ""
+    : (data.agencies.find(a => a.id === selectedAgency)?.name ?? "");
+
+  const keywordLabel = kw ? `ค้นหา: "${keyword.trim()}"` : "";
+
+  const reportLabel = [festivalLabel, scLabel, agencyLabel, keywordLabel].filter(Boolean).join(" · ");
+
+  const hasFilters = selectedFestival !== "all" || selectedSC !== "all" || selectedAgency !== "all" || kw !== "";
 
   return (
     <div className="space-y-6">
@@ -134,6 +162,56 @@ export function ReportPage() {
               );
             })}
           </select>
+          <select
+            value={selectedAgency}
+            onChange={(e) => setSelectedAgency(e.target.value)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[220px] ${
+              selectedAgency === "all"
+                ? "bg-white text-gray-600 border-gray-200"
+                : "bg-blue-50 text-blue-700 border-blue-300"
+            }`}
+          >
+            <option value="all">ทุกหน่วยงาน</option>
+            {allAgencies.map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+          <div className={`relative flex items-center border rounded-lg transition-colors ${
+            kw ? "bg-blue-50 border-blue-300" : "bg-white border-gray-200"
+          }`}>
+            <Search size={14} className={`absolute left-2.5 ${kw ? "text-blue-500" : "text-gray-400"}`} />
+            <input
+              type="text"
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              placeholder="ค้นหาคีย์เวิร์ด เช่น รถสาธารณะ"
+              className="pl-8 pr-7 py-1.5 text-sm font-medium bg-transparent outline-none w-[220px] placeholder:text-gray-400"
+            />
+            {keyword && (
+              <button
+                type="button"
+                onClick={() => setKeyword("")}
+                className="absolute right-1.5 p-0.5 rounded hover:bg-blue-100 text-blue-600"
+                aria-label="ล้างคำค้น"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+          {hasFilters && (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedFestival("all");
+                setSelectedSC("all");
+                setSelectedAgency("all");
+                setKeyword("");
+              }}
+              className="text-xs text-gray-500 hover:text-gray-700 underline"
+            >
+              ล้างตัวกรอง
+            </button>
+          )}
           <label className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${
             includeDetails ? "bg-blue-50 border-blue-300 text-blue-700" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
           }`}>
@@ -162,6 +240,12 @@ export function ReportPage() {
           <p className="text-base font-semibold text-blue-700 mt-1">{reportLabel}</p>
           <p className="text-xs text-gray-400 mt-1">วันที่พิมพ์: {today}</p>
         </div>
+
+        {proposals.length === 0 && (
+          <div className="text-center py-12 text-gray-400">
+            <p className="text-sm">ไม่พบข้อเสนอที่ตรงกับเงื่อนไข — ลองเปลี่ยนตัวกรองหรือคำค้นหา</p>
+          </div>
+        )}
 
         {/* 1. ภาพรวม */}
         <div>
@@ -288,10 +372,10 @@ export function ReportPage() {
               );
               if (scProposals.length === 0) return null;
 
-              // หน่วยงานในอนุนี้
-              const scAgencies = data.agencies.filter(a =>
-                a.subCommittees.some(s => s.subCommittee.id === sc.id)
-              );
+              // หน่วยงานในอนุนี้ (ถ้ากรองหน่วยงาน เหลือเฉพาะหน่วยที่เลือก)
+              const scAgencies = data.agencies
+                .filter(a => a.subCommittees.some(s => s.subCommittee.id === sc.id))
+                .filter(a => selectedAgency === "all" || a.id === selectedAgency);
               if (scAgencies.length === 0) return null;
 
               // summary ของอนุนี้
