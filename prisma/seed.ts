@@ -135,15 +135,18 @@ async function main() {
   console.log(`✓ ${SUB_COMMITTEES.length} sub-committees created`);
 
   // Agencies (86 หน่วยงาน)
-  const DEFAULT_PASS = "pass1234";
-  const defaultPassword = await bcrypt.hash(DEFAULT_PASS, 10);
-  let count = 0;
-  let backfilled = 0;
-  for (let i = 0; i < AGENCIES_DATA.length; i++) {
-    const ag = AGENCIES_DATA[i];
-    const username = `agency${(i + 1).toString().padStart(3, "0")}`;
-    const existing = await prisma.agency.findUnique({ where: { username } });
-    if (!existing) {
+  // กันไม่ให้ Dockerfile CMD (ที่รัน `prisma db seed` ทุกครั้ง container restart) สร้างหน่วยงาน
+  // ที่แอดมินตั้งใจลบกลับมา — ถ้ามี agency อยู่แล้วใน DB ถือว่า initialize เสร็จแล้ว ไม่แตะ
+  const existingAgencyCount = await prisma.agency.count();
+  if (existingAgencyCount > 0) {
+    console.log(`~ พบหน่วยงาน ${existingAgencyCount} แล้วใน DB — ข้ามการ seed หน่วยงานเริ่มต้น`);
+  } else {
+    const DEFAULT_PASS = "pass1234";
+    const defaultPassword = await bcrypt.hash(DEFAULT_PASS, 10);
+    let count = 0;
+    for (let i = 0; i < AGENCIES_DATA.length; i++) {
+      const ag = AGENCIES_DATA[i];
+      const username = `agency${(i + 1).toString().padStart(3, "0")}`;
       await prisma.agency.create({
         data: {
           name: ag.org,
@@ -156,17 +159,10 @@ async function main() {
         },
       });
       count++;
-    } else if (!existing.passwordChangedByAgency && !existing.plainPassword) {
-      // Backfill plainPassword for agencies seeded before this field existed
-      await prisma.agency.update({
-        where: { id: existing.id },
-        data: { plainPassword: DEFAULT_PASS },
-      });
-      backfilled++;
     }
+    console.log(`✓ ${count} agencies created (password: ${DEFAULT_PASS})`);
+    console.log("  Usernames: agency001 ... agency086");
   }
-  console.log(`✓ ${count} agencies created, ${backfilled} backfilled (total: ${AGENCIES_DATA.length}, password: ${DEFAULT_PASS})`);
-  console.log("  Usernames: agency001 ... agency086");
 
   // Site config defaults
   const siteDefaults = [
