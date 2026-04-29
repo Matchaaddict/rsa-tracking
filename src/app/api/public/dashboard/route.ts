@@ -11,7 +11,19 @@ export async function GET() {
         subCommittees: { include: { subCommittee: true } },
         implementations: {
           where: { agency: { isVisible: true } },
-          include: { agency: { select: { id: true, name: true } } },
+          include: {
+            agency: { select: { id: true, name: true } },
+            progressEntries: {
+              orderBy: { createdAt: "desc" },
+              select: {
+                id: true,
+                content: true,
+                status: true,
+                createdAt: true,
+                updatedAt: true,
+              },
+            },
+          },
         },
       },
     }),

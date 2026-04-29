@@ -8,7 +8,15 @@ import { Button } from "./ui/button";
 interface Festival { id: string; name: string; type: string; year: number }
 interface SubCommittee { id: string; name: string }
 interface Agency { id: string; name: string; subCommittees: { subCommittee: SubCommittee }[] }
-interface Implementation { agencyId: string; status: string; content: string | null; agency: { id: string; name: string } }
+interface ProgressEntry { id: string; content: string; status: string; createdAt: string; updatedAt: string }
+interface Implementation {
+  agencyId: string;
+  status: string;
+  content: string | null;
+  updatedAt: string;
+  agency: { id: string; name: string };
+  progressEntries: ProgressEntry[];
+}
 interface Proposal {
   id: string; title: string; description: string | null; orderNumber: number;
   festival: Festival; festivalId: string;
@@ -27,6 +35,17 @@ const STATUS_BG: Record<string, string> = {
   NOT_RELEVANT: "bg-slate-50 text-slate-400",
 };
 
+function formatThaiDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("th-TH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function ReportPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -35,6 +54,7 @@ export function ReportPage() {
   const [selectedAgency, setSelectedAgency] = useState<string>("all");
   const [keyword, setKeyword] = useState("");
   const [includeDetails, setIncludeDetails] = useState(false);
+  const [historyMode, setHistoryMode] = useState<"current" | "all">("current");
 
   useEffect(() => {
     fetch("/api/public/dashboard").then(r => r.json()).then(d => { setData(d); setLoading(false); });
@@ -223,6 +243,28 @@ export function ReportPage() {
             />
             รวมรายละเอียดผลการดำเนินงาน
           </label>
+          {includeDetails && (
+            <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-0.5">
+              <button
+                type="button"
+                onClick={() => setHistoryMode("current")}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                  historyMode === "current" ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                ปัจจุบัน
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryMode("all")}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                  historyMode === "all" ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                ประวัติทั้งหมด
+              </button>
+            </div>
+          )}
           <Button onClick={() => window.print()} className="gap-2">
             <Printer size={16} /> พิมพ์ / บันทึก PDF
           </Button>
@@ -511,7 +553,9 @@ export function ReportPage() {
               4. รายละเอียดผลการดำเนินงาน
             </h2>
             <p className="text-xs text-gray-500 mb-4">
-              ข้อมูลที่หน่วยงานรายงานล่าสุด ณ วันที่ {today}
+              {historyMode === "all"
+                ? `ประวัติการรายงานทั้งหมดของแต่ละหน่วยงาน เรียงจากใหม่สุด — พิมพ์เมื่อ ${today}`
+                : `ข้อมูลที่หน่วยงานรายงานล่าสุด ณ วันที่ ${today}`}
             </p>
 
             <div className="space-y-6">
@@ -538,7 +582,10 @@ export function ReportPage() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-gray-900">{p.title}</p>
-                              <div className="flex gap-1 mt-1 flex-wrap">
+                              {p.description && p.description.trim() !== p.title.trim() && (
+                                <p className="text-xs text-gray-600 mt-1 leading-relaxed whitespace-pre-wrap">{p.description}</p>
+                              )}
+                              <div className="flex gap-1 mt-1.5 flex-wrap">
                                 {!multiGroup && (
                                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${festTheme(p.festival.type).pill}`}>
                                     {festIcon(p.festival.type)} {FESTIVAL_TYPE_LABELS[p.festival.type]} {p.festival.year}
@@ -560,28 +607,53 @@ export function ReportPage() {
                             <p className="text-sm text-gray-400 italic">ยังไม่มีหน่วยงานรายงานผล</p>
                           ) : (
                             <div className="space-y-3">
-                              {reported.map((impl) => (
-                                <div key={impl.agencyId} className="flex items-start gap-3 print:break-inside-avoid">
-                                  <span className={`shrink-0 mt-0.5 inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold ${STATUS_BG[impl.status]}`}>
-                                    {STATUS_SYMBOL[impl.status]}
-                                  </span>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <p className="text-sm font-medium text-gray-800">{impl.agency.name}</p>
-                                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${STATUS_BG[impl.status]}`}>
-                                        {STATUS_LABELS[impl.status]}
-                                      </span>
+                              {reported.map((impl) => {
+                                const entries = (impl.progressEntries ?? []).slice().sort((a, b) =>
+                                  new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                                );
+                                return (
+                                  <div key={impl.agencyId} className="flex items-start gap-3 print:break-inside-avoid">
+                                    <span className={`shrink-0 mt-0.5 inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold ${STATUS_BG[impl.status]}`}>
+                                      {STATUS_SYMBOL[impl.status]}
+                                    </span>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <p className="text-sm font-medium text-gray-800">{impl.agency.name}</p>
+                                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${STATUS_BG[impl.status]}`}>
+                                          {STATUS_LABELS[impl.status]}
+                                        </span>
+                                        {impl.updatedAt && (
+                                          <span className="text-[10px] text-gray-400">
+                                            อัปเดต {formatThaiDate(impl.updatedAt)}
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      {historyMode === "all" && entries.length > 0 ? (
+                                        <div className="mt-2 border-l-2 border-gray-200 pl-3 space-y-2">
+                                          {entries.map((entry) => (
+                                            <div key={entry.id} className="text-sm">
+                                              <div className="flex items-center gap-2 flex-wrap text-[11px] text-gray-500">
+                                                <span>{formatThaiDate(entry.createdAt)}</span>
+                                                <span className={`px-1.5 py-0.5 rounded-full ${STATUS_BG[entry.status]}`}>
+                                                  {STATUS_LABELS[entry.status]}
+                                                </span>
+                                              </div>
+                                              <p className="text-sm text-gray-700 mt-0.5 whitespace-pre-wrap break-words">{entry.content}</p>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : impl.content ? (
+                                        <p className="text-sm text-gray-700 mt-0.5 whitespace-pre-wrap break-words">{impl.content}</p>
+                                      ) : (
+                                        <p className="text-sm text-gray-400 italic mt-0.5">
+                                          {impl.status === "NOT_RELEVANT" ? "(หน่วยงานระบุว่าไม่เกี่ยวข้อง)" : "(ยังไม่ได้กรอกรายละเอียด)"}
+                                        </p>
+                                      )}
                                     </div>
-                                    {impl.content ? (
-                                      <p className="text-sm text-gray-700 mt-0.5 whitespace-pre-wrap break-words">{impl.content}</p>
-                                    ) : (
-                                      <p className="text-sm text-gray-400 italic mt-0.5">
-                                        {impl.status === "NOT_RELEVANT" ? "(หน่วยงานระบุว่าไม่เกี่ยวข้อง)" : "(ยังไม่ได้กรอกรายละเอียด)"}
-                                      </p>
-                                    )}
                                   </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
                         </div>
