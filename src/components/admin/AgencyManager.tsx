@@ -70,11 +70,17 @@ export function AgencyManager() {
     setSubmitting(true);
     const url = editId ? `/api/admin/agencies/${editId}` : "/api/admin/agencies";
     const method = editId ? "PUT" : "POST";
-    await fetch(url, {
+    const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(`บันทึกไม่สำเร็จ: ${err.error ?? res.status}`);
+      setSubmitting(false);
+      return;
+    }
     setForm({ name: "", username: "", password: generatePassword(), subCommitteeIds: [] });
     setEditId(null);
     setShowForm(false);
@@ -84,7 +90,12 @@ export function AgencyManager() {
 
   async function handleDelete(id: string, name: string) {
     if (!confirm(`ลบหน่วยงาน "${name}"? ข้อมูลการดำเนินงานทั้งหมดจะถูกลบด้วย`)) return;
-    await fetch(`/api/admin/agencies/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/admin/agencies/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(`ลบไม่สำเร็จ: ${err.error ?? res.status}`);
+      return;
+    }
     load();
   }
 
@@ -171,9 +182,14 @@ export function AgencyManager() {
             onClick={() => {
               setShowForm(true);
               setEditId(null);
+              // derive next index from highest existing suffix to avoid duplicates after deletions
+              const maxIdx = agencies.reduce((max, a) => {
+                const m = a.username.match(/agency(\d+)$/);
+                return m ? Math.max(max, parseInt(m[1])) : max;
+              }, 0);
               setForm({
                 name: "",
-                username: `agency${(agencies.length + 1).toString().padStart(3, "0")}`,
+                username: `agency${(maxIdx + 1).toString().padStart(3, "0")}`,
                 password: generatePassword(),
                 subCommitteeIds: [],
               });

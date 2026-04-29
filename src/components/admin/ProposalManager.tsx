@@ -90,11 +90,17 @@ export function ProposalManager() {
     setSubmitting(true);
     const url = editId ? `/api/admin/proposals/${editId}` : "/api/admin/proposals";
     const method = editId ? "PUT" : "POST";
-    await fetch(url, {
+    const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(`บันทึกไม่สำเร็จ: ${err.error ?? res.status}`);
+      setSubmitting(false);
+      return;
+    }
     setForm(emptyForm);
     setEditId(null);
     setShowForm(false);
@@ -104,7 +110,12 @@ export function ProposalManager() {
 
   async function handleDelete(id: string) {
     if (!confirm("ลบข้อเสนอนี้?")) return;
-    await fetch(`/api/admin/proposals/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/admin/proposals/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(`ลบไม่สำเร็จ: ${err.error ?? res.status}`);
+      return;
+    }
     load();
   }
 

@@ -28,16 +28,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     data.passwordChangedByAgency = false;
   }
 
-  await prisma.agencySubCommittee.deleteMany({ where: { agencyId: id } });
+  // Only replace subcommittees when explicitly provided; partial PUTs (e.g. toggleVisibility,
+  // resetPassword) must not wipe associations.
+  if (subCommitteeIds !== undefined) {
+    await prisma.agencySubCommittee.deleteMany({ where: { agencyId: id } });
+    data.subCommittees = {
+      create: (subCommitteeIds as string[]).map((scId) => ({ subCommitteeId: scId })),
+    };
+  }
 
   const agency = await prisma.agency.update({
     where: { id },
-    data: {
-      ...data,
-      subCommittees: {
-        create: (subCommitteeIds || []).map((scId: string) => ({ subCommitteeId: scId })),
-      },
-    },
+    data,
     select: {
       id: true, name: true, username: true, plainPassword: true,
       resetRequested: true, passwordChangedByAgency: true, isVisible: true, createdAt: true,

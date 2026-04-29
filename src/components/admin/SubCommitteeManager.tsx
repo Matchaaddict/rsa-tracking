@@ -35,11 +35,17 @@ export function SubCommitteeManager() {
     setSubmitting(true);
     const url = editId ? `/api/admin/subcommittees/${editId}` : "/api/admin/subcommittees";
     const method = editId ? "PUT" : "POST";
-    await fetch(url, {
+    const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(`บันทึกไม่สำเร็จ: ${err.error ?? res.status}`);
+      setSubmitting(false);
+      return;
+    }
     setForm(emptyForm);
     setEditId(null);
     setShowForm(false);
@@ -48,8 +54,13 @@ export function SubCommitteeManager() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("ลบอนุกรรมการนี้?")) return;
-    await fetch(`/api/admin/subcommittees/${id}`, { method: "DELETE" });
+    if (!confirm("ลบอนุกรรมการนี้? หน่วยงานและข้อเสนอที่อยู่ในอนุกรรมการนี้จะถูกตัดความเชื่อมโยงด้วย")) return;
+    const res = await fetch(`/api/admin/subcommittees/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(`ลบไม่สำเร็จ: ${err.error ?? res.status}`);
+      return;
+    }
     load();
   }
 
@@ -62,7 +73,7 @@ export function SubCommitteeManager() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-lg font-semibold text-gray-800">จัดการอนุกรรมการ (8 คณะ)</h2>
+        <h2 className="text-lg font-semibold text-gray-800">จัดการอนุกรรมการ ({items.length} คณะ)</h2>
         <Button size="sm" onClick={() => { setShowForm(true); setEditId(null); setForm(emptyForm); }}>
           <Plus size={16} /> เพิ่มอนุกรรมการ
         </Button>
