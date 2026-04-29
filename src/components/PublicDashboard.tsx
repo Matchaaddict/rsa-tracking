@@ -252,7 +252,7 @@ export function PublicDashboard() {
 
         <div className="relative px-6 pt-7 pb-6 space-y-5">
           {/* Title row */}
-          <div className="flex items-center gap-4 flex-wrap xs:flex-nowrap">
+          <div className="flex items-center gap-4">
             {/* Completion Ring: yellow = ดำเนินการแล้ว (active), green = เสร็จสมบูรณ์ overlays */}
             <svg width={88} height={88} viewBox="0 0 130 130" className="shrink-0">
               <circle cx={65} cy={65} r={ringR} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={12} />

@@ -360,8 +360,8 @@ export function AgencyDashboard({
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">ระบบรายงานผล</h1>
-          <p className="text-gray-500 mt-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">ระบบรายงานผล</h1>
+          <p className="text-gray-500 mt-1 text-sm sm:text-base">
             หน่วยงาน: <span className="font-medium text-gray-700">{agencyName}</span>
           </p>
         </div>
@@ -401,9 +401,8 @@ export function AgencyDashboard({
 
       {/* Tab navigation */}
       <div className="border-b border-gray-200">
-        <nav className="flex gap-1">
+        <nav className="flex">
           {(["proposals", "messages", "password"] as const).map((tab) => {
-            const label = tab === "proposals" ? "กรอกผลการดำเนินงาน" : tab === "messages" ? "ข้อความ" : "รหัสผ่าน";
             const Icon = tab === "proposals" ? FileText : tab === "messages" ? MessageCircle : KeyRound;
             return (
               <button
@@ -412,11 +411,16 @@ export function AgencyDashboard({
                   setActiveTab(tab);
                   if (tab === "messages") setUnreadAdminCount(0);
                 }}
-                className={`relative flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                className={`relative flex items-center gap-1.5 px-3 sm:px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === tab ? "border-emerald-600 text-emerald-600" : "border-transparent text-gray-500 hover:text-gray-700"
                 }`}
               >
-                <Icon size={15} /> {label}
+                <Icon size={15} />
+                {tab === "proposals" && (
+                  <><span className="sm:hidden">กรอกผล</span><span className="hidden sm:inline">กรอกผลการดำเนินงาน</span></>
+                )}
+                {tab === "messages" && "ข้อความ"}
+                {tab === "password" && "รหัสผ่าน"}
                 {tab === "messages" && unreadAdminCount > 0 && (
                   <span className="ml-0.5 bg-blue-500 text-white text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[18px] text-center">
                     {unreadAdminCount}
@@ -452,7 +456,7 @@ export function AgencyDashboard({
                 style={{ width: `${pct}%` }}
               />
             </div>
-            <div className="flex gap-4 mt-3 text-xs text-gray-500">
+            <div className="flex flex-wrap gap-3 mt-3 text-xs text-gray-500">
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />ดำเนินการแล้ว {completed}</span>
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />กำลังดำเนินการ {inProg}</span>
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-300 inline-block" />ยังไม่เริ่ม {total - filled}</span>
@@ -652,8 +656,8 @@ function ProposalProgressCard({
       className={`transition-all ${isError ? "border-l-4 border-l-red-400" : isDirty ? "border-l-4 border-l-amber-300" : ""}`}
     >
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-3">
-          <div>
+        <div className="flex items-start gap-3">
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <span className="text-xs text-gray-400 font-medium">ข้อ {proposal.orderNumber}</span>
               <Badge variant={festTheme(proposal.festival.type).badgeVariant}>
@@ -667,17 +671,17 @@ function ProposalProgressCard({
                   </Badge>
                 );
               })}
+              <span
+                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[status]}`}
+              >
+                {STATUS_LABELS[status]}
+              </span>
             </div>
             <CardTitle className="text-base">{proposal.title}</CardTitle>
             {proposal.description && (
               <p className="text-sm text-gray-500 mt-1">{proposal.description}</p>
             )}
           </div>
-          <span
-            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0 ${STATUS_COLORS[status]}`}
-          >
-            {STATUS_LABELS[status]}
-          </span>
         </div>
       </CardHeader>
 
