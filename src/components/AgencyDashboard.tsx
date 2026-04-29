@@ -620,7 +620,7 @@ function ProposalProgressCard({
 
   const contactValid =
     !!draft.contactName.trim() && !!draft.contactTitle.trim() && !!draft.contactPhone.trim();
-  const contentValid = draft.status === "NOT_RELEVANT" || !!draft.content.trim();
+  const contentValid = !!draft.content.trim();
   const canSubmit = contactValid && contentValid;
 
   async function submit() {
@@ -729,17 +729,27 @@ function ProposalProgressCard({
                   </div>
                 )}
               </div>
-              {draft.status !== "NOT_RELEVANT" && (
-                <div>
-                  <label className="text-xs font-medium text-gray-600 block mb-1.5">รายละเอียดผลการดำเนินงาน</label>
-                  <AutoResizeTextarea
-                    value={draft.content}
-                    onChange={(v) => setDraft((d) => ({ ...d, content: v }))}
-                    placeholder="อธิบายความคืบหน้าในช่วงนี้..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none bg-white"
-                  />
-                </div>
-              )}
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1.5">
+                  {draft.status === "NOT_RELEVANT" ? (
+                    <>เหตุผลที่ไม่เกี่ยวข้อง <span className="text-red-500">*</span></>
+                  ) : (
+                    "รายละเอียดผลการดำเนินงาน"
+                  )}
+                </label>
+                <AutoResizeTextarea
+                  value={draft.content}
+                  onChange={(v) => setDraft((d) => ({ ...d, content: v }))}
+                  placeholder={
+                    draft.status === "NOT_RELEVANT"
+                      ? "เช่น ไม่อยู่ในขอบเขตภารกิจของกรม / ส่งต่อให้หน่วยงาน X รับผิดชอบโดยตรง"
+                      : "อธิบายความคืบหน้าในช่วงนี้..."
+                  }
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none bg-white ${
+                    !draft.content.trim() && draft.status === "NOT_RELEVANT" ? "border-red-200" : "border-gray-300"
+                  }`}
+                />
+              </div>
               <div className="border-t border-emerald-200 pt-3">
                 <p className="text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1.5">
                   <User size={12} className="text-emerald-600" />
