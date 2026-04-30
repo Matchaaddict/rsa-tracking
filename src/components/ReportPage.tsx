@@ -457,20 +457,41 @@ export function ReportPage() {
                     </div>
                   </div>
 
-                  {/* List layout — รายหน่วยงาน ไม่มีตารางแนวนอน */}
+                  {/* List layout — แบ่งกลุ่มตามวาระภายใน SC เพื่อไม่ให้ "ข้อ 1" ของแต่ละวาระปนกัน */}
+                  {(() => {
+                    const scFestivals = (() => {
+                      const map = new Map<string, { festival: Festival; proposals: Proposal[] }>();
+                      scProposals.forEach(p => {
+                        if (!map.has(p.festivalId)) map.set(p.festivalId, { festival: p.festival, proposals: [] });
+                        map.get(p.festivalId)!.proposals.push(p);
+                      });
+                      return [...map.values()].sort((a, b) =>
+                        b.festival.year - a.festival.year || a.festival.type.localeCompare(b.festival.type)
+                      );
+                    })();
+                    const multiFest = scFestivals.length > 1;
+
+                    return (
                   <div className="border border-t-0 border-gray-200 rounded-b-lg overflow-hidden">
-                    {/* ตารางอ้างอิงชื่อข้อเสนอ */}
-                    <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex flex-wrap gap-1.5">
-                      {scProposals.map(p => (
-                        <span key={p.id} className="text-xs bg-white border border-gray-200 rounded px-2 py-0.5 text-gray-600">
-                          <span className="font-bold text-gray-800">ข้อ {p.orderNumber}</span>
-                          {" · "}
-                          {p.title.length > 32 ? p.title.slice(0, 30) + "…" : p.title}
-                        </span>
+                    {/* ตารางอ้างอิงชื่อข้อเสนอ — แบ่งตามวาระ */}
+                    <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 space-y-1.5">
+                      {scFestivals.map(({ festival, proposals: festProposals }) => (
+                        <div key={festival.id} className="flex flex-wrap items-center gap-1.5">
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${festTheme(festival.type).pill}`}>
+                            {festIcon(festival.type)} {FESTIVAL_TYPE_LABELS[festival.type]} {festival.year}
+                          </span>
+                          {festProposals.map(p => (
+                            <span key={p.id} className="text-xs bg-white border border-gray-200 rounded px-2 py-0.5 text-gray-600">
+                              <span className="font-bold text-gray-800">ข้อ {p.orderNumber}</span>
+                              {" · "}
+                              {p.title.length > 32 ? p.title.slice(0, 30) + "…" : p.title}
+                            </span>
+                          ))}
+                        </div>
                       ))}
                     </div>
 
-                    {/* แถวรายหน่วยงาน */}
+                    {/* แถวรายหน่วยงาน — pills แบ่งกลุ่มตามวาระ */}
                     <div className="divide-y divide-gray-100">
                       {scAgencies.map((agency) => {
                         const implMap = new Map(
@@ -491,18 +512,30 @@ export function ReportPage() {
                             <div className="w-40 shrink-0 text-sm font-medium text-gray-800 pt-0.5 leading-snug">
                               {agency.name}
                             </div>
-                            {/* Status pills */}
-                            <div className="flex-1 flex flex-wrap gap-1">
-                              {scProposals.map(p => {
-                                const impl = implMap.get(p.id);
-                                const status = impl?.status ?? "NOT_STARTED";
-                                return (
-                                  <span key={p.id} className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-xs font-semibold ${STATUS_BG[status]}`}>
-                                    {STATUS_SYMBOL[status]}
-                                    <span className="text-[10px] font-normal opacity-60">ข้อ{p.orderNumber}</span>
-                                  </span>
-                                );
-                              })}
+                            {/* Status pills — แบ่งกลุ่มตามวาระ */}
+                            <div className="flex-1 flex flex-wrap items-start gap-x-3 gap-y-1">
+                              {scFestivals.map(({ festival, proposals: festProposals }) => (
+                                <div key={festival.id} className="flex flex-wrap items-center gap-1">
+                                  {multiFest && (
+                                    <span
+                                      className="text-[11px] mr-0.5 opacity-70"
+                                      title={`${FESTIVAL_TYPE_LABELS[festival.type]} ${festival.year}`}
+                                    >
+                                      {festIcon(festival.type)}
+                                    </span>
+                                  )}
+                                  {festProposals.map(p => {
+                                    const impl = implMap.get(p.id);
+                                    const status = impl?.status ?? "NOT_STARTED";
+                                    return (
+                                      <span key={p.id} className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-xs font-semibold ${STATUS_BG[status]}`}>
+                                        {STATUS_SYMBOL[status]}
+                                        <span className="text-[10px] font-normal opacity-60">ข้อ{p.orderNumber}</span>
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              ))}
                             </div>
                             {/* สรุปรายหน่วยงาน */}
                             <div className="shrink-0 text-right min-w-[52px]">
@@ -516,27 +549,38 @@ export function ReportPage() {
                       })}
                     </div>
 
-                    {/* สรุปรายข้อเสนอ (footer) */}
-                    <div className="px-4 py-2.5 bg-gray-50 border-t border-gray-200 flex flex-wrap gap-1.5">
-                      {scProposals.map(p => {
-                        const notRelCount = p.implementations.filter(i => i.status === "NOT_RELEVANT").length;
-                        const footTotal = selectedAgency === "all"
-                          ? Math.max(p.expectedAgencyIds.length - notRelCount, 0)
-                          : Math.max(1 - notRelCount, 0);
-                        const d = p.implementations.filter(i => i.status === "COMPLETED").length;
-                        const pct = footTotal > 0 ? Math.round((d / footTotal) * 100) : 0;
-                        return (
-                          <div key={p.id} className={`text-xs rounded px-2 py-1 font-medium ${
-                            pct === 100 ? "bg-green-100 text-green-800" :
-                            pct > 0    ? "bg-yellow-100 text-yellow-800" :
-                                         "bg-gray-100 text-gray-500"
-                          }`}>
-                            ข้อ {p.orderNumber}: {d}/{footTotal} ({pct}%)
-                          </div>
-                        );
-                      })}
+                    {/* สรุปรายข้อเสนอ (footer) — แบ่งตามวาระ */}
+                    <div className="px-4 py-2.5 bg-gray-50 border-t border-gray-200 space-y-1.5">
+                      {scFestivals.map(({ festival, proposals: festProposals }) => (
+                        <div key={festival.id} className="flex flex-wrap items-center gap-1.5">
+                          {multiFest && (
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded ${festTheme(festival.type).pill}`}>
+                              {festIcon(festival.type)} {FESTIVAL_TYPE_LABELS[festival.type]} {festival.year}
+                            </span>
+                          )}
+                          {festProposals.map(p => {
+                            const notRelCount = p.implementations.filter(i => i.status === "NOT_RELEVANT").length;
+                            const footTotal = selectedAgency === "all"
+                              ? Math.max(p.expectedAgencyIds.length - notRelCount, 0)
+                              : Math.max(1 - notRelCount, 0);
+                            const d = p.implementations.filter(i => i.status === "COMPLETED").length;
+                            const pct = footTotal > 0 ? Math.round((d / footTotal) * 100) : 0;
+                            return (
+                              <div key={p.id} className={`text-xs rounded px-2 py-1 font-medium ${
+                                pct === 100 ? "bg-green-100 text-green-800" :
+                                pct > 0    ? "bg-yellow-100 text-yellow-800" :
+                                             "bg-gray-100 text-gray-500"
+                              }`}>
+                                ข้อ {p.orderNumber}: {d}/{footTotal} ({pct}%)
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
                     </div>
                   </div>
+                    );
+                  })()}
                 </div>
               );
             })}
