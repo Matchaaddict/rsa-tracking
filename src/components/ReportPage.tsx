@@ -457,106 +457,85 @@ export function ReportPage() {
                     </div>
                   </div>
 
-                  {/* ตาราง */}
-                  <div className="overflow-x-auto print:overflow-visible border border-t-0 border-gray-200 rounded-b-lg">
-                    <table className="w-full text-xs border-collapse">
-                      <thead>
-                        <tr className="bg-gray-50">
-                          <th className="border-b border-r border-gray-200 px-3 py-2 text-left font-semibold text-gray-700 min-w-[160px] sticky left-0 bg-gray-50 print:static">
-                            หน่วยงาน
-                          </th>
-                          {scProposals.map(p => (
-                            <th key={p.id} className="border-b border-r border-gray-200 px-2 py-2 text-center font-medium text-gray-600 min-w-[44px] max-w-[44px]">
-                              <div className="font-bold text-gray-800">ข้อ {p.orderNumber}</div>
-                            </th>
-                          ))}
-                          <th className="border-b border-gray-200 px-2 py-2 text-center font-semibold text-gray-700 min-w-[56px]">
-                            เสร็จ/รวม
-                          </th>
-                        </tr>
-                        {/* แถวชื่อข้อเสนอ */}
-                        <tr className="bg-blue-50">
-                          <td className="border-b border-r border-gray-200 px-3 py-1.5 text-gray-500 italic text-xs sticky left-0 bg-blue-50 print:static">
-                            ชื่อข้อเสนอ
-                          </td>
-                          {scProposals.map(p => (
-                            <td key={p.id} className="border-b border-r border-gray-200 px-1 py-1.5 text-center text-gray-600 text-xs leading-tight">
-                              <div className="max-w-[80px] mx-auto truncate" title={p.title}>
-                                {p.title.length > 20 ? p.title.slice(0, 18) + "…" : p.title}
-                              </div>
-                            </td>
-                          ))}
-                          <td className="border-b border-gray-200" />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {scAgencies.map((agency, idx) => {
-                          const implMap = new Map(
-                            scProposals.flatMap(p =>
-                              p.implementations
-                                .filter(i => i.agencyId === agency.id)
-                                .map(i => [p.id, i])
-                            )
-                          );
-                          const done = [...implMap.values()].filter(i => i.status === "COMPLETED").length;
-                          const notRelForAgency = [...implMap.values()].filter(i => i.status === "NOT_RELEVANT").length;
-                          const relevant = scProposals.length - notRelForAgency;
+                  {/* List layout — รายหน่วยงาน ไม่มีตารางแนวนอน */}
+                  <div className="border border-t-0 border-gray-200 rounded-b-lg overflow-hidden">
+                    {/* ตารางอ้างอิงชื่อข้อเสนอ */}
+                    <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex flex-wrap gap-1.5">
+                      {scProposals.map(p => (
+                        <span key={p.id} className="text-xs bg-white border border-gray-200 rounded px-2 py-0.5 text-gray-600">
+                          <span className="font-bold text-gray-800">ข้อ {p.orderNumber}</span>
+                          {" · "}
+                          {p.title.length > 32 ? p.title.slice(0, 30) + "…" : p.title}
+                        </span>
+                      ))}
+                    </div>
 
-                          return (
-                            <tr key={agency.id} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
-                              <td className={`border-b border-r border-gray-100 px-3 py-2 font-medium text-gray-800 sticky left-0 print:static ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
-                                {agency.name}
-                              </td>
+                    {/* แถวรายหน่วยงาน */}
+                    <div className="divide-y divide-gray-100">
+                      {scAgencies.map((agency) => {
+                        const implMap = new Map(
+                          scProposals.flatMap(p =>
+                            p.implementations
+                              .filter(i => i.agencyId === agency.id)
+                              .map(i => [p.id, i] as const)
+                          )
+                        );
+                        const agencyDone = [...implMap.values()].filter(i => i.status === "COMPLETED").length;
+                        const agencyNotRel = [...implMap.values()].filter(i => i.status === "NOT_RELEVANT").length;
+                        const agencyRelevant = scProposals.length - agencyNotRel;
+                        const agencyPct = agencyRelevant > 0 ? Math.round((agencyDone / agencyRelevant) * 100) : 0;
+
+                        return (
+                          <div key={agency.id} className="px-4 py-2.5 flex items-start gap-3">
+                            {/* ชื่อหน่วยงาน */}
+                            <div className="w-40 shrink-0 text-sm font-medium text-gray-800 pt-0.5 leading-snug">
+                              {agency.name}
+                            </div>
+                            {/* Status pills */}
+                            <div className="flex-1 flex flex-wrap gap-1">
                               {scProposals.map(p => {
                                 const impl = implMap.get(p.id);
-                                if (!impl) {
-                                  return (
-                                    <td key={p.id} className="border-b border-r border-gray-100 text-center text-gray-200 py-2">○</td>
-                                  );
-                                }
+                                const status = impl?.status ?? "NOT_STARTED";
                                 return (
-                                  <td key={p.id} className={`border-b border-r border-gray-100 text-center font-bold py-2 ${STATUS_BG[impl.status]}`}>
-                                    {STATUS_SYMBOL[impl.status]}
-                                  </td>
+                                  <span key={p.id} className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-xs font-semibold ${STATUS_BG[status]}`}>
+                                    {STATUS_SYMBOL[status]}
+                                    <span className="text-[10px] font-normal opacity-60">ข้อ{p.orderNumber}</span>
+                                  </span>
                                 );
                               })}
-                              <td className="border-b border-gray-100 text-center font-semibold text-gray-700 py-2">
-                                {done}/{relevant}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                      {/* Summary row */}
-                      <tfoot>
-                        <tr className="bg-gray-100 font-semibold">
-                          <td className="border-t border-r border-gray-200 px-3 py-2 text-gray-700 sticky left-0 bg-gray-100 print:static">
-                            รวม
-                          </td>
-                          {scProposals.map(p => {
-                            const notRelCount = p.implementations.filter(i => i.status === "NOT_RELEVANT").length;
-                            const footTotal = selectedAgency === "all"
-                              ? Math.max(p.expectedAgencyIds.length - notRelCount, 0)
-                              : Math.max(1 - notRelCount, 0); // single agency: expected exactly 1
-                            const d = p.implementations.filter(i => i.status === "COMPLETED").length;
-                            const pct = footTotal > 0 ? Math.round((d / footTotal) * 100) : 0;
-                            return (
-                              <td key={p.id} className="border-t border-r border-gray-200 text-center py-2">
-                                <div className={`text-sm font-bold ${pct === 100 ? "text-green-700" : pct > 0 ? "text-yellow-700" : "text-gray-400"}`}>
-                                  {pct}%
-                                </div>
-                                <div className="text-xs text-gray-400">{d}/{footTotal}</div>
-                              </td>
-                            );
-                          })}
-                          <td className="border-t border-gray-200 text-center py-2">
-                            <div className={`text-sm font-bold ${scPct === 100 ? "text-green-700" : scPct > 0 ? "text-yellow-700" : "text-gray-400"}`}>
-                              {scPct}%
                             </div>
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
+                            {/* สรุปรายหน่วยงาน */}
+                            <div className="shrink-0 text-right min-w-[52px]">
+                              <div className={`text-sm font-bold ${agencyPct === 100 ? "text-green-700" : agencyPct > 0 ? "text-yellow-700" : "text-gray-400"}`}>
+                                {agencyPct}%
+                              </div>
+                              <div className="text-xs text-gray-400">{agencyDone}/{agencyRelevant}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* สรุปรายข้อเสนอ (footer) */}
+                    <div className="px-4 py-2.5 bg-gray-50 border-t border-gray-200 flex flex-wrap gap-1.5">
+                      {scProposals.map(p => {
+                        const notRelCount = p.implementations.filter(i => i.status === "NOT_RELEVANT").length;
+                        const footTotal = selectedAgency === "all"
+                          ? Math.max(p.expectedAgencyIds.length - notRelCount, 0)
+                          : Math.max(1 - notRelCount, 0);
+                        const d = p.implementations.filter(i => i.status === "COMPLETED").length;
+                        const pct = footTotal > 0 ? Math.round((d / footTotal) * 100) : 0;
+                        return (
+                          <div key={p.id} className={`text-xs rounded px-2 py-1 font-medium ${
+                            pct === 100 ? "bg-green-100 text-green-800" :
+                            pct > 0    ? "bg-yellow-100 text-yellow-800" :
+                                         "bg-gray-100 text-gray-500"
+                          }`}>
+                            ข้อ {p.orderNumber}: {d}/{footTotal} ({pct}%)
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               );
