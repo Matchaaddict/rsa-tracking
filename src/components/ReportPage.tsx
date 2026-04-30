@@ -438,7 +438,7 @@ export function ReportPage() {
                 acc + p.implementations.filter(i => i.status === "NOT_RELEVANT").length, 0);
               const scTotal = selectedAgency === "all"
                 ? scProposals.reduce((acc, p) => acc + p.expectedAgencyIds.length, 0) - scNotRel
-                : scProposals.reduce((acc, p) => acc + p.implementations.filter(i => i.status !== "NOT_RELEVANT").length, 0);
+                : scProposals.length - scNotRel;
               const scPct = scTotal > 0 ? Math.round((scDone / scTotal) * 100) : 0;
 
               return (
