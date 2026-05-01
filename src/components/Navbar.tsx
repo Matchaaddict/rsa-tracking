@@ -47,7 +47,7 @@ export function Navbar() {
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => signOut({ callbackUrl: "/" })}
+                  onClick={() => signOut({ callbackUrl: window.location.origin + "/" })}
                 >
                   ออกจากระบบ
                 </Button>
@@ -65,7 +65,7 @@ export function Navbar() {
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => signOut({ callbackUrl: "/" })}
+                  onClick={() => signOut({ callbackUrl: window.location.origin + "/" })}
                 >
                   ออกจากระบบ
                 </Button>
