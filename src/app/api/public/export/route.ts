@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
           progressEntries: i.progressEntries.map((e) => ({ ...e, contactTitle: e.reportedBy ? e.contactTitle : undefined })),
         })),
       })),
-      { includeContact: false }
+      { includePrivate: false }
     );
   } else {
     const proposals = await prisma.proposal.findMany({
@@ -98,12 +98,12 @@ export async function GET(req: NextRequest) {
         subCommittees: { include: { subCommittee: true } },
         implementations: {
           where: { agency: { isVisible: true } },
-          omit: { contactName: true, contactTitle: true, contactPhone: true },
+          omit: { contactName: true, contactTitle: true, contactPhone: true, evidenceUrl: true },
           include: { agency: { select: { name: true } } },
         },
       },
     });
-    csv = buildDetailCsv(proposals, { includeContact: false });
+    csv = buildDetailCsv(proposals, { includePrivate: false });
   }
 
   const date = new Date().toISOString().slice(0, 10);

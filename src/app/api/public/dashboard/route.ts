@@ -7,8 +7,9 @@ export async function GET(req: NextRequest) {
   // หน้า ReportPage ที่ต้องการประวัติเต็มเรียกด้วย ?fullHistory=true
   const fullHistory = new URL(req.url).searchParams.get("fullHistory") === "true";
 
-  // หน้าสาธารณะ: ไม่ส่งชื่อ/ตำแหน่ง/เบอร์โทรผู้รายงานออกไป
-  const omitContact = { contactName: true, contactTitle: true, contactPhone: true } as const;
+  // หน้าสาธารณะ: ไม่ส่งชื่อ/ตำแหน่ง/เบอร์โทรผู้รายงาน และลิงก์หลักฐานออกไป
+  // (ลิงก์หลักฐานเห็นได้เฉพาะแอดมิน เลขาฯ อนุฯ และหน่วยงานเจ้าของรายงาน)
+  const omitContact = { contactName: true, contactTitle: true, contactPhone: true, evidenceUrl: true } as const;
   // reportedBy + contactTitle ใช้ทำป้าย "เลขาฯ อนุฯ X บันทึกให้" — contactTitle ของหน่วยงานจะถูกตัดทิ้งก่อนส่ง
   const entrySelect = { reportedBy: true, contactTitle: true } as const;
 
