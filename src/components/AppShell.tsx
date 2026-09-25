@@ -78,6 +78,8 @@ export function AppShell({
   const hash = useSyncExternalStore(subscribeHash, () => window.location.hash, () => "");
 
   const role = session?.user.role;
+  // แอดมินและเลขาฯ อนุกรรมการใช้แผงควบคุมเดียวกัน (/admin) แต่เห็นส่วนต่างกัน
+  const isStaff = role === "admin" || role === "secretary";
 
   const items: NavItem[] = [
     { key: "home", label: "หน้าหลัก", href: "/", icon: Home },
@@ -90,7 +92,7 @@ export function AppShell({
       href: role === "agency" ? "/agency/dashboard" : "/#agencies",
       icon: Building2,
     },
-    { key: "admin", label: "ตั้งค่าระบบ", href: role === "admin" ? "/admin" : "/login", icon: Settings },
+    { key: "admin", label: "ตั้งค่าระบบ", href: isStaff ? "/admin" : "/login", icon: Settings },
   ];
 
   function isActive(item: NavItem) {
@@ -296,7 +298,7 @@ export function AppShell({
 
             {session && (
               <Link
-                href={role === "admin" ? "/admin" : "/agency/dashboard"}
+                href={isStaff ? "/admin" : "/agency/dashboard"}
                 className="relative hidden shrink-0 rounded-full border border-slate-200 bg-white p-2.5 text-slate-600 shadow-sm hover:text-blue-600 md:block"
                 aria-label="การแจ้งเตือน"
               >
@@ -318,7 +320,7 @@ export function AppShell({
                       {session.user.name}
                     </span>
                     <span className="block text-xs text-slate-500">
-                      {role === "admin" ? "ผู้ดูแลระบบ" : "หน่วยงาน"}
+                      {role === "admin" ? "ผู้ดูแลระบบ" : role === "secretary" ? "เลขาฯ อนุกรรมการ" : "หน่วยงาน"}
                     </span>
                   </span>
                   <ChevronDown size={16} className="hidden text-slate-500 lg:block" />
@@ -326,12 +328,12 @@ export function AppShell({
                 {menuOpen && (
                   <div className="absolute right-0 mt-2 w-52 overflow-hidden rounded-xl border border-slate-100 bg-white py-1 shadow-xl">
                     <Link
-                      href={role === "admin" ? "/admin" : "/agency/dashboard"}
+                      href={isStaff ? "/admin" : "/agency/dashboard"}
                       onClick={() => setMenuOpen(false)}
                       className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
                     >
-                      {role === "admin" ? <Settings size={15} /> : <Building2 size={15} />}
-                      {role === "admin" ? "จัดการระบบ" : "แดชบอร์ดหน่วยงาน"}
+                      {isStaff ? <Settings size={15} /> : <Building2 size={15} />}
+                      {isStaff ? "จัดการระบบ" : "แดชบอร์ดหน่วยงาน"}
                     </Link>
                     <button
                       onClick={() => signOut({ callbackUrl: window.location.origin + "/" })}

@@ -13,21 +13,28 @@ export async function GET() {
   if (!await requireSuper()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const admins = await prisma.admin.findMany({
     orderBy: { createdAt: "asc" },
-    select: { id: true, username: true, isSuperAdmin: true, permissions: true, createdAt: true },
+    select: { id: true, username: true, isSuperAdmin: true, permissions: true, subCommitteeId: true, subCommittee: { select: { name: true } }, createdAt: true },
   });
   return NextResponse.json(admins);
 }
 
 export async function POST(req: NextRequest) {
   if (!await requireSuper()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { username, password, permissions } = await req.json();
+  const { username, password, permissions, subCommitteeId } = await req.json();
   if (!username || !password) return NextResponse.json({ error: "ข้อมูลไม่ครบ" }, { status: 400 });
   const existing = await prisma.admin.findUnique({ where: { username } });
   if (existing) return NextResponse.json({ error: "Username นี้มีอยู่แล้ว" }, { status: 400 });
   const hashed = await bcrypt.hash(password, 10);
   const admin = await prisma.admin.create({
-    data: { username, password: hashed, isSuperAdmin: false, permissions: JSON.stringify(permissions ?? []) },
-    select: { id: true, username: true, isSuperAdmin: true, permissions: true, createdAt: true },
+    // subCommitteeId มีค่า = บัญชีเลขาฯ อนุกรรมการ
+    data: {
+      username,
+      password: hashed,
+      isSuperAdmin: false,
+      permissions: JSON.stringify(subCommitteeId ? [] : permissions ?? []),
+      subCommitteeId: subCommitteeId || null,
+    },
+    select: { id: true, username: true, isSuperAdmin: true, permissions: true, subCommitteeId: true, subCommittee: { select: { name: true } }, createdAt: true },
   });
   return NextResponse.json(admin);
 }

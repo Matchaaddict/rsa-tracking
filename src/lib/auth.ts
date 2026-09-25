@@ -24,12 +24,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           admin.password
         );
         if (!valid) return null;
+        // บัญชีที่ผูกกับอนุฯ = เลขาฯ อนุกรรมการ: role แยก เพื่อให้ API แอดมินเดิม (เช็ค role === "admin") ปฏิเสธโดยอัตโนมัติ
+        const isSecretary = !!admin.subCommitteeId && !admin.isSuperAdmin;
         return {
           id: admin.id,
           name: admin.username,
-          role: "admin",
+          role: isSecretary ? "secretary" : "admin",
           isSuperAdmin: admin.isSuperAdmin,
           permissions: admin.permissions,
+          subCommitteeId: isSecretary ? admin.subCommitteeId : null,
         };
       },
     }),
@@ -58,11 +61,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     jwt({ token, user }) {
       if (user) {
-        const u = user as { role: string; isSuperAdmin?: boolean; permissions?: string };
+        const u = user as { role: string; isSuperAdmin?: boolean; permissions?: string; subCommitteeId?: string | null };
         token.role = u.role;
         token.id = user.id;
         token.isSuperAdmin = u.isSuperAdmin ?? false;
         token.permissions = u.permissions ?? "[]";
+        token.subCommitteeId = u.subCommitteeId ?? null;
       }
       return token;
     },
@@ -71,6 +75,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       session.user.id = token.id as string;
       session.user.isSuperAdmin = token.isSuperAdmin as boolean;
       session.user.permissions = token.permissions as string;
+      session.user.subCommitteeId = (token.subCommitteeId as string | null) ?? null;
       return session;
     },
   },

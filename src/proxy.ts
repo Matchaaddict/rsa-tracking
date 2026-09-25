@@ -5,9 +5,9 @@ export default auth((req) => {
   const { pathname } = req.nextUrl;
   const session = req.auth;
 
-  // Admin routes require admin role
+  // Admin routes require admin or sub-committee secretary role
   if (pathname.startsWith("/admin")) {
-    if (!session || session.user.role !== "admin") {
+    if (!session || (session.user.role !== "admin" && session.user.role !== "secretary")) {
       return NextResponse.redirect(new URL("/login?type=admin", req.url));
     }
   }

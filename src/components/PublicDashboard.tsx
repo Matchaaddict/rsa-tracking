@@ -13,7 +13,8 @@ import {
   Cell,
   CartesianGrid,
 } from "recharts";
-import { STATUS_LABELS, STATUS_COLORS, FESTIVAL_TYPE_LABELS, festIcon, festTheme, cn } from "@/lib/utils";
+import { STATUS_LABELS, STATUS_COLORS, festIcon, festTheme, cn } from "@/lib/utils";
+import { KIND_META, SOURCE_KINDS, sourceKind, sourceLabel, type SourceKind } from "@/lib/tracking";
 import {
   CheckCircle2,
   Clock,
@@ -43,6 +44,9 @@ interface Festival {
   name: string;
   type: string;
   year: number;
+  meetingNo?: string | null;
+  date?: string | null;
+  docUrl?: string | null;
 }
 
 interface SubCommittee {
@@ -70,6 +74,7 @@ interface Proposal {
   title: string;
   description: string | null;
   orderNumber: number;
+  dueDate: string | null;
   createdAt: string;
   festival: Festival;
   festivalId: string;
@@ -141,6 +146,21 @@ const STATUS_PILL: Record<ProposalStatus, { cls: string; dot: string }> = {
   NOT_STARTED: { cls: "bg-red-50 text-red-600 ring-red-200", dot: "bg-red-500" },
   NOT_RELEVANT: { cls: "bg-slate-50 text-slate-500 ring-slate-200", dot: "bg-slate-400" },
 };
+
+// คำเรียกรายการตามประเภทที่มา
+const KIND_NOUN: Record<SourceKind, string> = {
+  FESTIVAL: "ข้อเสนอ",
+  MEETING: "มติ",
+  PROJECT: "ภารกิจ",
+  CABINET: "มติ",
+};
+
+// เลยกำหนดเมื่อมีหน่วยงานที่ยังไม่เสร็จ
+function isOverdue(p: Proposal, now: number) {
+  if (!p.dueDate || new Date(p.dueDate).getTime() >= now) return false;
+  const s = computeProgress([p]);
+  return s.total > 0 && s.completed < s.total;
+}
 
 const C_DONE = "#22c55e";
 const C_PROG = "#f59e0b";
@@ -288,6 +308,7 @@ function Panel({ className, children }: { className?: string; children: React.Re
 export function PublicDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedKind, setSelectedKind] = useState<SourceKind>("FESTIVAL");
   const [selectedFestival, setSelectedFestival] = useState<string>("all");
   const [expandedProposal, setExpandedProposal] = useState<string | null>(null);
   const [expandedAgency, setExpandedAgency] = useState<string | null>(null);
@@ -359,10 +380,16 @@ export function PublicDashboard() {
 
   if (!data) return null;
 
+  // % แยกตามประเภทที่มาเสมอ — ไม่รวมเทศกาลกับการประชุมเป็นตัวเลขเดียว
+  const kinds = SOURCE_KINDS.filter((k) => data.festivals.some((f) => sourceKind(f.type) === k));
+  const kind: SourceKind = kinds.includes(selectedKind) ? selectedKind : kinds[0] ?? "FESTIVAL";
+  const noun = KIND_NOUN[kind];
+  const kindFestivals = data.festivals.filter((f) => sourceKind(f.type) === kind);
+  const kindProposals = data.proposals.filter((p) => sourceKind(p.festival.type) === kind);
+  const festivalId = kindFestivals.some((f) => f.id === selectedFestival) ? selectedFestival : "all";
+
   const filteredProposals =
-    selectedFestival === "all"
-      ? data.proposals
-      : data.proposals.filter((p) => p.festivalId === selectedFestival);
+    festivalId === "all" ? kindProposals : kindProposals.filter((p) => p.festivalId === festivalId);
 
   const overall = computeProgress(filteredProposals);
 
@@ -388,16 +415,17 @@ export function PublicDashboard() {
     return { name: `ข้อ ${p.orderNumber}`, completed: s.completed, inProgress: s.inProgress, notStarted: s.notStarted };
   });
 
-  const festivalBarData = data.festivals.map((f) => {
-    const s = computeProgress(data.proposals.filter((p) => p.festivalId === f.id));
+  // เปรียบเทียบที่มาในประเภทเดียวกัน (ล่าสุด 8 รายการ)
+  const festivalBarData = kindFestivals.slice(0, 8).map((f) => {
+    const s = computeProgress(kindProposals.filter((p) => p.festivalId === f.id));
     return {
-      name: `${FESTIVAL_TYPE_LABELS[f.type] ?? f.name} ${f.year}`,
+      name: `${sourceLabel(f)}`,
       completed: s.completed,
       inProgress: s.inProgress,
       notStarted: s.notStarted,
     };
   });
-  const showCompare = selectedFestival === "all";
+  const showCompare = festivalId === "all" && kindFestivals.length > 1;
 
   const latestUpdate = filteredProposals
     .flatMap((p) => p.implementations.map((i) => i.updatedAt))
@@ -418,7 +446,7 @@ export function PublicDashboard() {
     return (
       p.title.toLowerCase().includes(q) ||
       (p.description ?? "").toLowerCase().includes(q) ||
-      `${FESTIVAL_TYPE_LABELS[p.festival.type]} ${p.festival.year}`.includes(q) ||
+      `${sourceLabel(p.festival)}`.includes(q) ||
       p.subCommittees.some((s) => s.subCommittee.name.toLowerCase().includes(q)) ||
       p.implementations.some((i) => i.agency.name.toLowerCase().includes(q))
     );
@@ -440,38 +468,86 @@ export function PublicDashboard() {
         tagline={data.siteConfig.banner_tagline || "ติดตาม · เร่งรัด · บูรณาการ · ลดอุบัติเหตุ · เพื่อชีวิตที่ปลอดภัยกว่า"}
       />
 
-      {/* Festival filter */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <span className="text-sm text-slate-500">กรองตามวาระ:</span>
-        <div className="no-scrollbar -mx-3 flex min-w-0 basis-full gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:basis-0 sm:flex-1 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
-          {[{ id: "all", label: "ทุกวาระ", icon: "✅", type: "" }, ...data.festivals.map((f) => ({
-            id: f.id,
-            label: `${FESTIVAL_TYPE_LABELS[f.type] ?? f.name} ${f.year}`,
-            icon: festIcon(f.type),
-            type: f.type,
-          }))].map((f) => {
-            const pct = computeProgress(
-              f.id === "all" ? data.proposals : data.proposals.filter((p) => p.festivalId === f.id)
-            ).activePct;
-            const active = selectedFestival === f.id;
-            return (
-              <button
-                key={f.id}
-                onClick={() => { setSelectedFestival(f.id); setPage(0); }}
-                className={cn(
-                  "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition-all sm:gap-2 sm:px-4 sm:py-2 sm:text-sm",
-                  active
-                    ? "border-blue-600 bg-blue-600 text-white shadow-md shadow-blue-600/25"
-                    : "border-slate-200 bg-white text-slate-700 shadow-sm hover:border-blue-300"
-                )}
+      {/* ตัวกรอง 2 ชั้น: ประเภทที่มา → ที่มา */}
+      <div className="space-y-2.5">
+        {kinds.length > 1 && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span className="text-sm text-slate-500">ประเภท:</span>
+            <div className="no-scrollbar -mx-3 flex min-w-0 basis-full gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:basis-0 sm:flex-1 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+              {kinds.map((k) => {
+                const pct = computeProgress(data.proposals.filter((p) => sourceKind(p.festival.type) === k)).activePct;
+                const active = k === kind;
+                return (
+                  <button
+                    key={k}
+                    onClick={() => { setSelectedKind(k); setSelectedFestival("all"); setSelectedSC(null); setPage(0); }}
+                    className={cn(
+                      "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-3.5 py-1.5 text-[13px] font-semibold transition-all sm:gap-2 sm:px-4 sm:py-2 sm:text-sm",
+                      active
+                        ? "border-[#0b1d4d] bg-[#0b1d4d] text-white shadow-md"
+                        : "border-slate-200 bg-white text-slate-700 shadow-sm hover:border-slate-400"
+                    )}
+                  >
+                    <span aria-hidden>{KIND_META[k].icon}</span>
+                    {KIND_META[k].label}
+                    <span className={cn("text-xs font-medium", active ? "text-blue-200" : "text-slate-400")}>{pct}%</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <span className="text-sm text-slate-500">{kind === "FESTIVAL" ? "วาระ:" : "ที่มา:"}</span>
+          {kindFestivals.length <= 6 ? (
+            <div className="no-scrollbar -mx-3 flex min-w-0 basis-full gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:basis-0 sm:flex-1 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+              {[{ id: "all", label: `ทุก${kind === "FESTIVAL" ? "วาระ" : KIND_META[kind].label}`, icon: "✅", type: "" }, ...kindFestivals.map((f) => ({
+                id: f.id,
+                label: sourceLabel(f),
+                icon: festIcon(f.type),
+                type: f.type,
+              }))].map((f) => {
+                const pct = computeProgress(
+                  f.id === "all" ? kindProposals : kindProposals.filter((p) => p.festivalId === f.id)
+                ).activePct;
+                const active = festivalId === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => { setSelectedFestival(f.id); setPage(0); }}
+                    className={cn(
+                      "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition-all sm:gap-2 sm:px-4 sm:py-2 sm:text-sm",
+                      active
+                        ? "border-blue-600 bg-blue-600 text-white shadow-md shadow-blue-600/25"
+                        : "border-slate-200 bg-white text-slate-700 shadow-sm hover:border-blue-300"
+                    )}
+                  >
+                    <span aria-hidden>{f.icon}</span>
+                    {f.label}
+                    <span className={cn("text-xs font-medium", active ? "text-blue-100" : "text-slate-400")}>{pct}%</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            // ที่มาเยอะ (เช่น ประชุมหลายครั้ง) ใช้ dropdown แทนปุ่ม ไม่ให้ล้นจอ
+            <div className="relative min-w-0 basis-full sm:basis-auto">
+              <select
+                value={festivalId}
+                onChange={(e) => { setSelectedFestival(e.target.value); setPage(0); }}
+                className="w-full appearance-none rounded-full border border-slate-200 bg-white py-2 pl-4 pr-9 text-sm font-semibold text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 sm:w-auto sm:min-w-[18rem]"
               >
-                <span aria-hidden>{f.icon}</span>
-                {f.label}
-                <span className={cn("text-xs font-medium", active ? "text-blue-100" : "text-slate-400")}>{pct}%</span>
-              </button>
-            );
-          })}
-        </div>
+                <option value="all">ทุก{KIND_META[kind].label} ({computeProgress(kindProposals).activePct}%)</option>
+                {kindFestivals.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {sourceLabel(f)} ({computeProgress(kindProposals.filter((p) => p.festivalId === f.id)).activePct}%)
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            </div>
+          )}
         {latestUpdate && (
           <div className="flex items-center gap-2 text-xs text-slate-500 sm:ml-auto sm:gap-3 sm:rounded-xl sm:border sm:border-slate-200 sm:bg-white sm:px-4 sm:py-2 sm:shadow-sm">
             <CalendarDays size={18} className="shrink-0 text-slate-500 sm:text-slate-600" />
@@ -481,12 +557,13 @@ export function PublicDashboard() {
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard
-          title="ข้อเสนอทั้งหมด"
+          title={`${noun}ทั้งหมด`}
           value={nProposals}
           icon={FileText}
           tone="blue"
@@ -558,9 +635,9 @@ export function PublicDashboard() {
         <Panel>
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <p className="font-bold text-slate-800">{showCompare ? "เปรียบเทียบรายวาระ" : "ความคืบหน้ารายข้อเสนอ"}</p>
+              <p className="font-bold text-slate-800">{showCompare ? (kind === "FESTIVAL" ? "เปรียบเทียบรายวาระ" : `เปรียบเทียบราย${KIND_META[kind].label}`) : `ความคืบหน้าราย${noun}`}</p>
               <p className="text-xs text-slate-500">
-                {showCompare ? "จำนวนหน่วยงานต่อสถานะในแต่ละวาระ" : "จำนวนหน่วยงานต่อสถานะในแต่ละข้อเสนอ"}
+                {showCompare ? "จำนวนหน่วยงานต่อสถานะในแต่ละที่มา" : `จำนวนหน่วยงานต่อสถานะในแต่ละ${noun}`}
               </p>
             </div>
             <div className="flex flex-wrap gap-3 text-[11px] text-slate-500">
@@ -652,7 +729,7 @@ export function PublicDashboard() {
       <div ref={tabsRef} className="scroll-mt-20 space-y-3">
         <div className="no-scrollbar -mx-3 flex gap-2 overflow-x-auto px-3 sm:mx-0 sm:flex-wrap sm:px-0">
           {([
-            { key: "proposals", label: "รายละเอียดข้อเสนอ", short: "ข้อเสนอ", count: filteredProposals.length },
+            { key: "proposals", label: `รายละเอียด${noun}`, short: noun, count: filteredProposals.length },
             { key: "subcommittees", label: "รายอนุกรรมการ", short: "อนุกรรมการ", count: data.subCommittees.length },
             { key: "agencies", label: "รายหน่วยงาน", short: "หน่วยงาน", count: data.agencies.length },
           ] as const).map((t) => (
@@ -706,10 +783,10 @@ export function PublicDashboard() {
             </div>
             <div className="grid grid-cols-2 gap-2 sm:flex">
               <div className="relative">
-                <select value={selectedFestival} onChange={(e) => { setSelectedFestival(e.target.value); setPage(0); }} className={cn(selectCls, "w-full")}>
-                  <option value="all">ทุกวาระ</option>
-                  {data.festivals.map((f) => (
-                    <option key={f.id} value={f.id}>{FESTIVAL_TYPE_LABELS[f.type] ?? f.name} {f.year}</option>
+                <select value={festivalId} onChange={(e) => { setSelectedFestival(e.target.value); setPage(0); }} className={cn(selectCls, "w-full")}>
+                  <option value="all">ทุก{kind === "FESTIVAL" ? "วาระ" : "ที่มา"}</option>
+                  {kindFestivals.map((f) => (
+                    <option key={f.id} value={f.id}>{sourceLabel(f)}</option>
                   ))}
                 </select>
                 <ChevronDown size={15} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -733,7 +810,7 @@ export function PublicDashboard() {
                 <ChevronDown size={15} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               </div>
               <a
-                href={`/api/public/export?type=detail${selectedFestival !== "all" ? `&festivalId=${selectedFestival}` : ""}`}
+                href={`/api/public/export?type=detail&kind=${kind}${festivalId !== "all" ? `&festivalId=${festivalId}` : ""}`}
                 className="flex items-center justify-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100"
               >
                 <Download size={16} /> ดาวน์โหลด
@@ -745,7 +822,7 @@ export function PublicDashboard() {
           <ul className="divide-y divide-slate-100 md:hidden">
             {pageRows.length === 0 && (
               <li className="py-12 text-center text-sm text-slate-400">
-                {q ? <>ไม่พบข้อเสนอที่ตรงกับ &ldquo;{searchQuery}&rdquo;</> : "ยังไม่มีข้อเสนอ"}
+                {q ? <>ไม่พบรายการที่ตรงกับ &ldquo;{searchQuery}&rdquo;</> : `ยังไม่มี${noun}`}
               </li>
             )}
             {pageRows.map((p, idx) => {
@@ -766,7 +843,7 @@ export function PublicDashboard() {
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-7">
                       <span className={`whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-medium ${festTheme(p.festival.type).badge}`}>
-                        {FESTIVAL_TYPE_LABELS[p.festival.type] ?? p.festival.name} {p.festival.year}
+                        {sourceLabel(p.festival)}
                       </span>
                       <span className="whitespace-nowrap rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">ข้อ {p.orderNumber}</span>
                       {p.subCommittees.map(({ subCommittee }) => (
@@ -787,7 +864,13 @@ export function PublicDashboard() {
                       <span className="w-9 text-right text-xs font-semibold tabular-nums text-slate-700">{s.activePct}%</span>
                     </div>
                     <p className="mt-1.5 pl-7 text-[11px] text-slate-400">
-                      {p.expectedAgencyIds.length} หน่วยงานรับผิดชอบ{updated && <> · อัปเดต {thDate(updated)}</>}
+                      {p.expectedAgencyIds.length} หน่วยงานรับผิดชอบ
+                      {p.dueDate && (
+                        <span className={cn(isOverdue(p, now) && "font-semibold text-red-600")}>
+                          {" "}· {isOverdue(p, now) ? "เลยกำหนด" : "กำหนด"} {thDate(p.dueDate)}
+                        </span>
+                      )}
+                      {updated && <> · อัปเดต {thDate(updated)}</>}
                     </p>
                   </button>
                   {open && (
@@ -806,13 +889,13 @@ export function PublicDashboard() {
               <thead>
                 <tr className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
                   <th className="w-10 px-4 py-3">#</th>
-                  <th className="min-w-[13rem] px-3 py-3 xl:min-w-[15rem]">ชื่อข้อเสนอ</th>
-                  <th className="whitespace-nowrap px-3 py-3">วาระ</th>
+                  <th className="min-w-[13rem] px-3 py-3 xl:min-w-[15rem]">ชื่อ{noun}</th>
+                  <th className="whitespace-nowrap px-3 py-3">ที่มา</th>
                   <th className="hidden whitespace-nowrap px-3 py-3 xl:table-cell">อนุกรรมการ</th>
                   <th className="hidden px-3 py-3 min-[1400px]:table-cell">หน่วยงานที่รับผิดชอบ</th>
                   <th className="whitespace-nowrap px-3 py-3">สถานะ</th>
                   <th className="min-w-[7.5rem] whitespace-nowrap px-3 py-3 xl:min-w-[10rem]">ความคืบหน้า</th>
-                  <th className="hidden whitespace-nowrap px-3 py-3 xl:table-cell">อัปเดตล่าสุด</th>
+                  <th className="hidden whitespace-nowrap px-3 py-3 xl:table-cell">กำหนดเสร็จ / อัปเดต</th>
                   <th className="w-10 px-3 py-3"><span className="sr-only">รายละเอียด</span></th>
                 </tr>
               </thead>
@@ -820,7 +903,7 @@ export function PublicDashboard() {
                 {pageRows.length === 0 && (
                   <tr>
                     <td colSpan={9} className="py-12 text-center text-slate-400">
-                      {q ? <>ไม่พบข้อเสนอที่ตรงกับ &ldquo;{searchQuery}&rdquo;</> : "ยังไม่มีข้อเสนอ"}
+                      {q ? <>ไม่พบรายการที่ตรงกับ &ldquo;{searchQuery}&rdquo;</> : `ยังไม่มี${noun}`}
                     </td>
                   </tr>
                 )}
@@ -843,13 +926,18 @@ export function PublicDashboard() {
                             <FileText size={16} className="mt-0.5 shrink-0 text-blue-500" />
                             <div className="min-w-0">
                               <p className="text-pretty break-words font-semibold leading-snug text-blue-800">{p.title}</p>
-                              <p className="text-xs text-slate-400">ข้อ {p.orderNumber}</p>
+                              <p className="flex flex-wrap items-center gap-1.5 text-xs text-slate-400">
+                                ข้อ {p.orderNumber}
+                                {isOverdue(p, now) && (
+                                  <span className="rounded bg-red-50 px-1.5 py-px text-[10px] font-semibold text-red-600">เลยกำหนด</span>
+                                )}
+                              </p>
                             </div>
                           </div>
                         </td>
                         <td className="px-3 py-3">
                           <span className={`whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-medium ${theme.badge}`}>
-                            {FESTIVAL_TYPE_LABELS[p.festival.type] ?? p.festival.name} {p.festival.year}
+                            {sourceLabel(p.festival)}
                           </span>
                         </td>
                         <td className="hidden px-3 py-3 xl:table-cell">
@@ -888,7 +976,16 @@ export function PublicDashboard() {
                             <span className="w-9 text-right text-xs tabular-nums text-slate-600">{s.activePct}%</span>
                           </div>
                         </td>
-                        <td className="hidden whitespace-nowrap px-3 py-3 text-slate-500 xl:table-cell">{updated ? thDate(updated) : "—"}</td>
+                        <td className="hidden whitespace-nowrap px-3 py-3 xl:table-cell">
+                          {p.dueDate && (
+                            <p className={cn("text-sm", isOverdue(p, now) ? "font-semibold text-red-600" : "text-slate-700")}>
+                              {thDate(p.dueDate)}
+                            </p>
+                          )}
+                          <p className={cn(p.dueDate ? "text-[11px] text-slate-400" : "text-sm text-slate-500")}>
+                            {p.dueDate ? "อัปเดต " : ""}{updated ? thDate(updated) : "—"}
+                          </p>
+                        </td>
                         <td className="px-3 py-3 text-center">
                           {open ? <ChevronUp size={16} className="mx-auto text-blue-500" /> : <ChevronDown size={16} className="mx-auto text-slate-400" />}
                         </td>
@@ -984,7 +1081,7 @@ export function PublicDashboard() {
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${festTheme(p.festival.type).badge}`}>
-                                  {festIcon(p.festival.type)} {FESTIVAL_TYPE_LABELS[p.festival.type]} {p.festival.year}
+                                  {festIcon(p.festival.type)} {sourceLabel(p.festival)}
                                 </span>
                                 <span className="text-xs text-gray-400">ข้อ {p.orderNumber}</span>
                               </div>
@@ -1014,7 +1111,8 @@ export function PublicDashboard() {
         <div className="space-y-2">
           {data.agencies.map((agency) => {
             const relevantImpls = agency.implementations.filter((i) =>
-              selectedFestival === "all" ? true : i.proposal.festival.id === selectedFestival
+              sourceKind(i.proposal.festival.type) === kind &&
+              (festivalId === "all" || i.proposal.festival.id === festivalId)
             );
             // Proposals this agency is expected to respond to (within filter)
             const expectedProposals = filteredProposals.filter((p) =>
@@ -1062,7 +1160,7 @@ export function PublicDashboard() {
                           <div className="flex items-center gap-2 flex-wrap mb-1">
                             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${festTheme(impl.proposal.festival.type).badge}`}>
                               {festIcon(impl.proposal.festival.type)}{" "}
-                              {FESTIVAL_TYPE_LABELS[impl.proposal.festival.type]} {impl.proposal.festival.year}
+                              {sourceLabel(impl.proposal.festival)}
                             </span>
                           </div>
                           {impl.content ? (

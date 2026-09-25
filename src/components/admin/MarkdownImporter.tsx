@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
-import { FESTIVAL_TYPE_LABELS } from "@/lib/utils";
+import { sourceLabel } from "@/lib/tracking";
 import { parseMarkdownProposals, type ParsedProposal } from "@/lib/parseMarkdownProposals";
 import { Loader2, AlertTriangle, Check, Trash2, Wand2, Upload } from "lucide-react";
 
@@ -162,7 +162,7 @@ export function MarkdownImporter() {
               <option value="">— เลือกวาระ —</option>
               {festivals.map((f) => (
                 <option key={f.id} value={f.id}>
-                  {FESTIVAL_TYPE_LABELS[f.type] ?? f.type} {f.year} ({f.name})
+                  {sourceLabel(f)} ({f.name})
                 </option>
               ))}
             </select>
@@ -347,7 +347,7 @@ export function MarkdownImporter() {
                 {importing
                   ? "กำลังนำเข้า..."
                   : `นำเข้า ${includedCount} ข้อเสนอ${
-                      fest ? ` → ${FESTIVAL_TYPE_LABELS[fest.type] ?? fest.type} ${fest.year}` : ""
+                      fest ? ` → ${sourceLabel(fest)}` : ""
                     }`}
               </Button>
             </div>

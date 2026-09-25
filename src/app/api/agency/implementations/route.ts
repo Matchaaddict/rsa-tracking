@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { agencyProposalWhere } from "@/lib/tracking";
 
 async function requireAgency() {
   const session = await auth();
@@ -27,11 +28,7 @@ export async function GET() {
   const subCommitteeIds = agency.subCommittees.map((s) => s.subCommitteeId);
 
   const proposals = await prisma.proposal.findMany({
-    where: {
-      subCommittees: {
-        some: { subCommitteeId: { in: subCommitteeIds } },
-      },
-    },
+    where: agencyProposalWhere(agencyId, subCommitteeIds),
     orderBy: [{ festival: { year: "desc" } }, { orderNumber: "asc" }],
     include: {
       festival: true,

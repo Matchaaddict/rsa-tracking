@@ -4,6 +4,7 @@ import { AppShell } from "@/components/AppShell";
 import { getShellInfo } from "@/lib/shellInfo";
 import { AgencyDashboard } from "@/components/AgencyDashboard";
 import { prisma } from "@/lib/prisma";
+import { agencyProposalWhere } from "@/lib/tracking";
 
 export default async function AgencyDashboardPage() {
   const session = await auth();
@@ -25,9 +26,7 @@ export default async function AgencyDashboardPage() {
 
   const [proposals, unreadAdminMessages] = await Promise.all([
     prisma.proposal.findMany({
-      where: {
-        subCommittees: { some: { subCommitteeId: { in: subCommitteeIds } } },
-      },
+      where: agencyProposalWhere(agencyId, subCommitteeIds),
       orderBy: [{ festival: { year: "desc" } }, { orderNumber: "asc" }],
       include: {
         festival: true,

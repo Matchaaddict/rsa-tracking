@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { expectedAgencyIdsFor } from "@/lib/tracking";
 
 export async function GET(req: NextRequest) {
   // หน้าแรกใช้ default — ไม่ต้องส่ง progressEntries มาด้วย เพราะใช้แค่ status/content ปัจจุบัน
@@ -29,12 +30,18 @@ export async function GET(req: NextRequest) {
       };
 
   const [festivals, proposalsRaw, agencies, subCommittees, siteConfigs] = await Promise.all([
-    prisma.festival.findMany({ orderBy: [{ year: "desc" }, { type: "asc" }] }),
+    // หน้าสาธารณะ: เฉพาะที่มาที่เปิดเผย (isPublic) — เรื่องภายในไม่ส่งออกไปเลย
+    prisma.festival.findMany({
+      where: { isPublic: true },
+      orderBy: [{ year: "desc" }, { date: "desc" }, { type: "asc" }],
+    }),
     prisma.proposal.findMany({
+      where: { festival: { isPublic: true } },
       orderBy: [{ festival: { year: "desc" } }, { orderNumber: "asc" }],
       include: {
         festival: true,
         subCommittees: { include: { subCommittee: true } },
+        assignees: { select: { agencyId: true } },
         implementations: implementationsInclude,
       },
     }),
@@ -46,6 +53,7 @@ export async function GET(req: NextRequest) {
         name: true,
         subCommittees: { include: { subCommittee: true } },
         implementations: {
+          where: { proposal: { festival: { isPublic: true } } },
           include: { proposal: { include: { festival: true } } },
         },
       },
@@ -57,28 +65,16 @@ export async function GET(req: NextRequest) {
   const siteConfig: Record<string, string> = {};
   siteConfigs.forEach((c) => { siteConfig[c.key] = c.value; });
 
-  // Each agency's sub-committee membership set
-  const agencyScSets = new Map<string, Set<string>>();
-  agencies.forEach((a) => {
-    agencyScSets.set(a.id, new Set(a.subCommittees.map((s) => s.subCommitteeId)));
-  });
+  const agencyScope = agencies.map((a) => ({
+    id: a.id,
+    subCommitteeIds: new Set(a.subCommittees.map((s) => s.subCommitteeId)),
+  }));
 
-  // For each proposal: agencies whose SC overlaps the proposal's SC are
-  // implicitly responsible — they count as NOT_STARTED until they engage.
-  const proposals = proposalsRaw.map((p) => {
-    const propScIds = new Set(p.subCommittees.map((s) => s.subCommitteeId));
-    const expectedAgencyIds: string[] = [];
-    agencies.forEach((a) => {
-      const aScs = agencyScSets.get(a.id)!;
-      for (const sc of aScs) {
-        if (propScIds.has(sc)) {
-          expectedAgencyIds.push(a.id);
-          break;
-        }
-      }
-    });
-    return { ...p, expectedAgencyIds };
-  });
+  // หน่วยงานที่ต้องรายงานแต่ละเรื่อง — ยังไม่รายงานนับเป็น NOT_STARTED
+  const proposals = proposalsRaw.map((p) => ({
+    ...p,
+    expectedAgencyIds: expectedAgencyIdsFor(p, agencyScope),
+  }));
 
   return NextResponse.json(
     { festivals, proposals, agencies, subCommittees, siteConfig },

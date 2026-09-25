@@ -23,12 +23,16 @@ export const FESTIVAL_TYPE_LABELS: Record<string, string> = {
   NEW_YEAR: "ปีใหม่",
   SONGKRAN: "สงกรานต์",
   CABINET: "ตามมติ ครม.",
+  MEETING: "การประชุม",
+  PROJECT: "โครงการเฉพาะ",
 };
 
 export const FESTIVAL_TYPE_ICONS: Record<string, string> = {
   NEW_YEAR: "🎆",
   SONGKRAN: "💦",
   CABINET: "🏛️",
+  MEETING: "🗓️",
+  PROJECT: "🎯",
 };
 
 // คลาสสีต่อ type — แยกตามจุดใช้งาน เพื่อให้ ternary เก่ามี mapping ตรงตัว
@@ -38,7 +42,7 @@ export const FESTIVAL_TYPE_THEME: Record<string, {
   bgSoft: string;      // พื้นอ่อน + hover เช่น bg-blue-50 hover:bg-blue-100
   badge: string;       // badge แบบกลม เช่น bg-blue-50 text-blue-600
   pill: string;        // pill เข้ม เช่น bg-blue-100 text-blue-700
-  badgeVariant: "default" | "warning" | "gray";
+  badgeVariant: "default" | "success" | "warning" | "gray";
 }> = {
   NEW_YEAR: {
     text: "text-blue-600",
@@ -63,6 +67,22 @@ export const FESTIVAL_TYPE_THEME: Record<string, {
     badge: "bg-slate-100 text-slate-700",
     pill: "bg-slate-100 text-slate-700",
     badgeVariant: "gray",
+  },
+  MEETING: {
+    text: "text-violet-600",
+    bgSolid: "bg-violet-600 border-violet-600",
+    bgSoft: "bg-violet-50 hover:bg-violet-100",
+    badge: "bg-violet-50 text-violet-700",
+    pill: "bg-violet-100 text-violet-700",
+    badgeVariant: "default",
+  },
+  PROJECT: {
+    text: "text-teal-600",
+    bgSolid: "bg-teal-600 border-teal-600",
+    bgSoft: "bg-teal-50 hover:bg-teal-100",
+    badge: "bg-teal-50 text-teal-700",
+    pill: "bg-teal-100 text-teal-700",
+    badgeVariant: "success",
   },
 };
 

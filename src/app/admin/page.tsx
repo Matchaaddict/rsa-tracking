@@ -1,14 +1,24 @@
-import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
 import { getShellInfo } from "@/lib/shellInfo";
 import { AdminPanel } from "@/components/AdminPanel";
+import { getStaff } from "@/lib/staff";
+import { prisma } from "@/lib/prisma";
 
 export default async function AdminPage() {
-  const session = await auth();
-  if (!session || session.user.role !== "admin") {
+  const [session, staff] = await Promise.all([auth(), getStaff()]);
+  if (!session || !staff) {
     redirect("/login");
   }
+
+  const secretary =
+    staff.kind === "secretary"
+      ? await prisma.subCommittee.findUnique({
+          where: { id: staff.subCommitteeId },
+          select: { id: true, name: true },
+        })
+      : null;
 
   return (
     <AppShell info={await getShellInfo()}>
@@ -17,6 +27,7 @@ export default async function AdminPage() {
           isSuperAdmin={session.user.isSuperAdmin ?? false}
           permissions={session.user.permissions ?? "[]"}
           adminId={session.user.id ?? ""}
+          secretaryOf={secretary}
         />
       </main>
     </AppShell>
