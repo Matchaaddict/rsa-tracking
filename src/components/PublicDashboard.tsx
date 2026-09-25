@@ -426,6 +426,14 @@ export function PublicDashboard() {
   const pageRows = tableRows.slice(curPage * PAGE_SIZE, (curPage + 1) * PAGE_SIZE);
   const agencyName = new Map(data.agencies.map((a) => [a.id, a.name]));
 
+  // แสดงเฉพาะอนุฯ/หน่วยงานที่เกี่ยวข้องกับเรื่องที่กรองอยู่ — เช่น เลือกประชุมอนุฯ 1 ก็ไม่ควรเห็นอนุฯ อื่นที่ 0/0
+  const involvedScIds = new Set(filteredProposals.flatMap((p) => p.subCommittees.map((s) => s.subCommittee.id)));
+  const involvedAgencyIds = new Set(
+    filteredProposals.flatMap((p) => [...p.expectedAgencyIds, ...p.implementations.map((i) => i.agencyId)])
+  );
+  const scList = data.subCommittees.filter((sc) => involvedScIds.has(sc.id));
+  const agencyList = data.agencies.filter((a) => involvedAgencyIds.has(a.id));
+
   const selectCls =
     "appearance-none rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-8 text-sm text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400";
 
@@ -485,7 +493,7 @@ export function PublicDashboard() {
                 return (
                   <button
                     key={f.id}
-                    onClick={() => { setSelectedFestival(f.id); setPage(0); }}
+                    onClick={() => { setSelectedFestival(f.id); setSelectedSC(null); setPage(0); }}
                     className={cn(
                       "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition-all sm:gap-2 sm:px-4 sm:py-2 sm:text-sm",
                       active
@@ -505,7 +513,7 @@ export function PublicDashboard() {
             <div className="relative min-w-0 basis-full sm:basis-auto">
               <select
                 value={festivalId}
-                onChange={(e) => { setSelectedFestival(e.target.value); setPage(0); }}
+                onChange={(e) => { setSelectedFestival(e.target.value); setSelectedSC(null); setPage(0); }}
                 className="w-full appearance-none rounded-full border border-slate-200 bg-white py-2 pl-4 pr-9 text-sm font-semibold text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 sm:w-auto sm:min-w-[18rem]"
               >
                 <option value="all">ทุก{KIND_META[kind].label} ({computeProgress(kindProposals).activePct}%)</option>
@@ -680,14 +688,14 @@ export function PublicDashboard() {
             <div className="flex items-center justify-center gap-2">
               <Landmark size={22} className="text-blue-600" />
               <div className="leading-tight">
-                <p className="text-lg font-bold text-slate-800">{data.subCommittees.length}</p>
+                <p className="text-lg font-bold text-slate-800">{scList.length}</p>
                 <p className="text-[11px] text-slate-500">อนุกรรมการ</p>
               </div>
             </div>
             <div className="flex items-center justify-center gap-2">
               <UsersRound size={22} className="text-blue-600" />
               <div className="leading-tight">
-                <p className="text-lg font-bold text-slate-800">{data.agencies.length}</p>
+                <p className="text-lg font-bold text-slate-800">{agencyList.length}</p>
                 <p className="text-[11px] text-slate-500">หน่วยงานที่เกี่ยวข้อง</p>
               </div>
             </div>
@@ -700,8 +708,8 @@ export function PublicDashboard() {
         <div className="no-scrollbar -mx-3 flex gap-2 overflow-x-auto px-3 sm:mx-0 sm:flex-wrap sm:px-0">
           {([
             { key: "proposals", label: `รายละเอียด${noun}`, short: noun, count: filteredProposals.length },
-            { key: "subcommittees", label: "รายอนุกรรมการ", short: "อนุกรรมการ", count: data.subCommittees.length },
-            { key: "agencies", label: "รายหน่วยงาน", short: "หน่วยงาน", count: data.agencies.length },
+            { key: "subcommittees", label: "รายอนุกรรมการ", short: "อนุกรรมการ", count: scList.length },
+            { key: "agencies", label: "รายหน่วยงาน", short: "หน่วยงาน", count: agencyList.length },
           ] as const).map((t) => (
             <button
               key={t.key}
@@ -753,7 +761,7 @@ export function PublicDashboard() {
             </div>
             <div className="grid grid-cols-2 gap-2 sm:flex">
               <div className="relative">
-                <select value={festivalId} onChange={(e) => { setSelectedFestival(e.target.value); setPage(0); }} className={cn(selectCls, "w-full")}>
+                <select value={festivalId} onChange={(e) => { setSelectedFestival(e.target.value); setSelectedSC(null); setPage(0); }} className={cn(selectCls, "w-full")}>
                   <option value="all">ทุก{kind === "FESTIVAL" ? "วาระ" : "ที่มา"}</option>
                   {kindFestivals.map((f) => (
                     <option key={f.id} value={f.id}>{sourceLabel(f)}</option>
@@ -773,7 +781,7 @@ export function PublicDashboard() {
               <div className="relative">
                 <select value={selectedSC ?? ""} onChange={(e) => { setSelectedSC(e.target.value || null); setPage(0); }} className={cn(selectCls, "w-full")}>
                   <option value="">ทุกอนุกรรมการ</option>
-                  {data.subCommittees.map((sc) => (
+                  {scList.map((sc) => (
                     <option key={sc.id} value={sc.id}>{scShort(sc.name)}</option>
                   ))}
                 </select>
@@ -1042,7 +1050,12 @@ export function PublicDashboard() {
         });
         return (
           <div className="space-y-2">
-            {data.subCommittees.map((sc) => {
+            {scList.length === 0 && (
+              <p className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-400">
+                ไม่มีอนุกรรมการที่เกี่ยวข้องกับรายการที่เลือก
+              </p>
+            )}
+            {scList.map((sc) => {
               const proposals = proposalsBySC.get(sc.id) ?? [];
               const s = computeProgress(proposals);
               const { completed: done, inProgress: inProg, total, activePct: pct, completedPct: donePct } = s;
@@ -1066,7 +1079,7 @@ export function PublicDashboard() {
                         <div className="h-full bg-emerald-500 transition-all" style={{ width: `${donePct}%` }} />
                         <div className="h-full bg-amber-400 transition-all" style={{ width: `${Math.max(pct - donePct, 0)}%` }} />
                       </div>
-                      <p className="text-xs text-gray-400 mt-1">{proposals.length} ข้อเสนอ · กำลังทำ {inProg} · เสร็จ {done}</p>
+                      <p className="text-xs text-gray-400 mt-1">{proposals.length} {noun} · กำลังทำ {inProg} · เสร็จ {done}</p>
                     </div>
                   </button>
                   {isOpen && (
@@ -1113,7 +1126,12 @@ export function PublicDashboard() {
       {/* Agencies Tab */}
       {activeTab === "agencies" && (
         <div className="space-y-2">
-          {data.agencies.map((agency) => {
+          {agencyList.length === 0 && (
+            <p className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-400">
+              ไม่มีหน่วยงานที่เกี่ยวข้องกับรายการที่เลือก
+            </p>
+          )}
+          {agencyList.map((agency) => {
             const relevantImpls = agency.implementations.filter((i) =>
               sourceKind(i.proposal.festival.type) === kind &&
               (festivalId === "all" || i.proposal.festival.id === festivalId)
