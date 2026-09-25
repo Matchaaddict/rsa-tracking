@@ -13,14 +13,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const session = await requireSuper();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  const { password, permissions } = await req.json();
+  const { password, permissions, subCommitteeId } = await req.json();
   const data: Record<string, unknown> = {};
   if (permissions !== undefined) data.permissions = JSON.stringify(permissions);
+  if (subCommitteeId !== undefined) data.subCommitteeId = subCommitteeId || null;
   if (password) data.password = await bcrypt.hash(password, 10);
   const admin = await prisma.admin.update({
     where: { id },
     data,
-    select: { id: true, username: true, isSuperAdmin: true, permissions: true, createdAt: true },
+    select: { id: true, username: true, isSuperAdmin: true, permissions: true, subCommitteeId: true, subCommittee: { select: { name: true } }, createdAt: true },
   });
   return NextResponse.json(admin);
 }

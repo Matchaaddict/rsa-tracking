@@ -110,7 +110,10 @@ export async function POST() {
   }
 
   // วาระล่าสุด
-  const festival = await prisma.festival.findFirst({ orderBy: { year: "desc" } });
+  const festival = await prisma.festival.findFirst({
+    where: { type: { in: ["NEW_YEAR", "SONGKRAN"] } },
+    orderBy: { year: "desc" },
+  });
   if (!festival) return NextResponse.json({ error: "ไม่มีวาระในระบบ" }, { status: 400 });
 
   const proposals = await prisma.proposal.findMany({

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useSyncExternalStore } from "react";
+import { useId, useState, useSyncExternalStore } from "react";
 import { useSession, signOut } from "next-auth/react";
 import {
   Home,
@@ -19,11 +19,13 @@ import {
   LogOut,
   ChevronDown,
   UserCircle2,
+  Hash,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ShellInfo } from "@/lib/shellInfo";
 
 export const SEARCH_EVENT = "rsat:search";
+export const FOCUS_SEARCH_EVENT = "rsat:focus-search";
 const HASH_EVENT = "rsat:hash";
 
 function subscribeHash(cb: () => void) {
@@ -44,15 +46,17 @@ type NavItem = {
 
 function Logo({ className }: { className?: string }) {
   // โลโก้ถนนรูปตัว A — ถนนมุ่งสู่เส้นขอบฟ้า
+  // id ต้องไม่ซ้ำ: ถ้าโลโก้อีกตัวถูกซ่อน (display:none) gradient ที่อ้างถึงจะหายไปด้วย
+  const gid = useId();
   return (
     <svg viewBox="0 0 48 48" className={className} aria-hidden>
       <defs>
-        <linearGradient id="rsat-logo" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#38bdf8" />
           <stop offset="1" stopColor="#2563eb" />
         </linearGradient>
       </defs>
-      <path d="M24 3 L45 45 H33 L24 24 L15 45 H3 Z" fill="url(#rsat-logo)" />
+      <path d="M24 3 L45 45 H33 L24 24 L15 45 H3 Z" fill={`url(#${gid})`} />
       <path d="M24 26 L29 45 H19 Z" fill="#fff" />
       <path d="M24 30 v3 M24 36 v3 M24 42 v2" stroke="#1e3a8a" strokeWidth="1.6" />
     </svg>
@@ -75,24 +79,29 @@ export function AppShell({
   const hash = useSyncExternalStore(subscribeHash, () => window.location.hash, () => "");
 
   const role = session?.user.role;
+  // แอดมินและเลขาฯ อนุกรรมการใช้แผงควบคุมเดียวกัน (/admin) แต่เห็นส่วนต่างกัน
+  const isStaff = role === "admin" || role === "secretary";
 
   const items: NavItem[] = [
     { key: "home", label: "หน้าหลัก", href: "/", icon: Home },
     { key: "proposals", label: "ข้อเสนอแนะ", href: "/#proposals", icon: FileText },
     { key: "report", label: "รายงาน", href: "/report", icon: FileBarChart2 },
-    { key: "subcommittees", label: "คณะกรรมการ", href: "/#subcommittees", icon: Users },
+    { key: "committees", label: "คณะกรรมการ", href: "/committees", icon: Users },
+    { key: "topics", label: "ประเด็น", href: "/topics", icon: Hash },
     {
       key: "agencies",
       label: "หน่วยงาน",
       href: role === "agency" ? "/agency/dashboard" : "/#agencies",
       icon: Building2,
     },
-    { key: "admin", label: "ตั้งค่าระบบ", href: role === "admin" ? "/admin" : "/login", icon: Settings },
+    { key: "admin", label: "ตั้งค่าระบบ", href: isStaff ? "/admin" : "/login", icon: Settings },
   ];
 
   function isActive(item: NavItem) {
     if (item.key === "admin") return pathname.startsWith("/admin");
     if (item.key === "report") return pathname.startsWith("/report");
+    if (item.key === "committees") return pathname.startsWith("/committees");
+    if (item.key === "topics") return pathname.startsWith("/topics");
     if (item.key === "agencies" && pathname.startsWith("/agency")) return true;
     if (pathname !== "/") return false;
     const h = hash.replace("#", "");
@@ -108,6 +117,15 @@ export function AppShell({
       window.location.hash = "proposals";
     } else {
       router.push(`/?q=${encodeURIComponent(q)}#proposals`);
+    }
+  }
+
+  // จอเล็กไม่มีช่องค้นหาบน header — พาไปช่องค้นหาของตารางข้อเสนอแทน
+  function openSearch() {
+    if (pathname === "/") {
+      window.dispatchEvent(new Event(FOCUS_SEARCH_EVENT));
+    } else {
+      router.push("/#proposals");
     }
   }
 
@@ -241,7 +259,7 @@ export function AppShell({
       <div className="lg:pl-60 print:pl-0">
         {/* Header */}
         <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/85 backdrop-blur print:hidden">
-          <div className="flex items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-6 sm:py-3 lg:px-8">
             <button
               onClick={() => setMobileOpen(true)}
               className="-ml-1 rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
@@ -249,25 +267,43 @@ export function AppShell({
             >
               <Menu size={22} />
             </button>
+            <Link href="/" className="flex shrink-0 items-center gap-1.5 sm:hidden" aria-label="RSAT หน้าหลัก">
+              <Logo className="h-7 w-7" />
+            </Link>
             <div className="min-w-0 flex-1">
-              <h1 className="truncate text-base font-bold text-[#0b1d4d] sm:text-xl lg:text-2xl">{info.title}</h1>
-              <p className="hidden truncate text-xs text-slate-500 sm:block sm:text-sm">{info.subtitle}</p>
+              <p className="text-sm font-bold leading-tight text-[#0b1d4d] sm:hidden">RSAT</p>
+              <h1 className="truncate text-[11px] leading-snug text-slate-500 sm:hidden" title={info.title}>
+                {info.title}
+              </h1>
+              <h1 className="hidden sm:line-clamp-2 text-balance font-bold leading-snug text-[#0b1d4d] sm:text-lg xl:text-2xl">
+                {info.title}
+              </h1>
+              <p className="mt-0.5 hidden truncate text-xs text-slate-500 md:block xl:text-sm" title={info.subtitle}>
+                {info.subtitle}
+              </p>
             </div>
 
-            <form onSubmit={submitSearch} className="relative hidden md:block">
+            <button
+              onClick={openSearch}
+              className="shrink-0 rounded-full border border-slate-200 bg-white p-2.5 text-slate-600 shadow-sm hover:text-blue-600 xl:hidden"
+              aria-label="ค้นหา"
+            >
+              <Search size={18} />
+            </button>
+            <form onSubmit={submitSearch} className="relative hidden shrink-0 xl:block">
               <Search size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="ค้นหาข้อมูล..."
-                className="w-56 rounded-full border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 xl:w-64"
+                className="w-56 rounded-full border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 2xl:w-64"
               />
             </form>
 
             {session && (
               <Link
-                href={role === "admin" ? "/admin" : "/agency/dashboard"}
-                className="relative hidden rounded-full border border-slate-200 bg-white p-2.5 text-slate-600 shadow-sm hover:text-blue-600 sm:block"
+                href={isStaff ? "/admin" : "/agency/dashboard"}
+                className="relative hidden shrink-0 rounded-full border border-slate-200 bg-white p-2.5 text-slate-600 shadow-sm hover:text-blue-600 md:block"
                 aria-label="การแจ้งเตือน"
               >
                 <Bell size={18} />
@@ -275,7 +311,7 @@ export function AppShell({
             )}
 
             {session ? (
-              <div className="relative">
+              <div className="relative shrink-0">
                 <button
                   onClick={() => setMenuOpen((v) => !v)}
                   className="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-2 hover:bg-slate-100"
@@ -283,25 +319,25 @@ export function AppShell({
                   <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-white shadow">
                     <UserCircle2 size={24} />
                   </span>
-                  <span className="hidden text-left leading-tight sm:block">
-                    <span className="block max-w-[10rem] truncate text-sm font-semibold text-slate-800">
+                  <span className="hidden text-left leading-tight lg:block">
+                    <span className="block max-w-[9rem] truncate text-sm font-semibold text-slate-800">
                       {session.user.name}
                     </span>
                     <span className="block text-xs text-slate-500">
-                      {role === "admin" ? "ผู้ดูแลระบบ" : "หน่วยงาน"}
+                      {role === "admin" ? "ผู้ดูแลระบบ" : role === "secretary" ? "เลขาฯ อนุกรรมการ" : "หน่วยงาน"}
                     </span>
                   </span>
-                  <ChevronDown size={16} className="hidden text-slate-500 sm:block" />
+                  <ChevronDown size={16} className="hidden text-slate-500 lg:block" />
                 </button>
                 {menuOpen && (
                   <div className="absolute right-0 mt-2 w-52 overflow-hidden rounded-xl border border-slate-100 bg-white py-1 shadow-xl">
                     <Link
-                      href={role === "admin" ? "/admin" : "/agency/dashboard"}
+                      href={isStaff ? "/admin" : "/agency/dashboard"}
                       onClick={() => setMenuOpen(false)}
                       className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
                     >
-                      {role === "admin" ? <Settings size={15} /> : <Building2 size={15} />}
-                      {role === "admin" ? "จัดการระบบ" : "แดชบอร์ดหน่วยงาน"}
+                      {isStaff ? <Settings size={15} /> : <Building2 size={15} />}
+                      {isStaff ? "จัดการระบบ" : "แดชบอร์ดหน่วยงาน"}
                     </Link>
                     <button
                       onClick={() => signOut({ callbackUrl: window.location.origin + "/" })}
@@ -313,17 +349,17 @@ export function AppShell({
                 )}
               </div>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 items-center gap-2">
                 <Link
                   href="/agency/login"
-                  className="rounded-full bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 sm:text-sm"
+                  className="whitespace-nowrap rounded-full bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 sm:text-sm"
                 >
-                  <span className="sm:hidden">เข้าสู่ระบบ</span>
-                  <span className="hidden sm:inline">เข้าสู่ระบบ (หน่วยงาน)</span>
+                  <span className="2xl:hidden">เข้าสู่ระบบ</span>
+                  <span className="hidden 2xl:inline">เข้าสู่ระบบ (หน่วยงาน)</span>
                 </Link>
                 <Link
                   href="/login"
-                  className="hidden rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 sm:block"
+                  className="hidden whitespace-nowrap rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 xl:block"
                 >
                   แอดมิน
                 </Link>

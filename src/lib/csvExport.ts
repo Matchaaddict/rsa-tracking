@@ -1,4 +1,5 @@
-import { FESTIVAL_TYPE_LABELS, STATUS_LABELS } from "./utils";
+import { STATUS_LABELS } from "./utils";
+import { expectedAgencyIdsFor, sourceLabel } from "./tracking";
 
 const BOM = "﻿";
 
@@ -7,9 +8,6 @@ export function csvEscape(v: string | number | null | undefined): string {
   return `"${String(v).replace(/"/g, '""')}"`;
 }
 
-function festivalLabel(type: string): string {
-  return FESTIVAL_TYPE_LABELS[type] ?? type;
-}
 
 function statusLabel(status: string): string {
   return STATUS_LABELS[status] ?? status;
@@ -24,7 +22,7 @@ function thaiDate(d: Date): string {
 export interface DetailProposal {
   orderNumber: number;
   title: string;
-  festival: { type: string; year: number };
+  festival: { type: string; name: string; year: number };
   subCommittees: { subCommittee: { name: string } }[];
   implementations: {
     status: string;
@@ -40,13 +38,13 @@ export interface DetailProposal {
 
 export function buildDetailCsv(proposals: DetailProposal[]): string {
   let csv = BOM + [
-    "วาระ", "ปี", "อนุกรรมการ", "ข้อที่", "ชื่อข้อเสนอ",
+    "ที่มา", "ปี", "อนุกรรมการ", "ข้อที่", "ชื่อข้อเสนอ",
     "หน่วยงาน", "สถานะ", "รายละเอียดล่าสุด",
     "ผู้รายงาน", "ตำแหน่ง", "เบอร์", "ลิงก์หลักฐาน", "วันที่อัพเดต",
   ].join(",") + "\n";
 
   for (const p of proposals) {
-    const fest = festivalLabel(p.festival.type);
+    const fest = sourceLabel(p.festival);
     const yr = String(p.festival.year);
     const scs = p.subCommittees.map((s) => s.subCommittee.name).join("; ");
     if (p.implementations.length === 0) {
@@ -103,8 +101,9 @@ export function buildSummaryCsv(agencies: SummaryAgency[]): string {
 export interface PendingProposal {
   orderNumber: number;
   title: string;
-  festival: { type: string; year: number };
+  festival: { type: string; name: string; year: number };
   subCommittees: { subCommittee: { id: string; name: string } }[];
+  assignees: { agencyId: string }[];
   implementations: { agencyId: string; status: string }[];
 }
 export interface PendingAgency {
@@ -113,25 +112,33 @@ export interface PendingAgency {
   subCommittees: { subCommittee: { id: string } }[];
 }
 
-// One row per (proposal × agency) where the agency is expected (SC overlap)
+// One row per (proposal × agency) where the agency is expected (assignees, else SC overlap)
 // but has either no implementation row or is still NOT_STARTED.
 export function buildPendingCsv(proposals: PendingProposal[], agencies: PendingAgency[]): string {
   let csv = BOM + [
-    "วาระ", "ปี", "อนุกรรมการ", "ข้อที่", "ชื่อข้อเสนอ", "หน่วยงานที่ยังไม่รายงาน",
+    "ที่มา", "ปี", "อนุกรรมการ", "ข้อที่", "ชื่อข้อเสนอ", "หน่วยงานที่ยังไม่รายงาน",
   ].join(",") + "\n";
 
+  const scope = agencies.map((a) => ({
+    id: a.id,
+    subCommitteeIds: new Set(a.subCommittees.map((s) => s.subCommittee.id)),
+  }));
   for (const p of proposals) {
-    const fest = festivalLabel(p.festival.type);
+    const fest = sourceLabel(p.festival);
     const yr = String(p.festival.year);
-    const propScIds = new Set(p.subCommittees.map((s) => s.subCommittee.id));
+    const expected = new Set(
+      expectedAgencyIdsFor(
+        { assignees: p.assignees, subCommittees: p.subCommittees.map((s) => ({ subCommitteeId: s.subCommittee.id })) },
+        scope
+      )
+    );
     const reportedAgencyIds = new Set(
       p.implementations.filter((i) => i.status !== "NOT_STARTED").map((i) => i.agencyId)
     );
     const scNames = p.subCommittees.map((s) => s.subCommittee.name).join("; ");
 
     for (const a of agencies) {
-      const inScope = a.subCommittees.some((s) => propScIds.has(s.subCommittee.id));
-      if (!inScope) continue;
+      if (!expected.has(a.id)) continue;
       if (reportedAgencyIds.has(a.id)) continue;
       csv += [
         csvEscape(fest), yr, csvEscape(scNames), p.orderNumber, csvEscape(p.title),
@@ -145,7 +152,7 @@ export function buildPendingCsv(proposals: PendingProposal[], agencies: PendingA
 export interface HistoryProposal {
   orderNumber: number;
   title: string;
-  festival: { type: string; year: number };
+  festival: { type: string; name: string; year: number };
   implementations: {
     agency: { name: string };
     progressEntries: {
@@ -162,13 +169,13 @@ export interface HistoryProposal {
 // Every progress entry as a row — full audit trail for sub-committee meetings.
 export function buildHistoryCsv(proposals: HistoryProposal[]): string {
   let csv = BOM + [
-    "วาระ", "ปี", "ข้อที่", "ชื่อข้อเสนอ", "หน่วยงาน",
+    "ที่มา", "ปี", "ข้อที่", "ชื่อข้อเสนอ", "หน่วยงาน",
     "วันที่รายงาน", "สถานะ", "รายละเอียด",
     "ผู้รายงาน", "ตำแหน่ง", "เบอร์",
   ].join(",") + "\n";
 
   for (const p of proposals) {
-    const fest = festivalLabel(p.festival.type);
+    const fest = sourceLabel(p.festival);
     const yr = String(p.festival.year);
     for (const impl of p.implementations) {
       // Oldest first so meeting attendees can read the timeline top-down

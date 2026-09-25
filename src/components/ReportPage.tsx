@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FESTIVAL_TYPE_LABELS, STATUS_LABELS, festIcon, festTheme } from "@/lib/utils";
+import { STATUS_LABELS, festIcon, festTheme } from "@/lib/utils";
+import { KIND_META, SOURCE_KINDS, sourceKind, sourceLabel, type SourceKind } from "@/lib/tracking";
 import { Loader2, Printer, Search, X } from "lucide-react";
 import { Button } from "./ui/button";
 
@@ -50,6 +51,7 @@ function formatThaiDate(iso: string) {
 export function ReportPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedKind, setSelectedKind] = useState<SourceKind>("FESTIVAL");
   const [selectedFestival, setSelectedFestival] = useState<string>("all");
   const [selectedSC, setSelectedSC] = useState<string>("all");
   const [selectedAgency, setSelectedAgency] = useState<string>("all");
@@ -68,6 +70,11 @@ export function ReportPage() {
   );
   if (!data) return null;
 
+  // รายงานแยกตามประเภทที่มา — ไม่รวมเทศกาลกับการประชุมในสรุปเดียวกัน
+  const kinds = SOURCE_KINDS.filter(k => data.festivals.some(f => sourceKind(f.type) === k));
+  const kind: SourceKind = kinds.includes(selectedKind) ? selectedKind : kinds[0] ?? "FESTIVAL";
+  const kindFestivals = data.festivals.filter(f => sourceKind(f.type) === kind);
+
   const allSubCommittees = [...new Map(
     data.proposals.flatMap(p => p.subCommittees.map(s => [s.subCommittee.id, s.subCommittee] as const))
   ).values()].sort((a, b) => a.name.localeCompare(b.name, "th"));
@@ -77,6 +84,7 @@ export function ReportPage() {
   const kw = keyword.trim().toLowerCase();
   const kwTokens = kw.split(/\s+/).filter(Boolean);
   const proposalsRaw = data.proposals.filter(p => {
+    if (sourceKind(p.festival.type) !== kind) return false;
     if (selectedFestival !== "all" && p.festivalId !== selectedFestival) return false;
     if (selectedSC !== "all" && !p.subCommittees.some(s => s.subCommittee.id === selectedSC)) return false;
     if (selectedAgency !== "all" && !p.expectedAgencyIds.includes(selectedAgency)) return false;
@@ -125,8 +133,8 @@ export function ReportPage() {
   const totalNotStarted = Math.max(totalRelevant - totalDone - totalInProg, 0);
 
   const festivalLabel = selectedFestival === "all"
-    ? "ทุกวาระ"
-    : (() => { const f = data.festivals.find(f => f.id === selectedFestival); return f ? `${FESTIVAL_TYPE_LABELS[f.type]} ${f.year}` : ""; })();
+    ? (kind === "FESTIVAL" ? "ทุกวาระ" : `${KIND_META[kind].label}ทั้งหมด`)
+    : (() => { const f = data.festivals.find(f => f.id === selectedFestival); return f ? `${sourceLabel(f)}` : ""; })();
 
   const scLabel = selectedSC === "all"
     ? ""
@@ -156,22 +164,32 @@ export function ReportPage() {
           <p className="text-sm text-gray-500">กดปุ่ม Print เพื่อพิมพ์หรือบันทึก PDF</p>
         </div>
         <div className="flex gap-3 flex-wrap items-center">
+          {kinds.length > 1 && (
+            <div className="flex gap-1 flex-wrap rounded-xl bg-gray-100 p-1">
+              {kinds.map(k => (
+                <button key={k} onClick={() => { setSelectedKind(k); setSelectedFestival("all"); }}
+                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${k === kind ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                  {KIND_META[k].icon} {KIND_META[k].label}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex gap-2 flex-wrap">
             <button onClick={() => setSelectedFestival("all")}
               className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${selectedFestival === "all" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200"}`}>
-              ทุกวาระ
+              {kind === "FESTIVAL" ? "ทุกวาระ" : `ทุก${KIND_META[kind].label}`}
             </button>
-            {data.festivals.map(f => (
+            {kindFestivals.map(f => (
               <button key={f.id} onClick={() => setSelectedFestival(f.id)}
                 className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${selectedFestival === f.id ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200"}`}>
-                {f.name}
+                {sourceLabel(f)}
               </button>
             ))}
           </div>
           <select
             value={selectedSC}
             onChange={(e) => setSelectedSC(e.target.value)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            className={`w-full sm:w-auto max-w-full sm:max-w-[260px] px-3 py-1.5 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               selectedSC === "all"
                 ? "bg-white text-gray-600 border-gray-200"
                 : "bg-blue-50 text-blue-700 border-blue-300"
@@ -190,7 +208,7 @@ export function ReportPage() {
           <select
             value={selectedAgency}
             onChange={(e) => setSelectedAgency(e.target.value)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[220px] ${
+            className={`w-full sm:w-auto max-w-full sm:max-w-[220px] px-3 py-1.5 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               selectedAgency === "all"
                 ? "bg-white text-gray-600 border-gray-200"
                 : "bg-blue-50 text-blue-700 border-blue-300"
@@ -320,7 +338,7 @@ export function ReportPage() {
               <div key={festival.id}>
                 {multiGroup && (
                   <div className={`flex items-center gap-2 px-3 py-2 rounded-lg mb-2 text-sm font-semibold ${festTheme(festival.type).pill}`}>
-                    {festIcon(festival.type)} {FESTIVAL_TYPE_LABELS[festival.type]} {festival.year}
+                    {festIcon(festival.type)} {sourceLabel(festival)}
                   </div>
                 )}
                 <div className="space-y-2">
@@ -352,7 +370,7 @@ export function ReportPage() {
                                 {!multiGroup && (
                                   <div className="flex gap-1 mt-1 flex-wrap">
                                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${festTheme(p.festival.type).pill}`}>
-                                      {festIcon(p.festival.type)} {FESTIVAL_TYPE_LABELS[p.festival.type]} {p.festival.year}
+                                      {festIcon(p.festival.type)} {sourceLabel(p.festival)}
                                     </span>
                                     {p.subCommittees.map(sc => {
                                       const n = sc.subCommittee.name.match(/^C(\d+)/)?.[1];
@@ -479,7 +497,7 @@ export function ReportPage() {
                             {multiFest && (
                               <div className={`px-4 py-2 flex items-center justify-between ${festTheme(festival.type).pill}`}>
                                 <span className="text-sm font-semibold">
-                                  {festIcon(festival.type)} {FESTIVAL_TYPE_LABELS[festival.type]} {festival.year}
+                                  {festIcon(festival.type)} {sourceLabel(festival)}
                                 </span>
                                 <span className="text-xs opacity-75">{festProposals.length} ข้อเสนอ</span>
                               </div>
@@ -511,11 +529,11 @@ export function ReportPage() {
                                 const agencyRelevant = festProposals.length - agencyNotRel;
                                 const agencyPct = agencyRelevant > 0 ? Math.round((agencyDone / agencyRelevant) * 100) : 0;
                                 return (
-                                  <div key={agency.id} className="px-4 py-2.5 flex items-start gap-3">
-                                    <div className="w-40 shrink-0 text-sm font-medium text-gray-800 pt-0.5 leading-snug">
+                                  <div key={agency.id} className="px-3 sm:px-4 py-2.5 flex flex-wrap sm:flex-nowrap items-start gap-x-3 gap-y-1.5">
+                                    <div className="w-[calc(100%-64px)] sm:w-40 shrink-0 text-sm font-medium text-gray-800 pt-0.5 leading-snug break-words">
                                       {agency.name}
                                     </div>
-                                    <div className="flex-1 flex flex-wrap items-center gap-1">
+                                    <div className="order-last sm:order-none basis-full sm:basis-auto min-w-0 flex-1 flex flex-wrap items-center gap-1">
                                       {festProposals.map(p => {
                                         const impl = implMap.get(p.id);
                                         const status = impl?.status ?? "NOT_STARTED";
@@ -587,7 +605,7 @@ export function ReportPage() {
                 <div key={festival.id}>
                   {multiGroup && (
                     <div className={`flex items-center gap-2 px-3 py-2 rounded-lg mb-3 text-sm font-semibold ${fgIdx > 0 ? "print:break-before-page" : ""} ${festTheme(festival.type).pill}`}>
-                      {festIcon(festival.type)} {FESTIVAL_TYPE_LABELS[festival.type]} {festival.year}
+                      {festIcon(festival.type)} {sourceLabel(festival)}
                     </div>
                   )}
                   <div className="space-y-4">
@@ -612,7 +630,7 @@ export function ReportPage() {
                               <div className="flex gap-1 mt-1.5 flex-wrap">
                                 {!multiGroup && (
                                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${festTheme(p.festival.type).pill}`}>
-                                    {festIcon(p.festival.type)} {FESTIVAL_TYPE_LABELS[p.festival.type]} {p.festival.year}
+                                    {festIcon(p.festival.type)} {sourceLabel(p.festival)}
                                   </span>
                                 )}
                                 {p.subCommittees.map((sc) => {

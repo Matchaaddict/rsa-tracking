@@ -70,6 +70,7 @@ export async function GET(req: NextRequest) {
         include: {
           festival: true,
           subCommittees: { include: { subCommittee: true } },
+          assignees: { select: { agencyId: true } },
           implementations: { select: { agencyId: true, status: true } },
         },
       }),

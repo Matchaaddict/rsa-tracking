@@ -5,6 +5,7 @@ declare module "next-auth" {
     role?: string;
     isSuperAdmin?: boolean;
     permissions?: string;
+    subCommitteeId?: string | null;
   }
   interface Session {
     user: {
@@ -15,6 +16,7 @@ declare module "next-auth" {
       role?: string;
       isSuperAdmin?: boolean;
       permissions?: string;
+    subCommitteeId?: string | null;
     };
   }
 }
@@ -25,5 +27,6 @@ declare module "next-auth/jwt" {
     id?: string;
     isSuperAdmin?: boolean;
     permissions?: string;
+    subCommitteeId?: string | null;
   }
 }

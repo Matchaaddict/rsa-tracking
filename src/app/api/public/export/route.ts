@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { KIND_META, type SourceKind } from "@/lib/tracking";
 import {
   buildDetailCsv,
   buildSummaryCsv,
@@ -17,7 +18,13 @@ export async function GET(req: NextRequest) {
   }
 
   const festivalId = url.searchParams.get("festivalId") ?? undefined;
-  const proposalWhere = festivalId ? { festivalId } : {};
+  const kind = url.searchParams.get("kind") as SourceKind | null;
+  // เฉพาะที่มาที่เปิดเผย; กรองตามประเภท/ที่มาได้
+  const festivalWhere = {
+    isPublic: true,
+    ...(kind && KIND_META[kind] ? { type: { in: KIND_META[kind].types } } : {}),
+  };
+  const proposalWhere = festivalId ? { festivalId, festival: festivalWhere } : { festival: festivalWhere };
 
   let csv = "";
 
@@ -27,9 +34,7 @@ export async function GET(req: NextRequest) {
       orderBy: { name: "asc" },
       include: {
         subCommittees: { include: { subCommittee: true } },
-        implementations: festivalId
-          ? { where: { proposal: { festivalId } } }
-          : true,
+        implementations: { where: { proposal: proposalWhere } },
       },
     });
     csv = buildSummaryCsv(agencies);
@@ -41,6 +46,7 @@ export async function GET(req: NextRequest) {
         include: {
           festival: true,
           subCommittees: { include: { subCommittee: true } },
+          assignees: { select: { agencyId: true } },
           implementations: {
             where: { agency: { isVisible: true } },
             select: { agencyId: true, status: true },

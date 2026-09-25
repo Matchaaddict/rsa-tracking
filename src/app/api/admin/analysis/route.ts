@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
       proposals: {
         include: {
           subCommittees: { include: { subCommittee: true } },
+          assignees: { select: { agencyId: true } },
           implementations: {
             include: {
               progressEntries: { orderBy: { createdAt: "desc" } },
@@ -44,8 +45,11 @@ export async function GET(req: NextRequest) {
     .map((agency) => {
       const agencyScIds = new Set(agency.subCommittees.map((a) => a.subCommitteeId));
 
+      // มีรายชื่อมอบหมาย = เฉพาะรายชื่อนั้น, ไม่มี = ทุกหน่วยงานในอนุฯ
       const responsible = festival.proposals.filter((p) =>
-        p.subCommittees.some((psc) => agencyScIds.has(psc.subCommitteeId))
+        p.assignees.length > 0
+          ? p.assignees.some((a) => a.agencyId === agency.id)
+          : p.subCommittees.some((psc) => agencyScIds.has(psc.subCommitteeId))
       );
 
       if (responsible.length === 0) return null;

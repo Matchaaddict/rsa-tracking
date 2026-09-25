@@ -7,21 +7,35 @@ datasource db {
 }
 
 model Admin {
-  id           String   @id @default(cuid())
-  username     String   @unique
-  password     String
-  isSuperAdmin Boolean  @default(false)
-  permissions  String   @default("[]")
-  createdAt    DateTime @default(now())
+  id             String        @id @default(cuid())
+  username       String        @unique
+  password       String
+  isSuperAdmin   Boolean       @default(false)
+  permissions    String        @default("[]")
+  // ตั้งค่าเมื่อเป็นเลขาฯ อนุกรรมการ — จัดการได้เฉพาะเรื่องของอนุฯ นี้ (role = "secretary")
+  subCommittee   SubCommittee? @relation(fields: [subCommitteeId], references: [id], onDelete: SetNull)
+  subCommitteeId String?
+  createdAt      DateTime      @default(now())
 }
 
+// "ที่มา" ของเรื่องที่ติดตาม — ชื่อ model คงเดิมเพื่อไม่ให้กระทบข้อมูลเก่า
+// type: NEW_YEAR | SONGKRAN (เทศกาล) | MEETING (การประชุม) | PROJECT (โครงการเฉพาะ) | CABINET (มติ ครม.)
 model Festival {
-  id        String     @id @default(cuid())
-  name      String     @unique
-  type      String
-  year      Int
-  createdAt DateTime   @default(now())
-  proposals Proposal[]
+  id             String        @id @default(cuid())
+  name           String        @unique
+  type           String
+  year           Int
+  // อนุฯ เจ้าของ (ใช้กับการประชุม/โครงการ) — เลขาฯ อนุฯ นั้นจัดการได้
+  subCommittee   SubCommittee? @relation(fields: [subCommitteeId], references: [id], onDelete: SetNull)
+  subCommitteeId String?
+  meetingNo      String?
+  date           DateTime?
+  docUrl         String?
+  description    String?
+  // false = เรื่องภายใน ไม่แสดงบนหน้าสาธารณะ (หน่วยงานที่รับผิดชอบยังเห็น)
+  isPublic       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  proposals      Proposal[]
 }
 
 model SubCommittee {
@@ -30,6 +44,8 @@ model SubCommittee {
   description String?
   agencies    AgencySubCommittee[]
   proposals   ProposalSubCommittee[]
+  sources     Festival[]
+  secretaries Admin[]
 }
 
 model Agency {
@@ -43,6 +59,7 @@ model Agency {
   isVisible              Boolean              @default(true)
   subCommittees   AgencySubCommittee[]
   implementations Implementation[]
+  assignedProposals ProposalAgency[]
   messages        AgencyMessage[]
   createdAt       DateTime             @default(now())
 }
@@ -63,10 +80,42 @@ model Proposal {
   festival        Festival               @relation(fields: [festivalId], references: [id], onDelete: Cascade)
   festivalId      String
   orderNumber     Int
+  dueDate         DateTime?
   subCommittees   ProposalSubCommittee[]
+  // ถ้ามี = หน่วยงานที่ต้องรายงานคือรายชื่อนี้เท่านั้น, ถ้าว่าง = ทุกหน่วยงานในอนุฯ ของเรื่อง
+  assignees       ProposalAgency[]
+  tags            ProposalTag[]
   implementations Implementation[]
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
+}
+
+// ประเด็น (แท็ก) เช่น #ทางข้าม — เรื่องหนึ่งมีได้หลายประเด็น ใช้รวมเรื่องจากทุกที่มา
+model Tag {
+  id          String        @id @default(cuid())
+  name        String        @unique
+  description String?
+  createdAt   DateTime      @default(now())
+  proposals   ProposalTag[]
+}
+
+model ProposalTag {
+  proposal   Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  proposalId String
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tagId      String
+
+  @@id([proposalId, tagId])
+  @@index([tagId])
+}
+
+model ProposalAgency {
+  proposal   Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  proposalId String
+  agency     Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId   String
+
+  @@id([proposalId, agencyId])
 }
 
 model ProposalSubCommittee {

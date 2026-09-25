@@ -6,10 +6,11 @@ import { Button } from "../ui/button";
 import { Plus, Trash2, Loader2, Check, X, RefreshCw, ShieldCheck } from "lucide-react";
 
 const ALL_TABS = [
-  { id: "festivals",     label: "จัดการวาระ" },
+  { id: "festivals",     label: "จัดการที่มา (เทศกาล/ประชุม/โครงการ)" },
   { id: "subcommittees", label: "จัดการอนุกรรมการ" },
   { id: "agencies",      label: "จัดการหน่วยงาน" },
-  { id: "proposals",     label: "จัดการข้อเสนอ" },
+  { id: "proposals",     label: "จัดการเรื่องที่ติดตาม" },
+  { id: "tags",          label: "จัดการประเด็น (แท็ก)" },
   { id: "import",        label: "นำเข้าจาก Markdown" },
   { id: "analysis",      label: "วิเคราะห์ความคืบหน้า" },
   { id: "siteconfig",    label: "ตั้งค่าหน้าเว็บ" },
@@ -27,8 +28,17 @@ interface AdminUser {
   username: string;
   isSuperAdmin: boolean;
   permissions: string;
+  subCommitteeId: string | null;
+  subCommittee: { name: string } | null;
   createdAt: string;
 }
+
+const emptyForm = () => ({
+  username: "",
+  password: generatePassword(),
+  permissions: [] as string[],
+  subCommitteeId: "",
+});
 
 export function AdminManager({ currentAdminId }: { currentAdminId: string }) {
   const [admins, setAdmins] = useState<AdminUser[]>([]);
@@ -36,7 +46,8 @@ export function AdminManager({ currentAdminId }: { currentAdminId: string }) {
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ username: "", password: generatePassword(), permissions: [] as string[] });
+  const [form, setForm] = useState(emptyForm);
+  const [subCommittees, setSubCommittees] = useState<{ id: string; name: string }[]>([]);
   const [resetPass, setResetPass] = useState<Record<string, string>>({});
 
   async function load() {
@@ -45,7 +56,13 @@ export function AdminManager({ currentAdminId }: { currentAdminId: string }) {
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    fetch("/api/admin/options")
+      .then((r) => r.json())
+      .then((d) => setSubCommittees(d.subCommittees ?? []));
+  }, []);
+  const isSecretaryForm = form.subCommitteeId !== "";
 
   function togglePerm(tabId: string) {
     setForm((f) => ({
@@ -63,7 +80,7 @@ export function AdminManager({ currentAdminId }: { currentAdminId: string }) {
       await fetch(`/api/admin/admins/${editId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ permissions: form.permissions }),
+        body: JSON.stringify({ permissions: form.permissions, subCommitteeId: form.subCommitteeId }),
       });
     } else {
       await fetch("/api/admin/admins", {
@@ -75,7 +92,7 @@ export function AdminManager({ currentAdminId }: { currentAdminId: string }) {
     setSubmitting(false);
     setShowForm(false);
     setEditId(null);
-    setForm({ username: "", password: generatePassword(), permissions: [] });
+    setForm(emptyForm());
     load();
   }
 
@@ -97,7 +114,7 @@ export function AdminManager({ currentAdminId }: { currentAdminId: string }) {
 
   function startEdit(a: AdminUser) {
     const perms = JSON.parse(a.permissions) as string[];
-    setForm({ username: a.username, password: "", permissions: perms });
+    setForm({ username: a.username, password: "", permissions: perms, subCommitteeId: a.subCommitteeId ?? "" });
     setEditId(a.id);
     setShowForm(true);
   }
@@ -109,7 +126,7 @@ export function AdminManager({ currentAdminId }: { currentAdminId: string }) {
           <h2 className="text-lg font-semibold text-gray-800">จัดการแอดมิน</h2>
           <p className="text-sm text-gray-500 mt-0.5">เพิ่มแอดมินและกำหนดสิทธิ์การเข้าถึงแต่ละส่วน</p>
         </div>
-        <Button size="sm" onClick={() => { setShowForm(true); setEditId(null); setForm({ username: "", password: generatePassword(), permissions: [] }); }}>
+        <Button size="sm" onClick={() => { setShowForm(true); setEditId(null); setForm(emptyForm()); }}>
           <Plus size={14} /> เพิ่มแอดมิน
         </Button>
       </div>
@@ -141,6 +158,27 @@ export function AdminManager({ currentAdminId }: { currentAdminId: string }) {
               )}
 
               <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1">ประเภทบัญชี</label>
+                <select
+                  value={form.subCommitteeId}
+                  onChange={(e) => setForm({ ...form, subCommitteeId: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">แอดมิน (กำหนดสิทธิ์รายส่วน)</option>
+                  {subCommittees.map((sc) => (
+                    <option key={sc.id} value={sc.id}>เลขาฯ อนุกรรมการ — {sc.name}</option>
+                  ))}
+                </select>
+                {isSecretaryForm && (
+                  <p className="text-xs text-gray-500 mt-1.5">
+                    เลขาฯ อนุกรรมการสร้าง/แก้ไขได้เฉพาะการประชุมและโครงการเฉพาะของอนุฯ นี้
+                    รวมถึงเรื่องที่ติดตามภายใต้ที่มาเหล่านั้น ไม่เห็นข้อมูลบัญชีหรือส่วนอื่นของระบบ
+                  </p>
+                )}
+              </div>
+
+              {!isSecretaryForm && (
+              <div>
                 <label className="text-sm font-medium text-gray-700 block mb-2">สิทธิ์การเข้าถึง (ติ๊กเลือก)</label>
                 <div className="grid grid-cols-2 gap-2">
                   {ALL_TABS.map((tab) => (
@@ -156,6 +194,7 @@ export function AdminManager({ currentAdminId }: { currentAdminId: string }) {
                   ))}
                 </div>
               </div>
+              )}
 
               <div className="flex gap-2">
                 <Button type="submit" size="sm" disabled={submitting}>
@@ -194,7 +233,14 @@ export function AdminManager({ currentAdminId }: { currentAdminId: string }) {
                         <span className="text-xs text-gray-400">(คุณ)</span>
                       )}
                     </div>
-                    {!a.isSuperAdmin && (
+                    {a.subCommittee && (
+                      <p className="mt-1">
+                        <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full font-medium">
+                          เลขาฯ อนุกรรมการ — {a.subCommittee.name}
+                        </span>
+                      </p>
+                    )}
+                    {!a.isSuperAdmin && !a.subCommittee && (
                       <p className="text-xs text-gray-500 mt-1">
                         {permLabels.length === 0
                           ? "ยังไม่มีสิทธิ์"
@@ -209,7 +255,7 @@ export function AdminManager({ currentAdminId }: { currentAdminId: string }) {
                   </div>
                   {!a.isSuperAdmin && (
                     <div className="flex gap-1 shrink-0">
-                      <Button variant="secondary" size="sm" onClick={() => startEdit(a)}>แก้สิทธิ์</Button>
+                      <Button variant="secondary" size="sm" onClick={() => startEdit(a)}>แก้ไข</Button>
                       <Button variant="secondary" size="sm" onClick={() => handleResetPassword(a.id)} title="รีเซ็ตรหัสผ่าน">
                         <RefreshCw size={13} />
                       </Button>

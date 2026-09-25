@@ -4,7 +4,8 @@ import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { STATUS_LABELS, STATUS_COLORS, FESTIVAL_TYPE_LABELS, festIcon, festTheme } from "@/lib/utils";
+import { STATUS_LABELS, STATUS_COLORS, festIcon, festTheme } from "@/lib/utils";
+import { sourceLabel } from "@/lib/tracking";
 import { Loader2, FileText, MessageCircle, KeyRound, ShieldAlert, CheckCircle2, AlertCircle, Link2, User, Plus, Pencil, Trash2, X, Check, Clock } from "lucide-react";
 
 function AutoResizeTextarea({
@@ -45,6 +46,7 @@ interface Festival {
   name: string;
   type: string;
   year: number;
+  isPublic?: boolean;
 }
 
 interface SubCommittee {
@@ -76,6 +78,7 @@ interface Proposal {
   title: string;
   description: string | null;
   orderNumber: number;
+  dueDate?: string | Date | null;
   festival: Festival;
   subCommittees: { subCommittee: SubCommittee }[];
   implementations: Implementation[];
@@ -471,7 +474,7 @@ export function AgencyDashboard({
                 selectedFestival === "all" ? "bg-emerald-600 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
               }`}
             >
-              ทุกวาระ
+              ทั้งหมด
             </button>
             {festivals.map((f) => (
               <button
@@ -483,7 +486,7 @@ export function AgencyDashboard({
                     : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
                 }`}
               >
-                {festIcon(f.type)} {FESTIVAL_TYPE_LABELS[f.type]} {f.year}
+                {festIcon(f.type)} {sourceLabel(f)}
               </button>
             ))}
           </div>
@@ -583,6 +586,7 @@ function ProposalProgressCard({
   onEvidenceChange: (v: string) => void;
 }) {
   const [adding, setAdding] = useState(false);
+  const [nowTs] = useState(() => Date.now());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState({
     content: "",
@@ -661,7 +665,7 @@ function ProposalProgressCard({
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <span className="text-xs text-gray-400 font-medium">ข้อ {proposal.orderNumber}</span>
               <Badge variant={festTheme(proposal.festival.type).badgeVariant}>
-                {festIcon(proposal.festival.type)} {FESTIVAL_TYPE_LABELS[proposal.festival.type]} {proposal.festival.year}
+                {festIcon(proposal.festival.type)} {sourceLabel(proposal.festival)}
               </Badge>
               {proposal.subCommittees.map((sc) => {
                 const n = sc.subCommittee.name.match(/^C(\d+)/)?.[1];
@@ -671,6 +675,17 @@ function ProposalProgressCard({
                   </Badge>
                 );
               })}
+              {proposal.festival.isPublic === false && <Badge variant="gray">🔒 เรื่องภายใน</Badge>}
+              {proposal.dueDate && (() => {
+                const due = new Date(proposal.dueDate);
+                const late = status !== "COMPLETED" && status !== "NOT_RELEVANT" && due.getTime() < nowTs;
+                return (
+                  <Badge variant={late ? "danger" : "gray"}>
+                    {late ? "เลยกำหนด" : "กำหนดเสร็จ"}{" "}
+                    {due.toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" })}
+                  </Badge>
+                );
+              })()}
               <span
                 className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[status]}`}
               >
