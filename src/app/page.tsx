@@ -1,15 +1,16 @@
-import { Navbar } from "@/components/Navbar";
+import { AppShell } from "@/components/AppShell";
 import { PublicDashboard } from "@/components/PublicDashboard";
+import { getShellInfo } from "@/lib/shellInfo";
 
 export const dynamic = "force-dynamic";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const info = await getShellInfo();
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <AppShell info={info}>
+      <main>
         <PublicDashboard />
       </main>
-    </div>
+    </AppShell>
   );
 }

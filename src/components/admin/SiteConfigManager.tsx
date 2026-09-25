@@ -7,9 +7,11 @@ import { Loader2, Check, Globe, KeyRound } from "lucide-react";
 
 const FIELDS = [
   { key: "site_page_title", label: "ชื่อแท็บเบราว์เซอร์", placeholder: "ระบบติดตามข้อเสนอแนวทางฯ | RSAT", textarea: false },
-  { key: "hero_label", label: "ป้ายชื่อย่อ (บรรทัดบน)", placeholder: "เช่น RSAT", textarea: false },
-  { key: "hero_title", label: "ชื่อระบบ / หัวข้อหลัก", placeholder: "ระบบติดตามข้อเสนอแนวทาง...", textarea: false },
-  { key: "hero_subtitle", label: "คำอธิบายใต้หัวข้อ", placeholder: "ในช่วงการรณรงค์เทศกาล ฯ", textarea: false },
+  { key: "hero_title", label: "ชื่อระบบ (หัวเว็บ)", placeholder: "ระบบติดตามข้อเสนอแนวทางป้องกันและลดอุบัติเหตุทางถนน ฯ", textarea: false },
+  { key: "site_org", label: "บรรทัดใต้ชื่อระบบ (หน่วยงานเจ้าของ)", placeholder: "โดย สำนักเลขานุการ ศปถ. - กองบูรณาการความปลอดภัยทางถนน ...", textarea: false },
+  { key: "hero_label", label: "ป้ายชื่อย่อบนแบนเนอร์", placeholder: "เช่น RSAT", textarea: false },
+  { key: "banner_title", label: "ข้อความหลักบนแบนเนอร์", placeholder: "ขับเคลื่อนความปลอดภัยทางถนน สู่สังคมไทยที่ยั่งยืน", textarea: false },
+  { key: "banner_tagline", label: "ข้อความรองบนแบนเนอร์", placeholder: "ติดตาม · เร่งรัด · บูรณาการ · ลดอุบัติเหตุ · เพื่อชีวิตที่ปลอดภัยกว่า", textarea: false },
   { key: "site_footnote", label: "หมายเหตุท้ายหน้า (Footnote)", placeholder: "ข้อความท้ายหน้า เช่น สงวนสิทธิ์ / แหล่งข้อมูล ฯ", textarea: true },
 ];
 
