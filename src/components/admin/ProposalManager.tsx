@@ -17,6 +17,7 @@ interface Source {
   type: string;
   year: number;
   isPublic: boolean;
+  subCommitteeId: string | null;
 }
 
 interface SubCommittee {
@@ -127,6 +128,18 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
     return () => { alive = false; };
   }, [version]);
 
+  // เลือกที่มาที่มีอนุฯ เจ้าของ (เช่น การประชุมของอนุฯ 1) → เลือกอนุฯ นั้นให้เลย
+  // ถ้าอนุฯ ที่เลือกอยู่ถูกเติมอัตโนมัติจากที่มาเดิม ให้เปลี่ยนตามที่มาใหม่ (ไม่ทับที่ผู้ใช้เลือกเอง)
+  function scForSource(festivalId: string, current: string[], prevFestivalId = "") {
+    if (secretaryOf) return [secretaryOf.id];
+    const ownerOf = (id: string) => sources.find((s) => s.id === id)?.subCommitteeId ?? null;
+    const owner = ownerOf(festivalId);
+    const prevOwner = ownerOf(prevFestivalId);
+    const autoFilled = current.length === 0 || (current.length === 1 && current[0] === prevOwner);
+    if (!autoFilled) return current;
+    return owner ? [owner] : [];
+  }
+
   function nextOrder(festivalId: string) {
     const nums = proposals.filter((p) => p.festivalId === festivalId).map((p) => p.orderNumber);
     return nums.length ? Math.max(...nums) + 1 : 1;
@@ -136,6 +149,10 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
     e.preventDefault();
     const pendingTag = tagDraft.replace(/^#+/, "").trim();
     const tagNames = pendingTag && !form.tagNames.includes(pendingTag) ? [...form.tagNames, pendingTag] : form.tagNames;
+    if (form.assignMode === "subcommittee" && form.subCommitteeIds.length === 0 && !secretaryOf) {
+      alert("กรุณาเลือกอนุกรรมการที่รับผิดชอบ — ถ้าไม่เลือก จะไม่มีหน่วยงานใดต้องรายงานเรื่องนี้");
+      return;
+    }
     if (form.assignMode === "specific" && form.assigneeIds.length === 0) {
       alert("กรุณาเลือกหน่วยงานอย่างน้อย 1 หน่วย หรือเปลี่ยนเป็น \"ทุกหน่วยงานในอนุฯ\"");
       return;
@@ -176,7 +193,7 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
 
   function startCreate() {
     const fid = filterSource !== "all" ? filterSource : sources[0]?.id ?? "";
-    setForm({ ...emptyForm(fid, fid ? nextOrder(fid) : 1), subCommitteeIds: secretaryOf ? [secretaryOf.id] : [] });
+    setForm({ ...emptyForm(fid, fid ? nextOrder(fid) : 1), subCommitteeIds: scForSource(fid, []) });
     setEditId(null);
     setAgencyQuery("");
     setShowForm(true);
@@ -278,7 +295,12 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
                   value={form.festivalId}
                   onChange={(e) => {
                     const fid = e.target.value;
-                    setForm({ ...form, festivalId: fid, orderNumber: editId ? form.orderNumber : nextOrder(fid) });
+                    setForm({
+                      ...form,
+                      festivalId: fid,
+                      orderNumber: editId ? form.orderNumber : nextOrder(fid),
+                      subCommitteeIds: scForSource(fid, form.subCommitteeIds, form.festivalId),
+                    });
                   }}
                   className={inputCls}
                   required
