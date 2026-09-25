@@ -28,19 +28,21 @@ export interface DetailProposal {
     status: string;
     content: string | null;
     evidenceUrl: string | null;
-    contactName: string | null;
-    contactTitle: string | null;
-    contactPhone: string | null;
+    contactName?: string | null;
+    contactTitle?: string | null;
+    contactPhone?: string | null;
     updatedAt: Date;
     agency: { name: string };
   }[];
 }
 
-export function buildDetailCsv(proposals: DetailProposal[]): string {
+// includeContact = false สำหรับไฟล์ที่ดาวน์โหลดจากหน้าสาธารณะ — ไม่มีชื่อ/ตำแหน่ง/เบอร์ผู้รายงาน
+export function buildDetailCsv(proposals: DetailProposal[], { includeContact = true } = {}): string {
   let csv = BOM + [
     "ที่มา", "ปี", "อนุกรรมการ", "ข้อที่", "ชื่อข้อเสนอ",
     "หน่วยงาน", "สถานะ", "รายละเอียดล่าสุด",
-    "ผู้รายงาน", "ตำแหน่ง", "เบอร์", "ลิงก์หลักฐาน", "วันที่อัพเดต",
+    ...(includeContact ? ["ผู้รายงาน", "ตำแหน่ง", "เบอร์"] : []),
+    "ลิงก์หลักฐาน", "วันที่อัพเดต",
   ].join(",") + "\n";
 
   for (const p of proposals) {
@@ -50,7 +52,9 @@ export function buildDetailCsv(proposals: DetailProposal[]): string {
     if (p.implementations.length === 0) {
       csv += [
         csvEscape(fest), yr, csvEscape(scs), p.orderNumber, csvEscape(p.title),
-        csvEscape("(ยังไม่มีหน่วยงาน)"), "", "", "", "", "", "", "",
+        csvEscape("(ยังไม่มีหน่วยงาน)"), "", "",
+        ...(includeContact ? ["", "", ""] : []),
+        "", "",
       ].join(",") + "\n";
       continue;
     }
@@ -58,8 +62,10 @@ export function buildDetailCsv(proposals: DetailProposal[]): string {
       csv += [
         csvEscape(fest), yr, csvEscape(scs), p.orderNumber, csvEscape(p.title),
         csvEscape(impl.agency.name), csvEscape(statusLabel(impl.status)),
-        csvEscape(impl.content), csvEscape(impl.contactName),
-        csvEscape(impl.contactTitle), csvEscape(impl.contactPhone),
+        csvEscape(impl.content),
+        ...(includeContact
+          ? [csvEscape(impl.contactName), csvEscape(impl.contactTitle), csvEscape(impl.contactPhone)]
+          : []),
         csvEscape(impl.evidenceUrl), csvEscape(thaiDate(impl.updatedAt)),
       ].join(",") + "\n";
     }
@@ -158,20 +164,22 @@ export interface HistoryProposal {
     progressEntries: {
       status: string;
       content: string;
-      contactName: string;
-      contactTitle: string;
-      contactPhone: string;
+      reportedBy?: string | null;
+      contactName?: string;
+      contactTitle?: string;
+      contactPhone?: string;
       createdAt: Date;
     }[];
   }[];
 }
 
 // Every progress entry as a row — full audit trail for sub-committee meetings.
-export function buildHistoryCsv(proposals: HistoryProposal[]): string {
+// includeContact = false (หน้าสาธารณะ): แทนข้อมูลผู้รายงานด้วย "หน่วยงาน" หรือป้ายเลขาฯ ที่บันทึกให้
+export function buildHistoryCsv(proposals: HistoryProposal[], { includeContact = true } = {}): string {
   let csv = BOM + [
     "ที่มา", "ปี", "ข้อที่", "ชื่อข้อเสนอ", "หน่วยงาน",
     "วันที่รายงาน", "สถานะ", "รายละเอียด",
-    "ผู้รายงาน", "ตำแหน่ง", "เบอร์",
+    ...(includeContact ? ["ผู้รายงาน", "ตำแหน่ง", "เบอร์"] : ["บันทึกโดย"]),
   ].join(",") + "\n";
 
   for (const p of proposals) {
@@ -188,7 +196,9 @@ export function buildHistoryCsv(proposals: HistoryProposal[]): string {
           csvEscape(impl.agency.name),
           csvEscape(thaiDate(e.createdAt)), csvEscape(statusLabel(e.status)),
           csvEscape(e.content),
-          csvEscape(e.contactName), csvEscape(e.contactTitle), csvEscape(e.contactPhone),
+          ...(includeContact
+            ? [csvEscape(e.contactName), csvEscape(e.contactTitle), csvEscape(e.contactPhone)]
+            : [csvEscape(e.reportedBy ? `${e.contactTitle ?? "เจ้าหน้าที่"} (บันทึกให้)` : "หน่วยงาน")]),
         ].join(",") + "\n";
       }
     }
