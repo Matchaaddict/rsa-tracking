@@ -1,10 +1,12 @@
 import { prisma } from "@/lib/prisma";
+import { imageUrl } from "@/lib/siteImageSlots";
 import pkg from "../../package.json";
 
 export interface ShellInfo {
   title: string;
   subtitle: string;
   lastUpdated: string | null;
+  sidebarImage: string | null;
   version: string;
 }
 
@@ -14,15 +16,17 @@ export const DEFAULT_SUBTITLE =
 
 // ข้อมูลที่ sidebar/header ต้องใช้ — ดึงฝั่ง server เพื่อไม่ต้องยิง API เพิ่ม
 export async function getShellInfo(): Promise<ShellInfo> {
-  const [configs, latest] = await Promise.all([
+  const [configs, latest, sidebar] = await Promise.all([
     prisma.siteConfig.findMany({ where: { key: { in: ["hero_title", "site_org"] } } }),
     prisma.implementation.aggregate({ _max: { updatedAt: true } }),
+    prisma.siteImage.findUnique({ where: { key: "sidebar_bg" }, select: { updatedAt: true } }),
   ]);
   const cfg = Object.fromEntries(configs.map((c) => [c.key, c.value]));
   return {
     title: cfg.hero_title || DEFAULT_TITLE,
     subtitle: cfg.site_org || DEFAULT_SUBTITLE,
     lastUpdated: latest._max.updatedAt?.toISOString() ?? null,
+    sidebarImage: sidebar ? imageUrl("sidebar_bg", sidebar.updatedAt.getTime()) : null,
     version: pkg.version,
   };
 }

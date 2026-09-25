@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useId, useState, useSyncExternalStore } from "react";
 import { useSession, signOut } from "next-auth/react";
@@ -141,31 +142,41 @@ export function AppShell({
 
   const sidebar = (
     <div className="relative flex h-full flex-col overflow-hidden bg-gradient-to-b from-[#0b1d4d] via-[#0d2361] to-[#0a1a45] text-white">
+      {info.sidebarImage ? (
+        <>
+          {/* รูปพื้นหลังที่แอดมินอัปโหลด — เคลือบสีกรมท่าด้านบนให้เมนูอ่านง่าย */}
+          <Image src={info.sidebarImage} alt="" fill unoptimized sizes="256px" className="pointer-events-none object-cover" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#0b1d4d] via-[#0b1d4d]/80 to-[#0b1d4d]/30" />
+        </>
+      ) : (
+        <>
       {/* night city silhouette */}
-      <svg
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-72 w-full opacity-40"
-        viewBox="0 0 260 300"
-        preserveAspectRatio="xMidYMax slice"
-        aria-hidden
-      >
-        <defs>
-          <linearGradient id="sb-fade" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#1e3a8a" stopOpacity="0" />
-            <stop offset="1" stopColor="#1e40af" stopOpacity="0.9" />
-          </linearGradient>
-          <linearGradient id="sb-road" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stopColor="#38bdf8" stopOpacity="0" />
-            <stop offset="0.5" stopColor="#7dd3fc" />
-            <stop offset="1" stopColor="#38bdf8" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path
-          d="M0 170 h18 v-40 h14 v25 h10 v-60 h16 v75 h12 v-30 h20 v-45 h10 v-15 h8 v60 h14 v-20 h18 v-50 h14 v70 h16 v-35 h12 v45 h20 v-55 h16 v65 h12 v-25 h10 V300 H0 Z"
-          fill="url(#sb-fade)"
-        />
-        <path d="M-10 290 C 80 230, 150 250, 270 190" stroke="url(#sb-road)" strokeWidth="3" fill="none" />
-        <path d="M-10 300 C 90 250, 160 270, 270 215" stroke="url(#sb-road)" strokeWidth="1.5" fill="none" opacity="0.7" />
-      </svg>
+        <svg
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-72 w-full opacity-40"
+          viewBox="0 0 260 300"
+          preserveAspectRatio="xMidYMax slice"
+          aria-hidden
+        >
+          <defs>
+            <linearGradient id="sb-fade" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#1e3a8a" stopOpacity="0" />
+              <stop offset="1" stopColor="#1e40af" stopOpacity="0.9" />
+            </linearGradient>
+            <linearGradient id="sb-road" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stopColor="#38bdf8" stopOpacity="0" />
+              <stop offset="0.5" stopColor="#7dd3fc" />
+              <stop offset="1" stopColor="#38bdf8" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path
+            d="M0 170 h18 v-40 h14 v25 h10 v-60 h16 v75 h12 v-30 h20 v-45 h10 v-15 h8 v60 h14 v-20 h18 v-50 h14 v70 h16 v-35 h12 v45 h20 v-55 h16 v65 h12 v-25 h10 V300 H0 Z"
+            fill="url(#sb-fade)"
+          />
+          <path d="M-10 290 C 80 230, 150 250, 270 190" stroke="url(#sb-road)" strokeWidth="3" fill="none" />
+          <path d="M-10 300 C 90 250, 160 270, 270 215" stroke="url(#sb-road)" strokeWidth="1.5" fill="none" opacity="0.7" />
+        </svg>
+        </>
+      )}
 
       <Link href="/" className="relative flex items-center gap-3 px-6 pt-6 pb-8">
         <Logo className="h-11 w-11 shrink-0" />

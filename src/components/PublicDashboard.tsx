@@ -46,6 +46,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { FAQSection } from "./FAQSection";
 import { HeroBanner } from "./HeroBanner";
 import { SEARCH_EVENT, FOCUS_SEARCH_EVENT } from "./AppShell";
@@ -109,6 +110,7 @@ interface DashboardData {
   agencies: AgencyData[];
   subCommittees: SubCommittee[];
   siteConfig: Record<string, string>;
+  images?: Record<string, string>;
 }
 
 type TabKey = "proposals" | "agencies" | "subcommittees";
@@ -236,6 +238,7 @@ function StatCard({
   pct,
   extra,
   art,
+  artImage,
 }: {
   title: string;
   value: number;
@@ -244,6 +247,7 @@ function StatCard({
   pct?: number;
   extra?: React.ReactNode;
   art: React.ReactNode;
+  artImage?: string;
 }) {
   const t = {
     blue: { card: "from-white to-blue-50/60", icon: "bg-blue-100 text-blue-600", title: "text-slate-700", bar: "bg-blue-500", pct: "text-slate-500" },
@@ -253,8 +257,19 @@ function StatCard({
   }[tone];
   return (
     <div className={`@container relative overflow-hidden rounded-2xl border border-slate-100 bg-gradient-to-br ${t.card} p-3.5 shadow-sm sm:p-5`}>
-      <div className="pointer-events-none absolute -right-2 -top-1 hidden text-slate-300/70 opacity-80 @[19rem]:block">{art}</div>
-      <div className="relative flex flex-col gap-2.5 @[13rem]:flex-row @[13rem]:items-start @[13rem]:gap-4">
+      {artImage ? (
+        // รูปที่แอดมินอัปโหลด: แสดงตั้งแต่การ์ดกว้างปานกลาง (เล็กลงเมื่อการ์ดแคบ) และเว้นที่ให้ข้อความ
+        <div className="pointer-events-none absolute right-1 top-1 hidden h-14 w-14 @[13rem]:block @[19rem]:h-24 @[19rem]:w-24">
+          <Image src={artImage} alt="" fill unoptimized sizes="96px" className="object-contain" />
+        </div>
+      ) : (
+        <div className="pointer-events-none absolute -right-2 -top-1 hidden text-slate-300/70 opacity-80 @[19rem]:block">{art}</div>
+      )}
+      <div
+        className={`relative flex flex-col gap-2.5 @[13rem]:flex-row @[13rem]:items-start @[13rem]:gap-4 ${
+          artImage ? "@[13rem]:pr-12 @[19rem]:pr-20" : ""
+        }`}
+      >
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl @[13rem]:h-12 @[13rem]:w-12 ${t.icon}`}>
           <Icon size={22} />
         </div>
@@ -469,6 +484,8 @@ export function PublicDashboard() {
         label={data.siteConfig.hero_label || "RSAT"}
         title={data.siteConfig.banner_title || "ขับเคลื่อนความปลอดภัยทางถนน สู่สังคมไทยที่ยั่งยืน"}
         tagline={data.siteConfig.banner_tagline || "ติดตาม · เร่งรัด · บูรณาการ · ลดอุบัติเหตุ · เพื่อชีวิตที่ปลอดภัยกว่า"}
+        image={data.images?.hero_banner}
+        imagePosition={data.siteConfig.hero_banner_position || "center"}
       />
 
       {/* ตัวกรอง 2 ชั้น: ประเภทที่มา → ที่มา */}
@@ -571,6 +588,7 @@ export function PublicDashboard() {
           icon={FileText}
           tone="blue"
           art={<Files size={92} strokeWidth={1} />}
+          artImage={data.images?.kpi_total}
           extra={
             newThisMonth > 0 ? (
               <span className="mb-1 text-xs leading-tight text-slate-500">
@@ -582,9 +600,12 @@ export function PublicDashboard() {
             ) : undefined
           }
         />
-        <StatCard title="ดำเนินการแล้ว" value={nDone} icon={CheckCircle2} tone="green" pct={pctOf(nDone)} art={<Trees size={88} strokeWidth={1} className="text-emerald-300/60" />} />
-        <StatCard title="กำลังดำเนินการ" value={nProg} icon={Clock} tone="amber" pct={pctOf(nProg)} art={<TrafficCone size={88} strokeWidth={1} className="text-orange-300/70" />} />
-        <StatCard title="ยังไม่ดำเนินการ" value={nNone} icon={TriangleAlert} tone="red" pct={pctOf(nNone)} art={<Construction size={88} strokeWidth={1} className="text-red-300/70" />} />
+        <StatCard title="ดำเนินการแล้ว" value={nDone} icon={CheckCircle2} tone="green" pct={pctOf(nDone)} art={<Trees size={88} strokeWidth={1} className="text-emerald-300/60" />}
+          artImage={data.images?.kpi_done} />
+        <StatCard title="กำลังดำเนินการ" value={nProg} icon={Clock} tone="amber" pct={pctOf(nProg)} art={<TrafficCone size={88} strokeWidth={1} className="text-orange-300/70" />}
+          artImage={data.images?.kpi_progress} />
+        <StatCard title="ยังไม่ดำเนินการ" value={nNone} icon={TriangleAlert} tone="red" pct={pctOf(nNone)} art={<Construction size={88} strokeWidth={1} className="text-red-300/70" />}
+          artImage={data.images?.kpi_pending} />
       </div>
 
       {/* Charts */}

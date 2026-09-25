@@ -129,15 +129,6 @@ export function SiteConfigManager() {
         </Card>
       </div>
 
-      {/* Preview */}
-      <div>
-        <p className="text-xs text-gray-400 mb-2 font-medium">ตัวอย่าง Hero Banner</p>
-        <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 rounded-xl px-5 py-4 text-white">
-          <p className="text-blue-300 text-xs font-medium mb-1">{values.hero_label || "—"}</p>
-          <p className="font-bold text-base">{values.hero_title || "—"}</p>
-          <p className="text-blue-200 text-sm mt-0.5">{values.hero_subtitle || "—"}</p>
-        </div>
-      </div>
     </div>
   );
 }
