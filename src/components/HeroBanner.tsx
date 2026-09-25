@@ -143,26 +143,38 @@ export function HeroBanner({
   // ตัดบรรทัดที่ช่องว่างแรก เช่น "ขับเคลื่อนความปลอดภัยทางถนน / สู่สังคมไทยที่ยั่งยืน"
   const cut = title.indexOf(" ");
   const lines = cut > 0 ? [title.slice(0, cut), title.slice(cut + 1)] : [title];
+  // ตัดบรรทัดได้เฉพาะระหว่างวลี ไม่ให้วลีขาดกลางคำ
+  const phrases = tagline.split(/\s*·\s*/).filter(Boolean);
   return (
-    <section className="relative overflow-hidden rounded-3xl bg-[#0b1d4d] text-white shadow-xl shadow-blue-950/10">
+    <section className="@container relative overflow-hidden rounded-2xl sm:rounded-3xl bg-[#0b1d4d] text-white shadow-xl shadow-blue-950/10">
       <Scene />
-      <div className="absolute inset-0 bg-[#0b1d4d]/45 sm:hidden" />
-      <div className="relative flex min-h-[190px] items-center justify-between gap-6 px-6 py-7 sm:min-h-[200px] sm:px-10">
-        <div className="max-w-xl">
-          <p className="flex items-center gap-2 text-lg font-bold tracking-wide text-white/95">
+      {/* ทับภาพให้ตัวอักษรอ่านง่ายเมื่อแบนเนอร์แคบ ข้อความจะกินพื้นที่เกินครึ่งซ้าย */}
+      <div className="absolute inset-0 bg-gradient-to-r from-[#0b1d4d]/80 via-[#0b1d4d]/55 to-[#0b1d4d]/10 @3xl:hidden" />
+      <div className="relative flex min-h-[170px] items-center justify-between gap-6 px-5 py-6 @md:min-h-[200px] @md:px-8 @3xl:px-10">
+        <div className="min-w-0 max-w-xl [text-shadow:0_1px_8px_rgba(11,29,77,0.55)]">
+          <p className="flex items-center gap-2 text-base font-bold tracking-wide text-white/95 @md:text-lg">
             <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
               <path d="M12 2 L22 22 H16 L12 12 L8 22 H2 Z" fill="#60a5fa" />
             </svg>
             {label}
           </p>
-          <h2 className="mt-2 text-xl font-bold leading-tight drop-shadow sm:text-3xl lg:text-[2.1rem]">
+          <h2 className="mt-2 text-[clamp(1rem,6cqw,2.1rem)] font-bold leading-tight">
             {lines.map((l, i) => (
-              <span key={i} className="block">{l}</span>
+              <span key={i} className={l.length <= 30 ? "block whitespace-nowrap" : "block text-balance"}>
+                {l}
+              </span>
             ))}
           </h2>
-          <p className="mt-3 text-sm text-blue-100 sm:text-base">{tagline}</p>
+          <p className="mt-3 flex flex-wrap gap-x-1.5 text-[13px] leading-relaxed text-blue-100 @md:text-sm @3xl:text-base">
+            {phrases.map((ph, i) => (
+              <span key={i} className="whitespace-nowrap">
+                {ph}
+                {i < phrases.length - 1 && <span className="ml-1.5 text-blue-300">·</span>}
+              </span>
+            ))}
+          </p>
         </div>
-        <div className="hidden shrink-0 gap-2 xl:flex">
+        <div className="hidden shrink-0 gap-2 @5xl:flex">
           {pillars.map(({ icon: Icon, label: l }) => (
             <div
               key={l}

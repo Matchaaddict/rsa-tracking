@@ -36,7 +36,7 @@ import {
 } from "lucide-react";
 import { FAQSection } from "./FAQSection";
 import { HeroBanner } from "./HeroBanner";
-import { SEARCH_EVENT } from "./AppShell";
+import { SEARCH_EVENT, FOCUS_SEARCH_EVENT } from "./AppShell";
 
 interface Festival {
   id: string;
@@ -199,7 +199,13 @@ function PendingAgenciesList({
 function ProposalDetail({ proposal, agencies }: { proposal: Proposal; agencies: AgencyData[] }) {
   return (
     <div className="space-y-2">
-      {proposal.description && <p className="text-sm text-slate-600">{proposal.description}</p>}
+      {proposal.description && <p className="break-words text-sm text-slate-600">{proposal.description}</p>}
+      {proposal.subCommittees.length > 0 && (
+        <p className="text-xs text-slate-500">
+          อนุกรรมการ:{" "}
+          {proposal.subCommittees.map(({ subCommittee }) => subCommittee.name.replace(/^C(\d+):\s*/, "อนุฯ $1 ")).join(", ")}
+        </p>
+      )}
       {proposal.implementations.map((impl) => (
         <div key={impl.id} className="flex items-start gap-3 p-3 bg-white rounded-lg border border-slate-100">
           <div className="flex-1 min-w-0">
@@ -249,16 +255,16 @@ function StatCard({
     red: { card: "from-red-50 to-rose-50/40", icon: "bg-red-500 text-white", title: "text-red-700", bar: "bg-red-500", pct: "text-red-600" },
   }[tone];
   return (
-    <div className={`relative overflow-hidden rounded-2xl border border-slate-100 bg-gradient-to-br ${t.card} p-5 shadow-sm`}>
-      <div className="pointer-events-none absolute -right-2 -top-1 text-slate-300/70">{art}</div>
-      <div className="relative flex items-start gap-4">
-        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${t.icon}`}>
-          <Icon size={24} />
+    <div className={`@container relative overflow-hidden rounded-2xl border border-slate-100 bg-gradient-to-br ${t.card} p-3.5 shadow-sm sm:p-5`}>
+      <div className="pointer-events-none absolute -right-2 -top-1 hidden text-slate-300/70 opacity-80 @[19rem]:block">{art}</div>
+      <div className="relative flex flex-col gap-2.5 @[13rem]:flex-row @[13rem]:items-start @[13rem]:gap-4">
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl @[13rem]:h-12 @[13rem]:w-12 ${t.icon}`}>
+          <Icon size={22} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className={`text-sm font-semibold ${t.title}`}>{title}</p>
-          <div className="mt-1 flex items-end gap-3">
-            <p className="text-3xl font-bold tabular-nums text-slate-900">{value.toLocaleString()}</p>
+          <p className={`text-[13px] font-semibold leading-snug @[13rem]:text-sm ${t.title}`}>{title}</p>
+          <div className="mt-1 flex flex-wrap items-end gap-x-3 gap-y-1">
+            <p className="text-2xl font-bold tabular-nums text-slate-900 @[13rem]:text-3xl">{value.toLocaleString()}</p>
             {extra}
           </div>
           {pct !== undefined && (
@@ -292,6 +298,7 @@ export function PublicDashboard() {
   const [statusFilter, setStatusFilter] = useState<ProposalStatus | "all">("all");
   const [page, setPage] = useState(0);
   const tabsRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const [now] = useState(() => Date.now());
 
   useEffect(() => {
@@ -325,11 +332,20 @@ export function PublicDashboard() {
       setSearchQuery((e as CustomEvent<string>).detail ?? "");
       setPage(0);
     };
+    const onFocusSearch = () => {
+      setActiveTab("proposals");
+      requestAnimationFrame(() => {
+        tabsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        searchRef.current?.focus({ preventScroll: true });
+      });
+    };
     window.addEventListener("hashchange", goToHash);
     window.addEventListener(SEARCH_EVENT, onSearch);
+    window.addEventListener(FOCUS_SEARCH_EVENT, onFocusSearch);
     return () => {
       window.removeEventListener("hashchange", goToHash);
       window.removeEventListener(SEARCH_EVENT, onSearch);
+      window.removeEventListener(FOCUS_SEARCH_EVENT, onFocusSearch);
     };
   }, []);
 
@@ -417,7 +433,7 @@ export function PublicDashboard() {
 
   return (
     <div>
-    <div className="space-y-5 px-4 py-5 sm:px-6 lg:px-8">
+    <div className="space-y-4 px-3 py-4 sm:space-y-5 sm:px-6 sm:py-5 lg:px-8">
       <HeroBanner
         label={data.siteConfig.hero_label || "RSAT"}
         title={data.siteConfig.banner_title || "ขับเคลื่อนความปลอดภัยทางถนน สู่สังคมไทยที่ยั่งยืน"}
@@ -425,9 +441,9 @@ export function PublicDashboard() {
       />
 
       {/* Festival filter */}
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="mr-1 text-sm text-slate-500">กรองตามวาระ:</span>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span className="text-sm text-slate-500">กรองตามวาระ:</span>
+        <div className="no-scrollbar -mx-3 flex min-w-0 basis-full gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:basis-0 sm:flex-1 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
           {[{ id: "all", label: "ทุกวาระ", icon: "✅", type: "" }, ...data.festivals.map((f) => ({
             id: f.id,
             label: `${FESTIVAL_TYPE_LABELS[f.type] ?? f.name} ${f.year}`,
@@ -443,7 +459,7 @@ export function PublicDashboard() {
                 key={f.id}
                 onClick={() => { setSelectedFestival(f.id); setPage(0); }}
                 className={cn(
-                  "flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-all",
+                  "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition-all sm:gap-2 sm:px-4 sm:py-2 sm:text-sm",
                   active
                     ? "border-blue-600 bg-blue-600 text-white shadow-md shadow-blue-600/25"
                     : "border-slate-200 bg-white text-slate-700 shadow-sm hover:border-blue-300"
@@ -457,18 +473,18 @@ export function PublicDashboard() {
           })}
         </div>
         {latestUpdate && (
-          <div className="flex items-center gap-3 self-start rounded-xl border border-slate-200 bg-white px-4 py-2 shadow-sm xl:self-auto">
-            <CalendarDays size={20} className="text-slate-600" />
-            <div className="leading-tight">
-              <p className="text-[11px] text-slate-500">อัปเดตข้อมูลล่าสุด</p>
-              <p className="text-sm font-medium text-slate-700">{thDate(latestUpdate)}</p>
+          <div className="flex items-center gap-2 text-xs text-slate-500 sm:ml-auto sm:gap-3 sm:rounded-xl sm:border sm:border-slate-200 sm:bg-white sm:px-4 sm:py-2 sm:shadow-sm">
+            <CalendarDays size={18} className="shrink-0 text-slate-500 sm:text-slate-600" />
+            <div className="flex gap-1 whitespace-nowrap sm:block sm:leading-tight">
+              <p className="sm:text-[11px]">อัปเดตข้อมูลล่าสุด</p>
+              <p className="font-medium text-slate-700 sm:text-sm">{thDate(latestUpdate)}</p>
             </div>
           </div>
         )}
       </div>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard
           title="ข้อเสนอทั้งหมด"
           value={nProposals}
@@ -494,7 +510,7 @@ export function PublicDashboard() {
       {/* Charts */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-[1.15fr_1.2fr_0.75fr]">
         <Panel>
-          <p className="font-bold text-slate-800">สัดส่วนสถานะการดำเนินงาน</p>
+          <p className="text-[15px] font-bold text-slate-800 sm:text-base">สัดส่วนสถานะการดำเนินงาน</p>
           <p className="text-xs text-slate-500">ทั้งหมด {overall.total.toLocaleString()} รายการ (หน่วยงาน × ข้อเสนอ)</p>
           <div className="mt-2 flex flex-col items-center gap-4 sm:flex-row sm:gap-6">
             <div className="relative h-48 w-48 shrink-0">
@@ -565,7 +581,7 @@ export function PublicDashboard() {
                 barCategoryGap={showCompare ? "22%" : "18%"}
               >
                 <CartesianGrid vertical={false} stroke="#eef2f7" />
-                <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#334155" }} axisLine={{ stroke: "#cbd5e1" }} tickLine={false} />
+                <XAxis dataKey="name" interval={0} tick={{ fontSize: 11, fill: "#334155" }} axisLine={{ stroke: "#cbd5e1" }} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
                 <Tooltip
                   contentStyle={tooltipStyle}
@@ -633,24 +649,25 @@ export function PublicDashboard() {
       </div>
 
       {/* Tabs */}
-      <div ref={tabsRef} className="scroll-mt-24 space-y-3">
-        <div className="flex flex-wrap gap-2">
+      <div ref={tabsRef} className="scroll-mt-20 space-y-3">
+        <div className="no-scrollbar -mx-3 flex gap-2 overflow-x-auto px-3 sm:mx-0 sm:flex-wrap sm:px-0">
           {([
-            { key: "proposals", label: "รายละเอียดข้อเสนอ", count: filteredProposals.length },
-            { key: "subcommittees", label: "รายอนุกรรมการ", count: data.subCommittees.length },
-            { key: "agencies", label: "รายหน่วยงาน", count: data.agencies.length },
+            { key: "proposals", label: "รายละเอียดข้อเสนอ", short: "ข้อเสนอ", count: filteredProposals.length },
+            { key: "subcommittees", label: "รายอนุกรรมการ", short: "อนุกรรมการ", count: data.subCommittees.length },
+            { key: "agencies", label: "รายหน่วยงาน", short: "หน่วยงาน", count: data.agencies.length },
           ] as const).map((t) => (
             <button
               key={t.key}
               onClick={() => { setActiveTab(t.key); setSelectedSC(null); setPage(0); }}
               className={cn(
-                "flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition-all",
+                "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-all sm:px-5",
                 activeTab === t.key
                   ? "bg-blue-600 text-white shadow-md shadow-blue-600/25"
                   : "border border-slate-200 bg-white text-slate-600 hover:border-blue-300"
               )}
             >
-              {t.label}
+              <span className="sm:hidden">{t.short}</span>
+              <span className="hidden sm:inline">{t.label}</span>
               <span
                 className={cn(
                   "rounded-full px-2 py-0.5 text-xs",
@@ -670,10 +687,11 @@ export function PublicDashboard() {
             <div className="relative flex-1">
               <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
+                ref={searchRef}
                 type="text"
                 value={searchQuery}
                 onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
-                placeholder="ค้นหาข้อเสนอ (เช่น คำสำคัญ หน่วยงาน วาระ)"
+                placeholder="ค้นหาข้อเสนอ หน่วยงาน วาระ"
                 className="w-full rounded-xl border border-slate-200 py-2 pl-9 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
               {searchQuery && (
@@ -723,19 +741,79 @@ export function PublicDashboard() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] text-sm">
+          {/* มือถือ: การ์ด */}
+          <ul className="divide-y divide-slate-100 md:hidden">
+            {pageRows.length === 0 && (
+              <li className="py-12 text-center text-sm text-slate-400">
+                {q ? <>ไม่พบข้อเสนอที่ตรงกับ &ldquo;{searchQuery}&rdquo;</> : "ยังไม่มีข้อเสนอ"}
+              </li>
+            )}
+            {pageRows.map((p, idx) => {
+              const s = computeProgress([p]);
+              const st = statusOf.get(p.id)!;
+              const open = expandedProposal === p.id;
+              const updated = p.implementations.map((i) => i.updatedAt).sort().at(-1);
+              return (
+                <li key={p.id} className={cn(open && "bg-blue-50/40")}>
+                  <button
+                    onClick={() => setExpandedProposal(open ? null : p.id)}
+                    className="w-full px-4 py-3.5 text-left"
+                  >
+                    <div className="flex items-start gap-2">
+                      <span className="mt-0.5 w-5 shrink-0 text-xs tabular-nums text-slate-400">{curPage * PAGE_SIZE + idx + 1}</span>
+                      <p className="min-w-0 flex-1 text-pretty break-words text-[15px] font-semibold leading-snug text-blue-800">{p.title}</p>
+                      {open ? <ChevronUp size={18} className="shrink-0 text-blue-500" /> : <ChevronDown size={18} className="shrink-0 text-slate-400" />}
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-7">
+                      <span className={`whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-medium ${festTheme(p.festival.type).badge}`}>
+                        {FESTIVAL_TYPE_LABELS[p.festival.type] ?? p.festival.name} {p.festival.year}
+                      </span>
+                      <span className="whitespace-nowrap rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">ข้อ {p.orderNumber}</span>
+                      {p.subCommittees.map(({ subCommittee }) => (
+                        <span key={subCommittee.id} className="whitespace-nowrap rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
+                          {scShort(subCommittee.name)}
+                        </span>
+                      ))}
+                      <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ${STATUS_PILL[st].cls}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${STATUS_PILL[st].dot}`} />
+                        {STATUS_LABELS[st]}
+                      </span>
+                    </div>
+                    <div className="mt-2.5 flex items-center gap-2 pl-7">
+                      <div className="flex h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                        <div className="h-full bg-emerald-500" style={{ width: `${s.completedPct}%` }} />
+                        <div className="h-full bg-amber-400" style={{ width: `${Math.max(s.activePct - s.completedPct, 0)}%` }} />
+                      </div>
+                      <span className="w-9 text-right text-xs font-semibold tabular-nums text-slate-700">{s.activePct}%</span>
+                    </div>
+                    <p className="mt-1.5 pl-7 text-[11px] text-slate-400">
+                      {p.expectedAgencyIds.length} หน่วยงานรับผิดชอบ{updated && <> · อัปเดต {thDate(updated)}</>}
+                    </p>
+                  </button>
+                  {open && (
+                    <div className="px-4 pb-4 pl-11">
+                      <ProposalDetail proposal={p} agencies={data.agencies} />
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+
+          {/* แท็บเล็ต/เดสก์ท็อป: ตาราง — ซ่อนคอลัมน์รองตามความกว้าง */}
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
-                  <th className="px-4 py-3 w-10">#</th>
-                  <th className="px-3 py-3">ชื่อข้อเสนอ</th>
-                  <th className="px-3 py-3">วาระ</th>
-                  <th className="px-3 py-3">อนุกรรมการ</th>
-                  <th className="px-3 py-3">หน่วยงานที่รับผิดชอบ</th>
-                  <th className="px-3 py-3">สถานะ</th>
-                  <th className="px-3 py-3 w-40">ความคืบหน้า</th>
-                  <th className="px-3 py-3">อัปเดตล่าสุด</th>
-                  <th className="px-3 py-3 text-center">รายละเอียด</th>
+                  <th className="w-10 px-4 py-3">#</th>
+                  <th className="min-w-[13rem] px-3 py-3 xl:min-w-[15rem]">ชื่อข้อเสนอ</th>
+                  <th className="whitespace-nowrap px-3 py-3">วาระ</th>
+                  <th className="hidden whitespace-nowrap px-3 py-3 xl:table-cell">อนุกรรมการ</th>
+                  <th className="hidden px-3 py-3 min-[1400px]:table-cell">หน่วยงานที่รับผิดชอบ</th>
+                  <th className="whitespace-nowrap px-3 py-3">สถานะ</th>
+                  <th className="min-w-[7.5rem] whitespace-nowrap px-3 py-3 xl:min-w-[10rem]">ความคืบหน้า</th>
+                  <th className="hidden whitespace-nowrap px-3 py-3 xl:table-cell">อัปเดตล่าสุด</th>
+                  <th className="w-10 px-3 py-3"><span className="sr-only">รายละเอียด</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -764,7 +842,7 @@ export function PublicDashboard() {
                           <div className="flex items-start gap-2">
                             <FileText size={16} className="mt-0.5 shrink-0 text-blue-500" />
                             <div className="min-w-0">
-                              <p className="font-semibold text-blue-800 line-clamp-2">{p.title}</p>
+                              <p className="text-pretty break-words font-semibold leading-snug text-blue-800">{p.title}</p>
                               <p className="text-xs text-slate-400">ข้อ {p.orderNumber}</p>
                             </div>
                           </div>
@@ -774,7 +852,7 @@ export function PublicDashboard() {
                             {FESTIVAL_TYPE_LABELS[p.festival.type] ?? p.festival.name} {p.festival.year}
                           </span>
                         </td>
-                        <td className="px-3 py-3">
+                        <td className="hidden px-3 py-3 xl:table-cell">
                           <div className="flex flex-wrap gap-1">
                             {p.subCommittees.map(({ subCommittee }) => (
                               <span key={subCommittee.id} title={subCommittee.name} className="whitespace-nowrap rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600">
@@ -783,7 +861,7 @@ export function PublicDashboard() {
                             ))}
                           </div>
                         </td>
-                        <td className="px-3 py-3 text-slate-600">
+                        <td className="hidden px-3 py-3 text-slate-600 min-[1400px]:table-cell">
                           {firstAgency ? (
                             <span className="line-clamp-1 max-w-[14rem]" title={p.expectedAgencyIds.map((id) => agencyName.get(id)).filter(Boolean).join(", ")}>
                               {firstAgency}
@@ -810,7 +888,7 @@ export function PublicDashboard() {
                             <span className="w-9 text-right text-xs tabular-nums text-slate-600">{s.activePct}%</span>
                           </div>
                         </td>
-                        <td className="whitespace-nowrap px-3 py-3 text-slate-500">{updated ? thDate(updated) : "—"}</td>
+                        <td className="hidden whitespace-nowrap px-3 py-3 text-slate-500 xl:table-cell">{updated ? thDate(updated) : "—"}</td>
                         <td className="px-3 py-3 text-center">
                           {open ? <ChevronUp size={16} className="mx-auto text-blue-500" /> : <ChevronDown size={16} className="mx-auto text-slate-400" />}
                         </td>

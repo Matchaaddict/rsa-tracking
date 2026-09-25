@@ -171,7 +171,7 @@ export function ReportPage() {
           <select
             value={selectedSC}
             onChange={(e) => setSelectedSC(e.target.value)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            className={`w-full sm:w-auto max-w-full sm:max-w-[260px] px-3 py-1.5 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               selectedSC === "all"
                 ? "bg-white text-gray-600 border-gray-200"
                 : "bg-blue-50 text-blue-700 border-blue-300"
@@ -190,7 +190,7 @@ export function ReportPage() {
           <select
             value={selectedAgency}
             onChange={(e) => setSelectedAgency(e.target.value)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[220px] ${
+            className={`w-full sm:w-auto max-w-full sm:max-w-[220px] px-3 py-1.5 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               selectedAgency === "all"
                 ? "bg-white text-gray-600 border-gray-200"
                 : "bg-blue-50 text-blue-700 border-blue-300"
@@ -511,11 +511,11 @@ export function ReportPage() {
                                 const agencyRelevant = festProposals.length - agencyNotRel;
                                 const agencyPct = agencyRelevant > 0 ? Math.round((agencyDone / agencyRelevant) * 100) : 0;
                                 return (
-                                  <div key={agency.id} className="px-4 py-2.5 flex items-start gap-3">
-                                    <div className="w-40 shrink-0 text-sm font-medium text-gray-800 pt-0.5 leading-snug">
+                                  <div key={agency.id} className="px-3 sm:px-4 py-2.5 flex flex-wrap sm:flex-nowrap items-start gap-x-3 gap-y-1.5">
+                                    <div className="w-[calc(100%-64px)] sm:w-40 shrink-0 text-sm font-medium text-gray-800 pt-0.5 leading-snug break-words">
                                       {agency.name}
                                     </div>
-                                    <div className="flex-1 flex flex-wrap items-center gap-1">
+                                    <div className="order-last sm:order-none basis-full sm:basis-auto min-w-0 flex-1 flex flex-wrap items-center gap-1">
                                       {festProposals.map(p => {
                                         const impl = implMap.get(p.id);
                                         const status = impl?.status ?? "NOT_STARTED";
