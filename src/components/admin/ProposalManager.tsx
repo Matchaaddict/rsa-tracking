@@ -7,7 +7,7 @@ import { Badge } from "../ui/badge";
 import { STATUS_LABELS, STATUS_COLORS, festIcon, festTheme, cn } from "@/lib/utils";
 import { KIND_META, SOURCE_KINDS, sourceKind, sourceLabel, type SourceKind } from "@/lib/tracking";
 import {
-  Plus, Pencil, Trash2, Loader2, X, Check, ChevronDown, ChevronUp, CalendarClock, Lock, Search, Users,
+  Plus, Pencil, Trash2, Loader2, X, Check, ChevronDown, ChevronUp, CalendarClock, Lock, Search, Users, Hash,
 } from "lucide-react";
 import type { SecretaryScope } from "../AdminPanel";
 
@@ -46,6 +46,7 @@ interface Proposal {
   festivalId: string;
   subCommittees: { subCommittee: SubCommittee }[];
   assignees: { agency: { id: string; name: string } }[];
+  tags: { tag: { id: string; name: string } }[];
   implementations: Implementation[];
 }
 
@@ -58,6 +59,7 @@ type Form = {
   subCommitteeIds: string[];
   assignMode: "subcommittee" | "specific";
   assigneeIds: string[];
+  tagNames: string[];
 };
 
 const emptyForm = (festivalId = "", orderNumber = 1): Form => ({
@@ -69,6 +71,7 @@ const emptyForm = (festivalId = "", orderNumber = 1): Form => ({
   subCommitteeIds: [],
   assignMode: "subcommittee",
   assigneeIds: [],
+  tagNames: [],
 });
 
 const inputCls =
@@ -96,25 +99,33 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
   const [kindFilter, setKindFilter] = useState<SourceKind | "ALL">("ALL");
   const [filterSource, setFilterSource] = useState("all");
   const [agencyQuery, setAgencyQuery] = useState("");
+  const [allTags, setAllTags] = useState<{ id: string; name: string }[]>([]);
+  const [tagDraft, setTagDraft] = useState("");
   const [implForms, setImplForms] = useState<Record<string, { content: string; status: string }>>({});
   const [savingImpl, setSavingImpl] = useState<string | null>(null);
   // เลขาฯ ดูสถานะได้ แต่แก้ผลการดำเนินงานแทนหน่วยงานไม่ได้
   const canEditImpl = !secretaryOf;
 
-  async function load() {
-    const [ps, fs, opts] = await Promise.all([
+  const [version, setVersion] = useState(0);
+  const load = () => setVersion((v) => v + 1);
+
+  useEffect(() => {
+    let alive = true;
+    Promise.all([
       fetch("/api/admin/proposals").then((r) => r.json()),
       fetch("/api/admin/festivals").then((r) => r.json()),
       fetch("/api/admin/options").then((r) => r.json()),
-    ]);
-    setProposals(ps);
-    setSources(fs);
-    setSubCommittees(opts.subCommittees ?? []);
-    setAgencies(opts.agencies ?? []);
-    setLoading(false);
-  }
-
-  useEffect(() => { load(); }, []);
+    ]).then(([ps, fs, opts]) => {
+      if (!alive) return;
+      setProposals(ps);
+      setSources(fs);
+      setSubCommittees(opts.subCommittees ?? []);
+      setAgencies(opts.agencies ?? []);
+      setAllTags(opts.tags ?? []);
+      setLoading(false);
+    });
+    return () => { alive = false; };
+  }, [version]);
 
   function nextOrder(festivalId: string) {
     const nums = proposals.filter((p) => p.festivalId === festivalId).map((p) => p.orderNumber);
@@ -123,6 +134,8 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const pendingTag = tagDraft.replace(/^#+/, "").trim();
+    const tagNames = pendingTag && !form.tagNames.includes(pendingTag) ? [...form.tagNames, pendingTag] : form.tagNames;
     if (form.assignMode === "specific" && form.assigneeIds.length === 0) {
       alert("กรุณาเลือกหน่วยงานอย่างน้อย 1 หน่วย หรือเปลี่ยนเป็น \"ทุกหน่วยงานในอนุฯ\"");
       return;
@@ -133,6 +146,7 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...form,
+        tagNames,
         assigneeIds: form.assignMode === "specific" ? form.assigneeIds : [],
       }),
     });
@@ -143,6 +157,7 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
       return;
     }
     setForm(emptyForm());
+    setTagDraft("");
     setEditId(null);
     setShowForm(false);
     load();
@@ -177,6 +192,7 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
       subCommitteeIds: p.subCommittees.map((s) => s.subCommittee.id),
       assignMode: p.assignees.length ? "specific" : "subcommittee",
       assigneeIds: p.assignees.map((a) => a.agency.id),
+      tagNames: p.tags.map((t) => t.tag.name),
     });
     setEditId(p.id);
     setAgencyQuery("");
@@ -352,6 +368,46 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
                 )}
               </div>
 
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1">
+                  ประเด็น <span className="font-normal text-gray-400">(เช่น ทางข้าม, ดื่มแล้วขับ — กด Enter เพื่อเพิ่ม)</span>
+                </label>
+                <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-gray-300 px-2 py-1.5 focus-within:ring-2 focus-within:ring-blue-500">
+                  {form.tagNames.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, tagNames: f.tagNames.filter((x) => x !== t) }))}
+                      className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700"
+                    >
+                      #{t} <X size={11} />
+                    </button>
+                  ))}
+                  <input
+                    list="tag-suggestions"
+                    value={tagDraft}
+                    onChange={(e) => setTagDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === ",") {
+                        e.preventDefault();
+                        const name = tagDraft.replace(/^#+/, "").replace(/,/g, "").trim();
+                        if (name && !form.tagNames.includes(name)) setForm((f) => ({ ...f, tagNames: [...f.tagNames, name] }));
+                        setTagDraft("");
+                      } else if (e.key === "Backspace" && !tagDraft && form.tagNames.length) {
+                        setForm((f) => ({ ...f, tagNames: f.tagNames.slice(0, -1) }));
+                      }
+                    }}
+                    placeholder={form.tagNames.length ? "" : "พิมพ์ชื่อประเด็น..."}
+                    className="min-w-[8rem] flex-1 border-0 bg-transparent py-0.5 text-sm focus:outline-none"
+                  />
+                  <datalist id="tag-suggestions">
+                    {allTags.filter((t) => !form.tagNames.includes(t.name)).map((t) => (
+                      <option key={t.id} value={t.name} />
+                    ))}
+                  </datalist>
+                </div>
+              </div>
+
               <div className="rounded-lg border border-gray-200 p-3 space-y-3">
                 <p className="text-sm font-medium text-gray-700">หน่วยงานที่ต้องรายงาน</p>
                 <div className="flex flex-col sm:flex-row gap-2">
@@ -504,6 +560,9 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
                         {proposal.assignees.length > 0 && (
                           <Badge variant="default"><Users size={10} className="mr-1" />มอบหมาย {proposal.assignees.length} หน่วยงาน</Badge>
                         )}
+                        {proposal.tags.map((t) => (
+                          <Badge key={t.tag.id} variant="default"><Hash size={10} />{t.tag.name}</Badge>
+                        ))}
                         {proposal.dueDate && (
                           <Badge variant={overdue ? "danger" : "gray"}>
                             <CalendarClock size={10} className="mr-1" />

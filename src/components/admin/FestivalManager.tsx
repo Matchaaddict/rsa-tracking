@@ -71,18 +71,22 @@ export function FestivalManager({ secretaryOf = null }: { secretaryOf?: Secretar
   const [error, setError] = useState("");
   const [kindFilter, setKindFilter] = useState<SourceKind | "ALL">("ALL");
 
-  async function load() {
-    const res = await fetch("/api/admin/festivals");
-    setSources(await res.json());
-    setLoading(false);
-  }
+  const [version, setVersion] = useState(0);
+  const load = () => setVersion((v) => v + 1);
 
   useEffect(() => {
-    load();
-    fetch("/api/admin/options")
-      .then((r) => r.json())
-      .then((d) => setSubCommittees(d.subCommittees ?? []));
-  }, []);
+    let alive = true;
+    Promise.all([
+      fetch("/api/admin/festivals").then((r) => r.json()),
+      fetch("/api/admin/options").then((r) => r.json()),
+    ]).then(([fs, opts]) => {
+      if (!alive) return;
+      setSources(fs);
+      setSubCommittees(opts.subCommittees ?? []);
+      setLoading(false);
+    });
+    return () => { alive = false; };
+  }, [version]);
 
   const kind = sourceKind(form.type);
   const needsOwner = kind === "MEETING" || kind === "PROJECT";

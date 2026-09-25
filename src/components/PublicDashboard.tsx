@@ -14,7 +14,17 @@ import {
   CartesianGrid,
 } from "recharts";
 import { STATUS_LABELS, STATUS_COLORS, festIcon, festTheme, cn } from "@/lib/utils";
-import { KIND_META, SOURCE_KINDS, sourceKind, sourceLabel, type SourceKind } from "@/lib/tracking";
+import {
+  KIND_META,
+  SOURCE_KINDS,
+  computeProgress,
+  isOverdue,
+  itemStatus,
+  sourceKind,
+  sourceLabel,
+  type ItemStatus,
+  type SourceKind,
+} from "@/lib/tracking";
 import {
   CheckCircle2,
   Clock,
@@ -35,6 +45,7 @@ import {
   Landmark,
   UsersRound,
 } from "lucide-react";
+import Link from "next/link";
 import { FAQSection } from "./FAQSection";
 import { HeroBanner } from "./HeroBanner";
 import { SEARCH_EVENT, FOCUS_SEARCH_EVENT } from "./AppShell";
@@ -76,6 +87,7 @@ interface Proposal {
   orderNumber: number;
   dueDate: string | null;
   createdAt: string;
+  tags: { tag: { id: string; name: string } }[];
   festival: Festival;
   festivalId: string;
   subCommittees: { subCommittee: SubCommittee }[];
@@ -101,44 +113,8 @@ interface DashboardData {
 type TabKey = "proposals" | "agencies" | "subcommittees";
 const TAB_KEYS: TabKey[] = ["proposals", "subcommittees", "agencies"];
 
-// ดูสูตรเต็มได้ที่ docs/PROGRESS_CALCULATION.md
-function computeProgress(proposals: Proposal[]) {
-  let expected = 0;
-  let notRelevant = 0;
-  let completed = 0;
-  let inProgress = 0;
-  let started = 0; // implementation rows with NOT_STARTED status (acknowledged but no action)
-
-  proposals.forEach((p) => {
-    expected += p.expectedAgencyIds.length;
-    p.implementations.forEach((i) => {
-      if (i.status === "NOT_RELEVANT") notRelevant++;
-      else if (i.status === "COMPLETED") completed++;
-      else if (i.status === "IN_PROGRESS") inProgress++;
-      else if (i.status === "NOT_STARTED") started++;
-    });
-  });
-
-  const total = Math.max(expected - notRelevant, 0);
-  const notStarted = Math.max(total - completed - inProgress, 0);
-  const active = completed + inProgress;
-  const completedPct = total > 0 ? Math.round((completed / total) * 100) : 0;
-  const activePct = total > 0 ? Math.round((active / total) * 100) : 0;
-  void started;
-
-  return { expected, notRelevant, completed, inProgress, notStarted, active, total, completedPct, activePct };
-}
-
-// สถานะระดับข้อเสนอ: เสร็จเมื่อทุกหน่วยงานที่รับผิดชอบรายงานว่าเสร็จ,
-// กำลังดำเนินการเมื่อมีอย่างน้อยหนึ่งหน่วยงานเริ่ม/เสร็จแล้ว
-type ProposalStatus = "COMPLETED" | "IN_PROGRESS" | "NOT_STARTED" | "NOT_RELEVANT";
-function proposalStatus(p: Proposal): ProposalStatus {
-  const s = computeProgress([p]);
-  if (s.expected > 0 && s.total === 0) return "NOT_RELEVANT";
-  if (s.total > 0 && s.completed === s.total) return "COMPLETED";
-  if (s.active > 0) return "IN_PROGRESS";
-  return "NOT_STARTED";
-}
+const proposalStatus = itemStatus;
+type ProposalStatus = ItemStatus;
 
 const STATUS_PILL: Record<ProposalStatus, { cls: string; dot: string }> = {
   COMPLETED: { cls: "bg-emerald-50 text-emerald-700 ring-emerald-200", dot: "bg-emerald-500" },
@@ -154,13 +130,6 @@ const KIND_NOUN: Record<SourceKind, string> = {
   PROJECT: "ภารกิจ",
   CABINET: "มติ",
 };
-
-// เลยกำหนดเมื่อมีหน่วยงานที่ยังไม่เสร็จ
-function isOverdue(p: Proposal, now: number) {
-  if (!p.dueDate || new Date(p.dueDate).getTime() >= now) return false;
-  const s = computeProgress([p]);
-  return s.total > 0 && s.completed < s.total;
-}
 
 const C_DONE = "#22c55e";
 const C_PROG = "#f59e0b";
@@ -448,6 +417,7 @@ export function PublicDashboard() {
       (p.description ?? "").toLowerCase().includes(q) ||
       `${sourceLabel(p.festival)}`.includes(q) ||
       p.subCommittees.some((s) => s.subCommittee.name.toLowerCase().includes(q)) ||
+      p.tags.some((t) => t.tag.name.toLowerCase().includes(q.replace(/^#/, ""))) ||
       p.implementations.some((i) => i.agency.name.toLowerCase().includes(q))
     );
   });
@@ -873,6 +843,19 @@ export function PublicDashboard() {
                       {updated && <> · อัปเดต {thDate(updated)}</>}
                     </p>
                   </button>
+                  {p.tags.length > 0 && (
+                    <div className="-mt-2 flex flex-wrap gap-1 px-4 pb-3 pl-11">
+                      {p.tags.map(({ tag }) => (
+                        <Link
+                          key={tag.id}
+                          href={`/topics/${tag.id}`}
+                          className="rounded-md bg-blue-50 px-1.5 py-px text-[11px] font-medium text-blue-700"
+                        >
+                          #{tag.name}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                   {open && (
                     <div className="px-4 pb-4 pl-11">
                       <ProposalDetail proposal={p} agencies={data.agencies} />
@@ -926,6 +909,20 @@ export function PublicDashboard() {
                             <FileText size={16} className="mt-0.5 shrink-0 text-blue-500" />
                             <div className="min-w-0">
                               <p className="text-pretty break-words font-semibold leading-snug text-blue-800">{p.title}</p>
+                              {p.tags.length > 0 && (
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  {p.tags.map(({ tag }) => (
+                                    <Link
+                                      key={tag.id}
+                                      href={`/topics/${tag.id}`}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="rounded-md bg-blue-50 px-1.5 py-px text-[11px] font-medium text-blue-700 hover:bg-blue-100"
+                                    >
+                                      #{tag.name}
+                                    </Link>
+                                  ))}
+                                </div>
+                              )}
                               <p className="flex flex-wrap items-center gap-1.5 text-xs text-slate-400">
                                 ข้อ {p.orderNumber}
                                 {isOverdue(p, now) && (
@@ -1073,6 +1070,12 @@ export function PublicDashboard() {
                   </button>
                   {isOpen && (
                     <div className="border-t border-gray-100 divide-y divide-gray-100">
+                      <Link
+                        href={`/committees/${sc.id}`}
+                        className="flex items-center justify-end gap-1 px-6 py-2 text-xs font-medium text-blue-600 hover:bg-blue-50"
+                      >
+                        ดูหน้าอนุฯ — การประชุมและเรื่องสืบเนื่อง →
+                      </Link>
                       {proposals.map((p) => {
                         const ps = computeProgress([p]);
                         const { activePct: pPct, completedPct: pDonePct } = ps;

@@ -14,6 +14,7 @@ export async function GET() {
       festival: true,
       subCommittees: { include: { subCommittee: true } },
       assignees: { include: { agency: { select: { id: true, name: true } } } },
+      tags: { include: { tag: { select: { id: true, name: true } } } },
       implementations: { select: { agencyId: true, status: true, content: true } },
       _count: { select: { implementations: true } },
     },
@@ -33,11 +34,13 @@ export async function POST(req: NextRequest) {
       ...parsed.data,
       subCommittees: { create: parsed.subCommitteeIds.map((id) => ({ subCommitteeId: id })) },
       assignees: { create: parsed.assigneeIds.map((id) => ({ agencyId: id })) },
+      tags: { create: parsed.tagIds.map((tagId) => ({ tagId })) },
     },
     include: {
       festival: true,
       subCommittees: { include: { subCommittee: true } },
       assignees: { include: { agency: { select: { id: true, name: true } } } },
+      tags: { include: { tag: { select: { id: true, name: true } } } },
     },
   });
   return NextResponse.json(proposal);

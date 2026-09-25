@@ -7,16 +7,18 @@ export async function GET() {
   const staff = await getStaff();
   if (!staff) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const [subCommittees, agencies] = await Promise.all([
+  const [subCommittees, agencies, tags] = await Promise.all([
     prisma.subCommittee.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.agency.findMany({
       where: { isVisible: true },
       orderBy: { name: "asc" },
       select: { id: true, name: true, subCommittees: { select: { subCommitteeId: true } } },
     }),
+    prisma.tag.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
   return NextResponse.json({
     subCommittees,
+    tags,
     agencies: agencies.map((a) => ({
       id: a.id,
       name: a.name,

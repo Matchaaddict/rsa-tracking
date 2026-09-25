@@ -65,3 +65,59 @@ export function agencyProposalWhere(agencyId: string, subCommitteeIds: string[])
     ],
   };
 }
+
+// ---- ความคืบหน้า (ใช้ร่วมทุกหน้า) ----
+// ดูสูตรเต็มได้ที่ docs/PROGRESS_CALCULATION.md
+type ProgressItem = { expectedAgencyIds: string[]; implementations: { status: string }[] };
+
+export function computeProgress(items: ProgressItem[]) {
+  let expected = 0;
+  let notRelevant = 0;
+  let completed = 0;
+  let inProgress = 0;
+
+  items.forEach((p) => {
+    expected += p.expectedAgencyIds.length;
+    p.implementations.forEach((i) => {
+      if (i.status === "NOT_RELEVANT") notRelevant++;
+      else if (i.status === "COMPLETED") completed++;
+      else if (i.status === "IN_PROGRESS") inProgress++;
+    });
+  });
+
+  const total = Math.max(expected - notRelevant, 0);
+  const notStarted = Math.max(total - completed - inProgress, 0);
+  const active = completed + inProgress;
+  const completedPct = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const activePct = total > 0 ? Math.round((active / total) * 100) : 0;
+
+  return { expected, notRelevant, completed, inProgress, notStarted, active, total, completedPct, activePct };
+}
+
+// สถานะระดับเรื่อง: เสร็จเมื่อทุกหน่วยงานที่รับผิดชอบรายงานว่าเสร็จ,
+// กำลังดำเนินการเมื่อมีอย่างน้อยหนึ่งหน่วยงานเริ่ม/เสร็จแล้ว
+export type ItemStatus = "COMPLETED" | "IN_PROGRESS" | "NOT_STARTED" | "NOT_RELEVANT";
+
+export function itemStatus(p: ProgressItem): ItemStatus {
+  const s = computeProgress([p]);
+  if (s.expected > 0 && s.total === 0) return "NOT_RELEVANT";
+  if (s.total > 0 && s.completed === s.total) return "COMPLETED";
+  if (s.active > 0) return "IN_PROGRESS";
+  return "NOT_STARTED";
+}
+
+// ยังค้าง = ยังไม่เสร็จครบทุกหน่วยงาน
+export function isUnresolved(p: ProgressItem) {
+  const st = itemStatus(p);
+  return st === "IN_PROGRESS" || st === "NOT_STARTED";
+}
+
+export function isOverdue(p: ProgressItem & { dueDate: string | Date | null }, now: number) {
+  if (!p.dueDate || new Date(p.dueDate).getTime() >= now) return false;
+  return isUnresolved(p);
+}
+
+// เวลาปัจจุบันสำหรับ server component (แยกเป็นฟังก์ชันเพื่อไม่เรียกตรงใน render)
+export function currentTime() {
+  return Date.now();
+}

@@ -19,6 +19,7 @@ import {
   LogOut,
   ChevronDown,
   UserCircle2,
+  Hash,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ShellInfo } from "@/lib/shellInfo";
@@ -85,7 +86,8 @@ export function AppShell({
     { key: "home", label: "หน้าหลัก", href: "/", icon: Home },
     { key: "proposals", label: "ข้อเสนอแนะ", href: "/#proposals", icon: FileText },
     { key: "report", label: "รายงาน", href: "/report", icon: FileBarChart2 },
-    { key: "subcommittees", label: "คณะกรรมการ", href: "/#subcommittees", icon: Users },
+    { key: "committees", label: "คณะกรรมการ", href: "/committees", icon: Users },
+    { key: "topics", label: "ประเด็น", href: "/topics", icon: Hash },
     {
       key: "agencies",
       label: "หน่วยงาน",
@@ -98,6 +100,8 @@ export function AppShell({
   function isActive(item: NavItem) {
     if (item.key === "admin") return pathname.startsWith("/admin");
     if (item.key === "report") return pathname.startsWith("/report");
+    if (item.key === "committees") return pathname.startsWith("/committees");
+    if (item.key === "topics") return pathname.startsWith("/topics");
     if (item.key === "agencies" && pathname.startsWith("/agency")) return true;
     if (pathname !== "/") return false;
     const h = hash.replace("#", "");

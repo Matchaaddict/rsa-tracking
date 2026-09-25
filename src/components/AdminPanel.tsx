@@ -14,13 +14,15 @@ import { AdminManager } from "./admin/AdminManager";
 import { MarkdownImporter } from "./admin/MarkdownImporter";
 import { DemoSeeder } from "./admin/DemoSeeder";
 import { BackupPanel } from "./admin/BackupPanel";
-import { CalendarDays, Users, Building2, FileText, KeyRound, BarChart2, Globe, HelpCircle, MessageCircle, ShieldCheck, Upload } from "lucide-react";
+import { TagManager } from "./admin/TagManager";
+import { CalendarDays, Users, Building2, FileText, KeyRound, BarChart2, Globe, HelpCircle, MessageCircle, ShieldCheck, Upload, Hash } from "lucide-react";
 
 const ALL_TABS = [
   { id: "festivals",     label: "ที่มา",        icon: CalendarDays },
   { id: "subcommittees", label: "อนุกรรมการ",   icon: Users },
   { id: "agencies",      label: "หน่วยงาน",     icon: Building2 },
   { id: "proposals",     label: "เรื่องที่ติดตาม", icon: FileText },
+  { id: "tags",          label: "ประเด็น",       icon: Hash },
   { id: "import",        label: "นำเข้า",       icon: Upload },
   { id: "analysis",      label: "วิเคราะห์",    icon: BarChart2 },
   { id: "siteconfig",    label: "หน้าเว็บ",      icon: Globe },
@@ -118,6 +120,7 @@ export function AdminPanel({
         {activeTab === "subcommittees" && <SubCommitteeManager />}
         {activeTab === "agencies" && <AgencyManager />}
         {activeTab === "proposals" && <ProposalManager secretaryOf={secretaryOf} />}
+        {activeTab === "tags" && <TagManager />}
         {activeTab === "import" && (
           <div className="space-y-8">
             <BackupPanel />

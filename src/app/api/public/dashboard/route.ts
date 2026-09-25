@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
         festival: true,
         subCommittees: { include: { subCommittee: true } },
         assignees: { select: { agencyId: true } },
+        tags: { include: { tag: { select: { id: true, name: true } } } },
         implementations: implementationsInclude,
       },
     }),

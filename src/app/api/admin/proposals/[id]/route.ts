@@ -16,17 +16,20 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const proposal = await prisma.$transaction(async (tx) => {
     await tx.proposalSubCommittee.deleteMany({ where: { proposalId: id } });
     await tx.proposalAgency.deleteMany({ where: { proposalId: id } });
+    await tx.proposalTag.deleteMany({ where: { proposalId: id } });
     return tx.proposal.update({
       where: { id },
       data: {
         ...parsed.data,
         subCommittees: { create: parsed.subCommitteeIds.map((scId) => ({ subCommitteeId: scId })) },
         assignees: { create: parsed.assigneeIds.map((agencyId) => ({ agencyId })) },
+        tags: { create: parsed.tagIds.map((tagId) => ({ tagId })) },
       },
       include: {
         festival: true,
         subCommittees: { include: { subCommittee: true } },
         assignees: { include: { agency: { select: { id: true, name: true } } } },
+      tags: { include: { tag: { select: { id: true, name: true } } } },
       },
     });
   });

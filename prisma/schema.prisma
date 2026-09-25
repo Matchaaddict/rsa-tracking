@@ -84,9 +84,29 @@ model Proposal {
   subCommittees   ProposalSubCommittee[]
   // ถ้ามี = หน่วยงานที่ต้องรายงานคือรายชื่อนี้เท่านั้น, ถ้าว่าง = ทุกหน่วยงานในอนุฯ ของเรื่อง
   assignees       ProposalAgency[]
+  tags            ProposalTag[]
   implementations Implementation[]
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
+}
+
+// ประเด็น (แท็ก) เช่น #ทางข้าม — เรื่องหนึ่งมีได้หลายประเด็น ใช้รวมเรื่องจากทุกที่มา
+model Tag {
+  id          String        @id @default(cuid())
+  name        String        @unique
+  description String?
+  createdAt   DateTime      @default(now())
+  proposals   ProposalTag[]
+}
+
+model ProposalTag {
+  proposal   Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  proposalId String
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tagId      String
+
+  @@id([proposalId, tagId])
+  @@index([tagId])
 }
 
 model ProposalAgency {

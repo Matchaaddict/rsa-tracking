@@ -47,3 +47,8 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* พิมพ์เฉพาะเรื่องสืบเนื่อง (ปุ่มในหน้าคณะกรรมการ) */
+@media print {
+  body.print-carryover [data-print-skip] { display: none !important; }
+}

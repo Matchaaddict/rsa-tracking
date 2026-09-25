@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { canManageSource, type Staff } from "@/lib/staff";
 
+export function normalizeTagName(raw: string) {
+  return raw.trim().replace(/^#+/, "").replace(/\s+/g, " ").trim().slice(0, 40);
+}
+
 // แปลง body ฟอร์มเรื่องที่ติดตาม; เลขาฯ ผูกกับอนุฯ ตัวเองเสมอ และต้องอยู่ใต้ที่มาของอนุฯ ตัวเอง
 export async function parseProposalInput(body: Record<string, unknown>, staff: Staff) {
   const title = String(body.title ?? "").trim();
@@ -21,6 +25,14 @@ export async function parseProposalInput(body: Record<string, unknown>, staff: S
     ? (await prisma.agency.findMany({ where: { id: { in: requested } }, select: { id: true } })).map((a) => a.id)
     : [];
 
+  // ประเด็น: รับเป็นชื่อ สร้างใหม่ถ้ายังไม่มี (เลขาฯ สร้างได้ แอดมินแก้/ลบได้ที่แท็บประเด็น)
+  const tagNames = [...new Set(ids(body.tagNames).map(normalizeTagName).filter(Boolean))].slice(0, 8);
+  const tagIds: string[] = [];
+  for (const name of tagNames) {
+    const tag = await prisma.tag.upsert({ where: { name }, update: {}, create: { name } });
+    tagIds.push(tag.id);
+  }
+
   const dueStr = typeof body.dueDate === "string" ? body.dueDate.trim() : "";
   const due = dueStr ? new Date(dueStr) : null;
 
@@ -34,5 +46,6 @@ export async function parseProposalInput(body: Record<string, unknown>, staff: S
     },
     subCommitteeIds,
     assigneeIds,
+    tagIds,
   } as const;
 }
