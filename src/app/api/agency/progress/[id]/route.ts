@@ -11,7 +11,8 @@ async function requireAgency() {
 
 async function loadOwnedEntry(id: string, agencyId: string) {
   return prisma.progressEntry.findFirst({
-    where: { id, implementation: { agencyId } },
+    // รายงานที่เลขาฯ/แอดมินหยอดให้ หน่วยงานแก้/ลบไม่ได้ (เพิ่มรายงานของตัวเองต่อได้)
+    where: { id, implementation: { agencyId }, reportedBy: null },
     include: { implementation: { select: { id: true } } },
   });
 }

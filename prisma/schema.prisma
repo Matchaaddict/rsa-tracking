@@ -153,7 +153,9 @@ model ProgressEntry {
   implementationId String
   content          String
   status           String
+  // null = หน่วยงานรายงานเอง, "secretary" / "admin" = เลขาฯ อนุฯ หรือแอดมินหยอดให้ (หน่วยงานแก้/ลบไม่ได้)
   reportedBy       String?
+  evidenceUrl      String?
   contactName      String         @default("")
   contactTitle     String         @default("")
   contactPhone     String         @default("")

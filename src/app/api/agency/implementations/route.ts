@@ -52,6 +52,10 @@ export async function PUT(req: NextRequest) {
 
   const agencyId = session.user.id!;
   const { proposalId, evidenceUrl } = await req.json();
+  // ลิงก์ใดก็ได้ (Facebook, Google Drive, เว็บไซต์ ฯลฯ) แต่ต้องเป็น http(s)
+  if (evidenceUrl?.trim() && !/^https?:\/\/\S+$/i.test(evidenceUrl.trim())) {
+    return NextResponse.json({ error: "ลิงก์หลักฐานต้องขึ้นต้นด้วย https://" }, { status: 400 });
+  }
 
   const existing = await prisma.implementation.findUnique({
     where: { proposalId_agencyId: { proposalId, agencyId } },

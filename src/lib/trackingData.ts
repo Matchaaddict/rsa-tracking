@@ -45,6 +45,11 @@ export async function loadItems(where: Record<string, unknown>, viewer: Viewer) 
             content: true,
             updatedAt: true,
             agency: { select: { name: true } },
+            progressEntries: {
+              orderBy: { createdAt: "desc" },
+              take: 1,
+              select: { reportedBy: true, contactTitle: true },
+            },
           },
         },
       },

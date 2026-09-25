@@ -9,7 +9,7 @@ import { Button } from "./ui/button";
 interface Festival { id: string; name: string; type: string; year: number }
 interface SubCommittee { id: string; name: string }
 interface Agency { id: string; name: string; subCommittees: { subCommittee: SubCommittee }[] }
-interface ProgressEntry { id: string; content: string; status: string; createdAt: string; updatedAt: string }
+interface ProgressEntry { id: string; content: string; status: string; createdAt: string; updatedAt: string; staffLabel?: string | null }
 interface Implementation {
   agencyId: string;
   status: string;
@@ -669,6 +669,11 @@ export function ReportPage() {
                                             อัปเดต {formatThaiDate(impl.updatedAt)}
                                           </span>
                                         )}
+                                        {historyMode !== "all" && entries[0]?.staffLabel && (
+                                          <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">
+                                            {`${entries[0].staffLabel} บันทึกให้ · รอหน่วยงานยืนยัน`}
+                                          </span>
+                                        )}
                                       </div>
 
                                       {historyMode === "all" && entries.length > 0 ? (
@@ -680,6 +685,11 @@ export function ReportPage() {
                                                 <span className={`px-1.5 py-0.5 rounded-full ${STATUS_BG[entry.status]}`}>
                                                   {STATUS_LABELS[entry.status]}
                                                 </span>
+                                                {entry.staffLabel && (
+                                                  <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">
+                                                    {`${entry.staffLabel} บันทึกให้`}
+                                                  </span>
+                                                )}
                                               </div>
                                               <p className="text-sm text-gray-700 mt-0.5 whitespace-pre-wrap break-words">{entry.content}</p>
                                             </div>

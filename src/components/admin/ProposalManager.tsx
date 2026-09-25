@@ -35,6 +35,8 @@ interface Implementation {
   agencyId: string;
   status: string;
   content: string | null;
+  evidenceUrl: string | null;
+  progressEntries: { reportedBy: string | null; contactTitle: string; createdAt: string }[];
 }
 
 interface Proposal {
@@ -102,10 +104,13 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
   const [agencyQuery, setAgencyQuery] = useState("");
   const [allTags, setAllTags] = useState<{ id: string; name: string }[]>([]);
   const [tagDraft, setTagDraft] = useState("");
-  const [implForms, setImplForms] = useState<Record<string, { content: string; status: string }>>({});
-  const [savingImpl, setSavingImpl] = useState<string | null>(null);
-  // เลขาฯ ดูสถานะได้ แต่แก้ผลการดำเนินงานแทนหน่วยงานไม่ได้
-  const canEditImpl = !secretaryOf;
+  // ฟอร์ม "หยอดความคืบหน้า" ให้หน่วยงาน (เปิดได้ทีละหน่วยงาน)
+  const [hintKey, setHintKey] = useState<string | null>(null);
+  const [hint, setHint] = useState({ content: "", evidenceUrl: "" });
+  const [hintSaving, setHintSaving] = useState(false);
+  const [hintError, setHintError] = useState("");
+  // เลขาฯ แก้/ลบได้เฉพาะเรื่องใต้ที่มาของอนุฯ ตัวเอง (เรื่องเทศกาลที่ผูกกับอนุฯ หยอดความคืบหน้าได้อย่างเดียว)
+  const canManage = (p: Proposal) => !secretaryOf || p.festival.subCommitteeId === secretaryOf.id;
 
   const [version, setVersion] = useState(0);
   const load = () => setVersion((v) => v + 1);
@@ -230,16 +235,21 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
     return agencies.filter((a) => a.subCommitteeIds.some((id) => scIds.includes(id)));
   }
 
-  async function saveImpl(proposalId: string, agencyId: string) {
-    const key = `${proposalId}:${agencyId}`;
-    setSavingImpl(key);
-    const form_ = implForms[key] || { content: "", status: "NOT_STARTED" };
-    await fetch("/api/admin/implementations", {
-      method: "PUT",
+  async function submitHint(proposalId: string, agencyId: string) {
+    setHintSaving(true);
+    setHintError("");
+    const res = await fetch("/api/admin/progress", {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ proposalId, agencyId, ...form_ }),
+      body: JSON.stringify({ proposalId, agencyId, ...hint }),
     });
-    setSavingImpl(null);
+    setHintSaving(false);
+    if (!res.ok) {
+      setHintError((await res.json().catch(() => null))?.error ?? "บันทึกไม่สำเร็จ");
+      return;
+    }
+    setHintKey(null);
+    setHint({ content: "", evidenceUrl: "" });
     load();
   }
 
@@ -601,92 +611,99 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
                       <Button variant="ghost" size="sm" onClick={() => setExpandedId(isExpanded ? null : proposal.id)} aria-label="ดูหน่วยงาน">
                         {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => startEdit(proposal)} aria-label="แก้ไข">
-                        <Pencil size={14} />
-                      </Button>
-                      <Button variant="danger" size="sm" onClick={() => handleDelete(proposal.id)} aria-label="ลบ">
-                        <Trash2 size={14} />
-                      </Button>
+                      {canManage(proposal) && (
+                        <>
+                          <Button variant="ghost" size="sm" onClick={() => startEdit(proposal)} aria-label="แก้ไข">
+                            <Pencil size={14} />
+                          </Button>
+                          <Button variant="danger" size="sm" onClick={() => handleDelete(proposal.id)} aria-label="ลบ">
+                            <Trash2 size={14} />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 {isExpanded && (
                   <div className="border-t border-gray-100 px-4 sm:px-6 py-4">
-                    <p className="text-sm font-medium text-gray-700 mb-3">
-                      หน่วยงานที่ต้องรายงาน ({related.length} หน่วย)
-                      {canEditImpl && " — แก้ไขผลการดำเนินงาน"}
+                    <p className="text-sm font-medium text-gray-700">หน่วยงานที่ต้องรายงาน ({related.length} หน่วย)</p>
+                    <p className="text-xs text-gray-500 mb-3">
+                      เห็นความคืบหน้าจากช่องทางอื่น (เช่น เพจ Facebook ของหน่วยงาน) กด &ldquo;หยอดความคืบหน้า&rdquo; เพื่อบันทึกไว้ให้ก่อน —
+                      สถานะจะเป็น &ldquo;กำลังดำเนินการ&rdquo; และหน่วยงานเป็นผู้ยืนยันว่าเสร็จเอง
                     </p>
                     {related.length === 0 ? (
                       <p className="text-sm text-gray-400 italic">ยังไม่มีหน่วยงานที่ต้องรายงาน</p>
-                    ) : !canEditImpl ? (
+                    ) : (
                       <div className="divide-y divide-gray-100 rounded-lg border border-gray-100">
                         {related.map((agency) => {
+                          const key = `${proposal.id}:${agency.id}`;
                           const impl = proposal.implementations.find((i) => i.agencyId === agency.id);
                           const st = impl?.status ?? "NOT_STARTED";
+                          const last = impl?.progressEntries[0];
+                          const locked = st === "COMPLETED" || st === "NOT_RELEVANT";
+                          const open = hintKey === key;
                           return (
-                            <div key={agency.id} className="flex items-start justify-between gap-3 px-3 py-2">
-                              <div className="min-w-0">
-                                <p className="text-sm text-gray-800">{agency.name}</p>
-                                {impl?.content && <p className="text-xs text-gray-500 mt-0.5 whitespace-pre-wrap break-words">{impl.content}</p>}
+                            <div key={agency.id} className="px-3 py-2.5">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="text-sm text-gray-800">{agency.name}</p>
+                                  {impl?.content && (
+                                    <p className="text-xs text-gray-500 mt-0.5 whitespace-pre-wrap break-words">{impl.content}</p>
+                                  )}
+                                  {last?.reportedBy && (
+                                    <p className="mt-1 inline-block rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">
+                                      {`${last.contactTitle} บันทึกให้ · รอหน่วยงานยืนยัน`}
+                                    </p>
+                                  )}
+                                  {impl?.evidenceUrl && (
+                                    <a href={impl.evidenceUrl} target="_blank" rel="noreferrer" className="ml-2 text-[11px] text-blue-600 hover:underline">
+                                      หลักฐาน ↗
+                                    </a>
+                                  )}
+                                </div>
+                                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[st]}`}>
+                                    {impl ? STATUS_LABELS[st] : "ยังไม่รายงาน"}
+                                  </span>
+                                  {!locked && !open && (
+                                    <button
+                                      onClick={() => { setHintKey(key); setHint({ content: "", evidenceUrl: "" }); setHintError(""); }}
+                                      className="text-xs font-medium text-blue-600 hover:underline"
+                                    >
+                                      + หยอดความคืบหน้า
+                                    </button>
+                                  )}
+                                </div>
                               </div>
-                              <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[st]}`}>
-                                {impl ? STATUS_LABELS[st] : "ยังไม่รายงาน"}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {related.map((agency) => {
-                          const key = `${proposal.id}:${agency.id}`;
-                          const existingImpl = proposal.implementations.find((i) => i.agencyId === agency.id);
-                          const form_ = implForms[key] ?? {
-                            content: existingImpl?.content || "",
-                            status: existingImpl?.status || "NOT_STARTED",
-                          };
-
-                          return (
-                            <div key={agency.id} className="border border-gray-200 rounded-lg p-3 space-y-2">
-                              <div className="flex items-center justify-between gap-2">
-                                <p className="text-sm font-medium text-gray-800">{agency.name}</p>
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[form_.status]}`}>
-                                  {STATUS_LABELS[form_.status]}
-                                </span>
-                              </div>
-                              <div className="flex gap-2 flex-wrap">
-                                {(["NOT_STARTED", "IN_PROGRESS", "COMPLETED", "NOT_RELEVANT"] as const).map((s) => (
-                                  <button
-                                    key={s}
-                                    onClick={() => setImplForms((f) => ({ ...f, [key]: { ...form_, status: s } }))}
-                                    className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${
-                                      form_.status === s
-                                        ? s === "COMPLETED"
-                                          ? "bg-green-500 text-white border-green-500"
-                                          : s === "IN_PROGRESS"
-                                          ? "bg-yellow-500 text-white border-yellow-500"
-                                          : s === "NOT_RELEVANT"
-                                          ? "bg-slate-400 text-white border-slate-400"
-                                          : "bg-gray-400 text-white border-gray-400"
-                                        : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                                    }`}
-                                  >
-                                    {STATUS_LABELS[s]}
-                                  </button>
-                                ))}
-                              </div>
-                              <textarea
-                                rows={2}
-                                value={form_.content}
-                                onChange={(e) => setImplForms((f) => ({ ...f, [key]: { ...form_, content: e.target.value } }))}
-                                placeholder="ผลการดำเนินงาน..."
-                                className={cn(inputCls, "resize-none")}
-                              />
-                              <Button size="sm" onClick={() => saveImpl(proposal.id, agency.id)} disabled={savingImpl === key}>
-                                {savingImpl === key ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                                บันทึก
-                              </Button>
+                              {open && (
+                                <div className="mt-2 space-y-2 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
+                                  <textarea
+                                    rows={2}
+                                    value={hint.content}
+                                    onChange={(e) => setHint({ ...hint, content: e.target.value })}
+                                    placeholder="เช่น เพจหน่วยงานโพสต์ว่าติดตั้งไฟส่องสว่างแล้ว 3 จุด (15 ก.ย. 69)"
+                                    className={cn(inputCls, "resize-none bg-white")}
+                                  />
+                                  <input
+                                    type="url"
+                                    value={hint.evidenceUrl}
+                                    onChange={(e) => setHint({ ...hint, evidenceUrl: e.target.value })}
+                                    placeholder="ลิงก์หลักฐาน (ถ้ามี) — โพสต์ Facebook, ข่าว, Google Drive ฯลฯ"
+                                    className={cn(inputCls, "bg-white")}
+                                  />
+                                  {hintError && <p className="text-xs text-red-600">{hintError}</p>}
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <Button size="sm" onClick={() => submitHint(proposal.id, agency.id)} disabled={hintSaving || !hint.content.trim()}>
+                                      {hintSaving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                                      บันทึกเป็น &ldquo;กำลังดำเนินการ&rdquo;
+                                    </Button>
+                                    <Button size="sm" variant="secondary" onClick={() => setHintKey(null)}>
+                                      <X size={12} /> ยกเลิก
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
