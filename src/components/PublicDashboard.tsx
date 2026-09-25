@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Badge } from "./ui/badge";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -13,12 +11,10 @@ import {
   PieChart,
   Pie,
   Cell,
-  Legend,
+  CartesianGrid,
 } from "recharts";
-import { STATUS_LABELS, STATUS_COLORS, FESTIVAL_TYPE_LABELS, festIcon, festTheme } from "@/lib/utils";
+import { STATUS_LABELS, STATUS_COLORS, FESTIVAL_TYPE_LABELS, festIcon, festTheme, cn } from "@/lib/utils";
 import {
-  Building2,
-  FileText,
   CheckCircle2,
   Clock,
   ChevronDown,
@@ -26,8 +22,21 @@ import {
   Loader2,
   Search,
   X,
+  FileText,
+  Files,
+  ArrowUp,
+  TriangleAlert,
+  TrafficCone,
+  Construction,
+  Trees,
+  CalendarDays,
+  Download,
+  Landmark,
+  UsersRound,
 } from "lucide-react";
 import { FAQSection } from "./FAQSection";
+import { HeroBanner } from "./HeroBanner";
+import { SEARCH_EVENT } from "./AppShell";
 
 interface Festival {
   id: string;
@@ -61,6 +70,7 @@ interface Proposal {
   title: string;
   description: string | null;
   orderNumber: number;
+  createdAt: string;
   festival: Festival;
   festivalId: string;
   subCommittees: { subCommittee: SubCommittee }[];
@@ -82,6 +92,9 @@ interface DashboardData {
   subCommittees: SubCommittee[];
   siteConfig: Record<string, string>;
 }
+
+type TabKey = "proposals" | "agencies" | "subcommittees";
+const TAB_KEYS: TabKey[] = ["proposals", "subcommittees", "agencies"];
 
 // ดูสูตรเต็มได้ที่ docs/PROGRESS_CALCULATION.md
 function computeProgress(proposals: Proposal[]) {
@@ -111,7 +124,43 @@ function computeProgress(proposals: Proposal[]) {
   return { expected, notRelevant, completed, inProgress, notStarted, active, total, completedPct, activePct };
 }
 
-const PIE_COLORS = ["#22c55e", "#eab308", "#9ca3af"];
+// สถานะระดับข้อเสนอ: เสร็จเมื่อทุกหน่วยงานที่รับผิดชอบรายงานว่าเสร็จ,
+// กำลังดำเนินการเมื่อมีอย่างน้อยหนึ่งหน่วยงานเริ่ม/เสร็จแล้ว
+type ProposalStatus = "COMPLETED" | "IN_PROGRESS" | "NOT_STARTED" | "NOT_RELEVANT";
+function proposalStatus(p: Proposal): ProposalStatus {
+  const s = computeProgress([p]);
+  if (s.expected > 0 && s.total === 0) return "NOT_RELEVANT";
+  if (s.total > 0 && s.completed === s.total) return "COMPLETED";
+  if (s.active > 0) return "IN_PROGRESS";
+  return "NOT_STARTED";
+}
+
+const STATUS_PILL: Record<ProposalStatus, { cls: string; dot: string }> = {
+  COMPLETED: { cls: "bg-emerald-50 text-emerald-700 ring-emerald-200", dot: "bg-emerald-500" },
+  IN_PROGRESS: { cls: "bg-amber-50 text-amber-700 ring-amber-200", dot: "bg-amber-500" },
+  NOT_STARTED: { cls: "bg-red-50 text-red-600 ring-red-200", dot: "bg-red-500" },
+  NOT_RELEVANT: { cls: "bg-slate-50 text-slate-500 ring-slate-200", dot: "bg-slate-400" },
+};
+
+const C_DONE = "#22c55e";
+const C_PROG = "#f59e0b";
+const C_NONE = "#94a3b8";
+const PAGE_SIZE = 15;
+
+const thDate = (iso: string) =>
+  new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
+
+const scShort = (name: string) => {
+  const n = name.match(/^C(\d+)/)?.[1];
+  return n ? `อนุฯ ${n}` : name.slice(0, 8);
+};
+
+const tooltipStyle = { borderRadius: 10, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: 13 };
+const seriesLabels: Record<string, string> = {
+  completed: STATUS_LABELS.COMPLETED,
+  inProgress: STATUS_LABELS.IN_PROGRESS,
+  notStarted: STATUS_LABELS.NOT_STARTED,
+};
 
 // Shows agencies expected for a proposal that have NOT created any
 // implementation row yet (silently absent). Agencies with a row get
@@ -147,6 +196,88 @@ function PendingAgenciesList({
   );
 }
 
+function ProposalDetail({ proposal, agencies }: { proposal: Proposal; agencies: AgencyData[] }) {
+  return (
+    <div className="space-y-2">
+      {proposal.description && <p className="text-sm text-slate-600">{proposal.description}</p>}
+      {proposal.implementations.map((impl) => (
+        <div key={impl.id} className="flex items-start gap-3 p-3 bg-white rounded-lg border border-slate-100">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-slate-800">{impl.agency.name}</p>
+            {impl.content ? (
+              <p className="text-sm text-slate-600 mt-0.5 whitespace-pre-wrap break-words">{impl.content}</p>
+            ) : (
+              <p className="text-sm text-slate-400 italic mt-0.5">ยังไม่ได้กรอกข้อมูล</p>
+            )}
+            {impl.content && (
+              <p className="text-[10px] text-slate-400 mt-1">อัปเดตล่าสุด: {thDate(impl.updatedAt)}</p>
+            )}
+          </div>
+          <span
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0 ${STATUS_COLORS[impl.status]}`}
+          >
+            {STATUS_LABELS[impl.status]}
+          </span>
+        </div>
+      ))}
+      <PendingAgenciesList proposal={proposal} agencies={agencies} />
+    </div>
+  );
+}
+
+function StatCard({
+  title,
+  value,
+  icon: Icon,
+  tone,
+  pct,
+  extra,
+  art,
+}: {
+  title: string;
+  value: number;
+  icon: typeof FileText;
+  tone: "blue" | "green" | "amber" | "red";
+  pct?: number;
+  extra?: React.ReactNode;
+  art: React.ReactNode;
+}) {
+  const t = {
+    blue: { card: "from-white to-blue-50/60", icon: "bg-blue-100 text-blue-600", title: "text-slate-700", bar: "bg-blue-500", pct: "text-slate-500" },
+    green: { card: "from-emerald-50 to-white", icon: "bg-emerald-500 text-white", title: "text-slate-700", bar: "bg-emerald-500", pct: "text-slate-500" },
+    amber: { card: "from-amber-50 to-orange-50/40", icon: "bg-amber-400 text-white", title: "text-amber-700", bar: "bg-amber-400", pct: "text-amber-600" },
+    red: { card: "from-red-50 to-rose-50/40", icon: "bg-red-500 text-white", title: "text-red-700", bar: "bg-red-500", pct: "text-red-600" },
+  }[tone];
+  return (
+    <div className={`relative overflow-hidden rounded-2xl border border-slate-100 bg-gradient-to-br ${t.card} p-5 shadow-sm`}>
+      <div className="pointer-events-none absolute -right-2 -top-1 text-slate-300/70">{art}</div>
+      <div className="relative flex items-start gap-4">
+        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${t.icon}`}>
+          <Icon size={24} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className={`text-sm font-semibold ${t.title}`}>{title}</p>
+          <div className="mt-1 flex items-end gap-3">
+            <p className="text-3xl font-bold tabular-nums text-slate-900">{value.toLocaleString()}</p>
+            {extra}
+          </div>
+          {pct !== undefined && (
+            <div className="mt-2 flex items-center gap-3">
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/80 ring-1 ring-slate-100">
+                <div className={`h-full rounded-full ${t.bar} transition-all duration-700`} style={{ width: `${pct}%` }} />
+              </div>
+              <span className={`text-xs font-semibold tabular-nums ${t.pct}`}>{pct}%</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Panel({ className, children }: { className?: string; children: React.ReactNode }) {
+  return <div className={cn("rounded-2xl border border-slate-100 bg-white p-5 shadow-sm", className)}>{children}</div>;
+}
 
 export function PublicDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -154,12 +285,14 @@ export function PublicDashboard() {
   const [selectedFestival, setSelectedFestival] = useState<string>("all");
   const [expandedProposal, setExpandedProposal] = useState<string | null>(null);
   const [expandedAgency, setExpandedAgency] = useState<string | null>(null);
-  const [expandedSubCommittees, setExpandedSubCommittees] = useState<Set<string>>(new Set());
-  const [expandedFestivals, setExpandedFestivals] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<"proposals" | "agencies" | "subcommittees">("proposals");
+  const [activeTab, setActiveTab] = useState<TabKey>("proposals");
   const [expandedSCTab, setExpandedSCTab] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSC, setSelectedSC] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<ProposalStatus | "all">("all");
+  const [page, setPage] = useState(0);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const [now] = useState(() => Date.now());
 
   useEffect(() => {
     fetch("/api/public/dashboard")
@@ -167,24 +300,38 @@ export function PublicDashboard() {
       .then((d) => {
         setData(d);
         setLoading(false);
+        // เปิดมาจากลิงก์ /?q=...#proposals (ค้นหาจาก header ของหน้าอื่น)
+        const q = new URLSearchParams(window.location.search).get("q");
+        if (q) setSearchQuery(q);
+        const h = window.location.hash.slice(1) as TabKey;
+        if (TAB_KEYS.includes(h)) {
+          setActiveTab(h);
+          setTimeout(() => tabsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+        }
       });
   }, []);
 
-  function toggleSC(id: string) {
-    setExpandedSubCommittees((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  }
-
-  function toggleFestival(key: string) {
-    setExpandedFestivals((prev) => {
-      const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
-      return next;
-    });
-  }
+  // ลิงก์จาก sidebar (#proposals / #subcommittees / #agencies) และช่องค้นหาบน header
+  useEffect(() => {
+    const goToHash = () => {
+      const h = window.location.hash.slice(1) as TabKey;
+      if (TAB_KEYS.includes(h)) {
+        setActiveTab(h);
+        requestAnimationFrame(() => tabsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+      }
+    };
+    const onSearch = (e: Event) => {
+      setActiveTab("proposals");
+      setSearchQuery((e as CustomEvent<string>).detail ?? "");
+      setPage(0);
+    };
+    window.addEventListener("hashchange", goToHash);
+    window.addEventListener(SEARCH_EVENT, onSearch);
+    return () => {
+      window.removeEventListener("hashchange", goToHash);
+      window.removeEventListener(SEARCH_EVENT, onSearch);
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -203,689 +350,511 @@ export function PublicDashboard() {
 
   const overall = computeProgress(filteredProposals);
 
-  const agenciesWithDataForFilter = new Set(
-    filteredProposals.flatMap((p) =>
-      p.implementations
-        .filter((i) => i.status !== "NOT_RELEVANT")
-        .map((i) => i.agencyId)
-    )
-  ).size;
+  const statusOf = new Map(filteredProposals.map((p) => [p.id, proposalStatus(p)]));
+  const nProposals = filteredProposals.length;
+  // การ์ดสถานะนับเป็นรายการ (หน่วยงาน × ข้อเสนอ) ให้ตรงกับหน้ารายงานและกราฟโดนัท
+  const nDone = overall.completed;
+  const nProg = overall.inProgress;
+  const nNone = overall.notStarted;
+  const pctOf = (n: number) => (overall.total > 0 ? Math.round((n / overall.total) * 100) : 0);
+  const monthAgo = now - 30 * 24 * 60 * 60 * 1000;
+  const newThisMonth = filteredProposals.filter((p) => new Date(p.createdAt).getTime() >= monthAgo).length;
 
   const pieData = [
-    { name: STATUS_LABELS.COMPLETED, value: overall.completed },
-    { name: STATUS_LABELS.IN_PROGRESS, value: overall.inProgress },
-    { name: STATUS_LABELS.NOT_STARTED, value: overall.notStarted },
-  ].filter((d) => d.value > 0);
+    { key: "completed", name: STATUS_LABELS.COMPLETED, value: overall.completed, color: C_DONE },
+    { key: "inProgress", name: STATUS_LABELS.IN_PROGRESS, value: overall.inProgress, color: C_PROG },
+    { key: "notStarted", name: STATUS_LABELS.NOT_STARTED, value: overall.notStarted, color: C_NONE },
+  ];
+  const piePct = (v: number) => (overall.total > 0 ? ((v / overall.total) * 100).toFixed(1) : "0.0");
 
   const proposalBarData = filteredProposals.map((p) => {
     const s = computeProgress([p]);
-    return {
-      name: `ข้อ ${p.orderNumber}`,
-      label: p.title.slice(0, 20) + (p.title.length > 20 ? "…" : ""),
-      completed: s.completed,
-      inProgress: s.inProgress,
-      notStarted: s.notStarted,
-    };
+    return { name: `ข้อ ${p.orderNumber}`, completed: s.completed, inProgress: s.inProgress, notStarted: s.notStarted };
   });
 
-  // เปรียบเทียบรายวาระ — โชว์เมื่อ selectedFestival === "all"
   const festivalBarData = data.festivals.map((f) => {
     const s = computeProgress(data.proposals.filter((p) => p.festivalId === f.id));
     return {
-      name: `${festIcon(f.type)} ${FESTIVAL_TYPE_LABELS[f.type]} ${f.year}`,
+      name: `${FESTIVAL_TYPE_LABELS[f.type] ?? f.name} ${f.year}`,
       completed: s.completed,
       inProgress: s.inProgress,
       notStarted: s.notStarted,
     };
   });
+  const showCompare = selectedFestival === "all";
+
+  const latestUpdate = filteredProposals
+    .flatMap((p) => p.implementations.map((i) => i.updatedAt))
+    .sort()
+    .at(-1);
 
   const ringR = 52;
   const ringCirc = 2 * Math.PI * ringR;
   const ringActive = (overall.activePct / 100) * ringCirc;
   const ringDone = (overall.completedPct / 100) * ringCirc;
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-    <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-      {/* Hero Banner */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-[#0f2460] via-[#1a3a8a] to-[#1e3a8a] rounded-3xl text-white shadow-2xl">
+  // ---- ตารางข้อเสนอ ----
+  const q = searchQuery.trim().toLowerCase();
+  const tableRows = filteredProposals.filter((p) => {
+    if (selectedSC && !p.subCommittees.some((s) => s.subCommittee.id === selectedSC)) return false;
+    if (statusFilter !== "all" && statusOf.get(p.id) !== statusFilter) return false;
+    if (!q) return true;
+    return (
+      p.title.toLowerCase().includes(q) ||
+      (p.description ?? "").toLowerCase().includes(q) ||
+      `${FESTIVAL_TYPE_LABELS[p.festival.type]} ${p.festival.year}`.includes(q) ||
+      p.subCommittees.some((s) => s.subCommittee.name.toLowerCase().includes(q)) ||
+      p.implementations.some((i) => i.agency.name.toLowerCase().includes(q))
+    );
+  });
+  const pageCount = Math.max(1, Math.ceil(tableRows.length / PAGE_SIZE));
+  const curPage = Math.min(page, pageCount - 1);
+  const pageRows = tableRows.slice(curPage * PAGE_SIZE, (curPage + 1) * PAGE_SIZE);
+  const agencyName = new Map(data.agencies.map((a) => [a.id, a.name]));
 
-        <div className="relative px-6 pt-7 pb-6 space-y-5">
-          {/* Title row */}
-          <div className="flex items-center gap-4">
-            {/* Completion Ring: yellow = ดำเนินการแล้ว (active), green = เสร็จสมบูรณ์ overlays */}
-            <svg width={88} height={88} viewBox="0 0 130 130" className="shrink-0">
-              <circle cx={65} cy={65} r={ringR} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={12} />
-              <circle cx={65} cy={65} r={ringR} fill="none"
-                stroke="#fbbf24" strokeWidth={12}
-                strokeDasharray={`${ringActive} ${ringCirc}`}
-                strokeLinecap="round"
-                transform="rotate(-90 65 65)"
-              />
-              <circle cx={65} cy={65} r={ringR} fill="none"
-                stroke="#34d399" strokeWidth={12}
-                strokeDasharray={`${ringDone} ${ringCirc}`}
-                strokeLinecap="round"
-                transform="rotate(-90 65 65)"
-              />
-              <text x={65} y={58} textAnchor="middle" fill="white" style={{ fontSize: 24, fontWeight: 700 }}>{overall.activePct}%</text>
-              <text x={65} y={74} textAnchor="middle" fill="rgba(255,255,255,0.7)" style={{ fontSize: 9 }}>ดำเนินการแล้ว</text>
-              <text x={65} y={88} textAnchor="middle" fill="#a7f3d0" style={{ fontSize: 10, fontWeight: 600 }}>เสร็จ {overall.completedPct}%</text>
-            </svg>
-            <div>
-              <p className="text-blue-300 text-xs font-semibold tracking-widest uppercase">{data.siteConfig.hero_label ?? "RSAT"}</p>
-              <h1 className="text-lg sm:text-2xl font-bold leading-snug mt-0.5">
-                {data.siteConfig.hero_title ?? "ระบบติดตามข้อเสนอแนวทางป้องกันและลดอุบัติเหตุทางถนน"}
-              </h1>
-              <p className="text-blue-200 text-sm mt-1">{data.siteConfig.hero_subtitle ?? "ในช่วงการรณรงค์เทศกาล ฯ"}</p>
+  const selectCls =
+    "appearance-none rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-8 text-sm text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400";
+
+  return (
+    <div>
+    <div className="space-y-5 px-4 py-5 sm:px-6 lg:px-8">
+      <HeroBanner
+        label={data.siteConfig.hero_label || "RSAT"}
+        title={data.siteConfig.banner_title || "ขับเคลื่อนความปลอดภัยทางถนน สู่สังคมไทยที่ยั่งยืน"}
+        tagline={data.siteConfig.banner_tagline || "ติดตาม · เร่งรัด · บูรณาการ · ลดอุบัติเหตุ · เพื่อชีวิตที่ปลอดภัยกว่า"}
+      />
+
+      {/* Festival filter */}
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-sm text-slate-500">กรองตามวาระ:</span>
+          {[{ id: "all", label: "ทุกวาระ", icon: "✅", type: "" }, ...data.festivals.map((f) => ({
+            id: f.id,
+            label: `${FESTIVAL_TYPE_LABELS[f.type] ?? f.name} ${f.year}`,
+            icon: festIcon(f.type),
+            type: f.type,
+          }))].map((f) => {
+            const pct = computeProgress(
+              f.id === "all" ? data.proposals : data.proposals.filter((p) => p.festivalId === f.id)
+            ).activePct;
+            const active = selectedFestival === f.id;
+            return (
+              <button
+                key={f.id}
+                onClick={() => { setSelectedFestival(f.id); setPage(0); }}
+                className={cn(
+                  "flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-all",
+                  active
+                    ? "border-blue-600 bg-blue-600 text-white shadow-md shadow-blue-600/25"
+                    : "border-slate-200 bg-white text-slate-700 shadow-sm hover:border-blue-300"
+                )}
+              >
+                <span aria-hidden>{f.icon}</span>
+                {f.label}
+                <span className={cn("text-xs font-medium", active ? "text-blue-100" : "text-slate-400")}>{pct}%</span>
+              </button>
+            );
+          })}
+        </div>
+        {latestUpdate && (
+          <div className="flex items-center gap-3 self-start rounded-xl border border-slate-200 bg-white px-4 py-2 shadow-sm xl:self-auto">
+            <CalendarDays size={20} className="text-slate-600" />
+            <div className="leading-tight">
+              <p className="text-[11px] text-slate-500">อัปเดตข้อมูลล่าสุด</p>
+              <p className="text-sm font-medium text-slate-700">{thDate(latestUpdate)}</p>
             </div>
           </div>
-
-          {/* Stats grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {[
-              { label: "หน่วยงานที่กรอก", value: agenciesWithDataForFilter, icon: "🏢", color: "from-white/10 to-white/5" },
-              { label: "ข้อเสนอทั้งหมด", value: filteredProposals.length, icon: "📋", color: "from-white/10 to-white/5" },
-              { label: "เสร็จสมบูรณ์", value: overall.completed, icon: "✅", color: "from-emerald-500/20 to-emerald-600/10" },
-              { label: "กำลังดำเนินการ", value: overall.inProgress, icon: "⚡", color: "from-amber-500/20 to-amber-600/10" },
-            ].map((s) => (
-              <div key={s.label} className={`bg-gradient-to-br ${s.color} rounded-xl px-3 py-2.5 border border-white/10`}>
-                <div className="text-xl mb-0.5">{s.icon}</div>
-                <div className="text-2xl font-bold">{s.value}</div>
-                <div className="text-blue-200 text-xs leading-tight mt-0.5">{s.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* Sub-committee Progress */}
-      {(() => {
-        const scProposals = new Map<string, Proposal[]>();
-        filteredProposals.forEach((p) => {
-          p.subCommittees.forEach(({ subCommittee }) => {
-            if (!scProposals.has(subCommittee.id)) scProposals.set(subCommittee.id, []);
-            scProposals.get(subCommittee.id)!.push(p);
-          });
-        });
-        const rows = data.subCommittees
-          .map((sc) => {
-            const s = computeProgress(scProposals.get(sc.id) ?? []);
-            return {
-              name: sc.name.replace(/^C\d+:\s*/, ""),
-              activePct: s.activePct,
-              completedPct: s.completedPct,
-              completed: s.completed,
-              inProgress: s.inProgress,
-              total: s.total,
-            };
-          })
-          .sort((a, b) => b.activePct - a.activePct);
-        return (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-1 h-5 bg-blue-600 rounded-full" />
-                <p className="text-sm font-semibold text-gray-700">ความคืบหน้าในการขับเคลื่อนรายอนุกรรมการ</p>
-              </div>
-              <div className="flex items-center gap-3 text-[11px] text-gray-500">
-                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />เสร็จ</span>
-                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-amber-400" />กำลังทำ</span>
+      {/* KPI cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          title="ข้อเสนอทั้งหมด"
+          value={nProposals}
+          icon={FileText}
+          tone="blue"
+          art={<Files size={92} strokeWidth={1} />}
+          extra={
+            newThisMonth > 0 ? (
+              <span className="mb-1 text-xs leading-tight text-slate-500">
+                <span className="flex items-center gap-0.5 font-semibold text-emerald-600">
+                  <ArrowUp size={14} /> +{newThisMonth}
+                </span>
+                ใน 30 วันล่าสุด
+              </span>
+            ) : undefined
+          }
+        />
+        <StatCard title="ดำเนินการแล้ว" value={nDone} icon={CheckCircle2} tone="green" pct={pctOf(nDone)} art={<Trees size={88} strokeWidth={1} className="text-emerald-300/60" />} />
+        <StatCard title="กำลังดำเนินการ" value={nProg} icon={Clock} tone="amber" pct={pctOf(nProg)} art={<TrafficCone size={88} strokeWidth={1} className="text-orange-300/70" />} />
+        <StatCard title="ยังไม่ดำเนินการ" value={nNone} icon={TriangleAlert} tone="red" pct={pctOf(nNone)} art={<Construction size={88} strokeWidth={1} className="text-red-300/70" />} />
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-[1.15fr_1.2fr_0.75fr]">
+        <Panel>
+          <p className="font-bold text-slate-800">สัดส่วนสถานะการดำเนินงาน</p>
+          <p className="text-xs text-slate-500">ทั้งหมด {overall.total.toLocaleString()} รายการ (หน่วยงาน × ข้อเสนอ)</p>
+          <div className="mt-2 flex flex-col items-center gap-4 sm:flex-row sm:gap-6">
+            <div className="relative h-48 w-48 shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={overall.total > 0 ? pieData : [{ key: "empty", name: "", value: 1, color: "#e2e8f0" }]}
+                    dataKey="value"
+                    innerRadius={58}
+                    outerRadius={88}
+                    startAngle={90}
+                    endAngle={-270}
+                    stroke="#fff"
+                    strokeWidth={2}
+                    isAnimationActive={false}
+                  >
+                    {(overall.total > 0 ? pieData : [{ color: "#e2e8f0" }]).map((d, i) => (
+                      <Cell key={i} fill={d.color} />
+                    ))}
+                  </Pie>
+                  {overall.total > 0 && <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v} รายการ`]} />}
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-2xl font-bold text-slate-800">{overall.total.toLocaleString()}</span>
+                <span className="text-xs text-slate-500">รายการ</span>
               </div>
             </div>
-            <div className="space-y-3">
-              {rows.map((sc, idx) => (
-                <div key={sc.name} className="flex items-center gap-3">
-                  <div className={`w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-xs font-bold ${
-                    sc.completedPct >= 70 ? "bg-emerald-100 text-emerald-700" :
-                    sc.activePct    >= 40 ? "bg-blue-100 text-blue-700" :
-                    sc.activePct    >  0  ? "bg-amber-100 text-amber-700" :
-                                            "bg-gray-100 text-gray-400"
-                  }`}>
-                    {idx + 1}
-                  </div>
-                  <div className="w-24 sm:w-44 shrink-0">
-                    <p className="text-xs text-gray-600 leading-snug line-clamp-2">{sc.name}</p>
-                  </div>
-                  <div className="flex-1 relative">
-                    <div className="h-5 bg-gray-100 rounded-full overflow-hidden flex">
-                      <div
-                        className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 transition-all duration-700"
-                        style={{ width: `${sc.completedPct}%` }}
-                      />
-                      <div
-                        className="h-full bg-gradient-to-r from-amber-300 to-amber-400 transition-all duration-700"
-                        style={{ width: `${Math.max(sc.activePct - sc.completedPct, 0)}%` }}
-                      />
-                    </div>
-                    <span className="absolute right-2 top-0.5 text-xs font-bold text-gray-700">
-                      {sc.activePct}%
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-gray-400 shrink-0 w-14 text-right tabular-nums leading-tight">
-                    <div className="text-emerald-600">เสร็จ {sc.completed}</div>
-                    <div>{sc.completed + sc.inProgress}/{sc.total}</div>
-                  </div>
-                </div>
+            <ul className="w-full space-y-3 text-sm">
+              {pieData.map((d) => (
+                <li key={d.key} className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-2 text-slate-700">
+                    <span className="h-3 w-3 rounded-full" style={{ background: d.color }} />
+                    {d.name}
+                  </span>
+                  <span className="tabular-nums text-slate-700">
+                    {d.value.toLocaleString()} <span className="text-slate-400">({piePct(d.value)}%)</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </Panel>
+
+        <Panel>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <p className="font-bold text-slate-800">{showCompare ? "เปรียบเทียบรายวาระ" : "ความคืบหน้ารายข้อเสนอ"}</p>
+              <p className="text-xs text-slate-500">
+                {showCompare ? "จำนวนหน่วยงานต่อสถานะในแต่ละวาระ" : "จำนวนหน่วยงานต่อสถานะในแต่ละข้อเสนอ"}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3 text-[11px] text-slate-500">
+              {pieData.map((d) => (
+                <span key={d.key} className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: d.color }} />
+                  {d.name}
+                </span>
               ))}
             </div>
           </div>
-        );
-      })()}
-
-      {/* Festival Filter */}
-      {(() => {
-        const allPct = computeProgress(data.proposals).activePct;
-        return (
-          <div className="flex flex-wrap gap-2 items-center">
-            <span className="text-xs text-gray-400 font-medium mr-1">กรองตามวาระ:</span>
-            <button
-              onClick={() => setSelectedFestival("all")}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
-                selectedFestival === "all"
-                  ? "bg-gray-800 text-white border-gray-800 shadow-sm"
-                  : "bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700"
-              }`}
-            >
-              ทุกวาระ
-              <span className={`ml-1.5 text-xs ${selectedFestival === "all" ? "text-gray-300" : "text-gray-400"}`}>
-                {allPct}%
-              </span>
-            </button>
-            {data.festivals.map((f) => {
-              const pct = computeProgress(data.proposals.filter((p) => p.festivalId === f.id)).activePct;
-              const isActive = selectedFestival === f.id;
-              return (
-                <button
-                  key={f.id}
-                  onClick={() => setSelectedFestival(f.id)}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
-                    isActive
-                      ? `${festTheme(f.type).bgSolid} text-white shadow-sm`
-                      : "bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700"
-                  }`}
-                >
-                  {festIcon(f.type)} {FESTIVAL_TYPE_LABELS[f.type]} {f.year}
-                  <span className={`ml-1.5 text-xs ${isActive ? "opacity-80" : "text-gray-400"}`}>
-                    {pct}%
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        );
-      })()}
-
-
-      {/* Charts */}
-      {overall.total > 0 && (() => {
-        const showCompareChart = selectedFestival === "all" && data.festivals.length >= 2;
-        const showPerProposalChart = selectedFestival !== "all" && proposalBarData.length > 0;
-        const sideBar = showCompareChart || showPerProposalChart;
-        return (
-        <div className={`grid grid-cols-1 gap-4 ${sideBar ? "lg:grid-cols-2" : ""}`}>
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <p className="text-sm font-semibold text-gray-700 mb-1">สัดส่วนสถานะการดำเนินงาน</p>
-            <p className="text-xs text-gray-400 mb-3">ทั้งหมด {overall.total} รายการ</p>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%" cy="50%"
-                  innerRadius={58} outerRadius={85}
-                  dataKey="value"
-                  paddingAngle={3}
-                  label={false} labelLine={false}
-                >
-                  {pieData.map((_, i) => (
-                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
+          <div className="mt-3 h-52">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={showCompare ? festivalBarData : proposalBarData}
+                margin={{ top: 4, right: 4, left: -12, bottom: 0 }}
+                barGap={4}
+                barCategoryGap={showCompare ? "22%" : "18%"}
+              >
+                <CartesianGrid vertical={false} stroke="#eef2f7" />
+                <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#334155" }} axisLine={{ stroke: "#cbd5e1" }} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
                 <Tooltip
-                  contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: 13 }}
-                  formatter={(value) => [`${value} รายการ`]}
+                  contentStyle={tooltipStyle}
+                  cursor={{ fill: "rgba(15,23,42,0.04)" }}
+                  formatter={(value, name) => [`${value} หน่วยงาน`, seriesLabels[name as string] || name]}
                 />
-                <Legend iconType="circle" iconSize={9} wrapperStyle={{ fontSize: 12 }} />
-              </PieChart>
+                {showCompare ? (
+                  <>
+                    <Bar dataKey="completed" fill={C_DONE} radius={[4, 4, 0, 0]} maxBarSize={26} />
+                    <Bar dataKey="inProgress" fill={C_PROG} radius={[4, 4, 0, 0]} maxBarSize={26} />
+                    <Bar dataKey="notStarted" fill={C_NONE} radius={[4, 4, 0, 0]} maxBarSize={26} />
+                  </>
+                ) : (
+                  <>
+                    <Bar dataKey="completed" stackId="a" fill={C_DONE} maxBarSize={22} />
+                    <Bar dataKey="inProgress" stackId="a" fill={C_PROG} maxBarSize={22} />
+                    <Bar dataKey="notStarted" stackId="a" fill={C_NONE} radius={[4, 4, 0, 0]} maxBarSize={22} />
+                  </>
+                )}
+              </BarChart>
             </ResponsiveContainer>
           </div>
+        </Panel>
 
-          {showPerProposalChart && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <p className="text-sm font-semibold text-gray-700 mb-1">ความคืบหน้ารายข้อเสนอ</p>
-              <p className="text-xs text-gray-400 mb-3">จำนวนหน่วยงานต่อสถานะ</p>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={proposalBarData} margin={{ top: 0, right: 0, left: -24, bottom: 0 }} barSize={14}>
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                  <Tooltip
-                    contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: 13 }}
-                    formatter={(value, name) => {
-                      const labels: Record<string, string> = {
-                        completed: STATUS_LABELS.COMPLETED,
-                        inProgress: STATUS_LABELS.IN_PROGRESS,
-                        notStarted: STATUS_LABELS.NOT_STARTED,
-                      };
-                      return [`${value} หน่วยงาน`, labels[name as string] || name];
-                    }}
-                    cursor={{ fill: "rgba(0,0,0,0.04)" }}
-                  />
-                  <Bar dataKey="completed" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} name="completed" />
-                  <Bar dataKey="inProgress" stackId="a" fill="#f59e0b" name="inProgress" />
-                  <Bar dataKey="notStarted" stackId="a" fill="#e5e7eb" radius={[4, 4, 0, 0]} name="notStarted" />
-                </BarChart>
-              </ResponsiveContainer>
+        <Panel className="relative overflow-hidden lg:col-span-2 2xl:col-span-1">
+          <p className="font-bold text-slate-800">ความคืบหน้ารวม</p>
+          <div className="flex flex-col items-center sm:flex-row sm:justify-around 2xl:flex-col">
+            <svg width={150} height={150} viewBox="0 0 130 130" className="shrink-0">
+              <circle cx={65} cy={65} r={ringR} fill="none" stroke="#eef2f7" strokeWidth={10} />
+              <circle cx={65} cy={65} r={ringR} fill="none" stroke={C_PROG} strokeWidth={10}
+                strokeDasharray={`${ringActive} ${ringCirc}`} strokeLinecap="round" transform="rotate(-90 65 65)" />
+              <circle cx={65} cy={65} r={ringR} fill="none" stroke={C_DONE} strokeWidth={10}
+                strokeDasharray={`${ringDone} ${ringCirc}`} strokeLinecap="round" transform="rotate(-90 65 65)" />
+              <text x={65} y={70} textAnchor="middle" fill="#0f172a" style={{ fontSize: 26, fontWeight: 700 }}>
+                {overall.activePct}%
+              </text>
+              <text x={65} y={88} textAnchor="middle" fill="#16a34a" style={{ fontSize: 10, fontWeight: 600 }}>
+                เสร็จ {overall.completedPct}%
+              </text>
+            </svg>
+            <div className="text-center">
+              <p className="font-semibold text-slate-800">มีการดำเนินการแล้ว</p>
+              <p className="text-xs text-slate-500">
+                {overall.active.toLocaleString()} จากทั้งหมด {overall.total.toLocaleString()} รายการ
+              </p>
             </div>
-          )}
-
-          {showCompareChart && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <p className="text-sm font-semibold text-gray-700 mb-1">เปรียบเทียบรายวาระ</p>
-              <p className="text-xs text-gray-400 mb-3">จำนวนหน่วยงานต่อสถานะในแต่ละวาระ</p>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart
-                  data={festivalBarData}
-                  layout="vertical"
-                  margin={{ top: 0, right: 12, left: 0, bottom: 0 }}
-                  barSize={24}
-                >
-                  <XAxis type="number" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} width={120} />
-                  <Tooltip
-                    contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: 13 }}
-                    formatter={(value, name) => {
-                      const labels: Record<string, string> = {
-                        completed: STATUS_LABELS.COMPLETED,
-                        inProgress: STATUS_LABELS.IN_PROGRESS,
-                        notStarted: STATUS_LABELS.NOT_STARTED,
-                      };
-                      return [`${value} หน่วยงาน`, labels[name as string] || name];
-                    }}
-                    cursor={{ fill: "rgba(0,0,0,0.04)" }}
-                  />
-                  <Bar dataKey="completed" stackId="a" fill="#10b981" name="completed" />
-                  <Bar dataKey="inProgress" stackId="a" fill="#f59e0b" name="inProgress" />
-                  <Bar dataKey="notStarted" stackId="a" fill="#e5e7eb" name="notStarted" />
-                </BarChart>
-              </ResponsiveContainer>
+          </div>
+          <div className="mt-4 grid grid-cols-2 divide-x divide-slate-100 border-t border-slate-100 pt-3">
+            <div className="flex items-center justify-center gap-2">
+              <Landmark size={22} className="text-blue-600" />
+              <div className="leading-tight">
+                <p className="text-lg font-bold text-slate-800">{data.subCommittees.length}</p>
+                <p className="text-[11px] text-slate-500">อนุกรรมการ</p>
+              </div>
             </div>
-          )}
-        </div>
-        );
-      })()}
+            <div className="flex items-center justify-center gap-2">
+              <UsersRound size={22} className="text-blue-600" />
+              <div className="leading-tight">
+                <p className="text-lg font-bold text-slate-800">{data.agencies.length}</p>
+                <p className="text-[11px] text-slate-500">หน่วยงานที่เกี่ยวข้อง</p>
+              </div>
+            </div>
+          </div>
+        </Panel>
+      </div>
 
-      {/* Tabs + Search */}
-      <div className="space-y-3">
+      {/* Tabs */}
+      <div ref={tabsRef} className="scroll-mt-24 space-y-3">
         <div className="flex flex-wrap gap-2">
           {([
-            { key: "proposals", label: "รายข้อเสนอ", count: filteredProposals.length },
-            { key: "subcommittees", label: "รายอนุฯ", labelFull: "รายอนุกรรมการ", count: data.subCommittees.length },
+            { key: "proposals", label: "รายละเอียดข้อเสนอ", count: filteredProposals.length },
+            { key: "subcommittees", label: "รายอนุกรรมการ", count: data.subCommittees.length },
             { key: "agencies", label: "รายหน่วยงาน", count: data.agencies.length },
           ] as const).map((t) => (
             <button
               key={t.key}
-              onClick={() => { setActiveTab(t.key); setSearchQuery(""); setSelectedSC(null); }}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              onClick={() => { setActiveTab(t.key); setSelectedSC(null); setPage(0); }}
+              className={cn(
+                "flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition-all",
                 activeTab === t.key
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "bg-white text-gray-500 border border-gray-200 hover:border-gray-400"
-              }`}
-            >
-              {"labelFull" in t ? (
-                <><span className="sm:hidden">{t.label}</span><span className="hidden sm:inline">{t.labelFull}</span></>
-              ) : t.label}
-              {t.count !== null && (
-                <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
-                  activeTab === t.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
-                }`}>{t.count}</span>
+                  ? "bg-blue-600 text-white shadow-md shadow-blue-600/25"
+                  : "border border-slate-200 bg-white text-slate-600 hover:border-blue-300"
               )}
+            >
+              {t.label}
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-xs",
+                  activeTab === t.key ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                )}
+              >
+                {t.count}
+              </span>
             </button>
           ))}
         </div>
 
-        {activeTab === "proposals" && (
-          <div className="space-y-2">
-            <div className="relative">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+      {/* Proposals table */}
+      {activeTab === "proposals" && (
+        <Panel className="p-0 sm:p-0">
+          <div className="flex flex-col gap-2 border-b border-slate-100 p-3 lg:flex-row lg:items-center">
+            <div className="relative flex-1">
+              <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="ค้นหาข้อเสนอ..."
-                className="w-full pl-9 pr-9 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
+                placeholder="ค้นหาข้อเสนอ (เช่น คำสำคัญ หน่วยงาน วาระ)"
+                className="w-full rounded-xl border border-slate-200 py-2 pl-9 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  aria-label="ล้างคำค้นหา"
                 >
                   <X size={14} />
                 </button>
               )}
             </div>
-            {data.subCommittees.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  onClick={() => setSelectedSC(null)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
-                    selectedSC === null
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
-                  }`}
-                >
-                  ทุกอนุกรรมการ
-                </button>
-                {data.subCommittees.map((sc) => {
-                  const num = sc.name.match(/^C(\d+)/)?.[1];
-                  const short = num ? `อนุฯ ${num}` : sc.name.slice(0, 4);
+            <div className="grid grid-cols-2 gap-2 sm:flex">
+              <div className="relative">
+                <select value={selectedFestival} onChange={(e) => { setSelectedFestival(e.target.value); setPage(0); }} className={cn(selectCls, "w-full")}>
+                  <option value="all">ทุกวาระ</option>
+                  {data.festivals.map((f) => (
+                    <option key={f.id} value={f.id}>{FESTIVAL_TYPE_LABELS[f.type] ?? f.name} {f.year}</option>
+                  ))}
+                </select>
+                <ChevronDown size={15} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              </div>
+              <div className="relative">
+                <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as ProposalStatus | "all"); setPage(0); }} className={cn(selectCls, "w-full")}>
+                  <option value="all">ทุกสถานะ</option>
+                  <option value="COMPLETED">{STATUS_LABELS.COMPLETED}</option>
+                  <option value="IN_PROGRESS">{STATUS_LABELS.IN_PROGRESS}</option>
+                  <option value="NOT_STARTED">{STATUS_LABELS.NOT_STARTED}</option>
+                </select>
+                <ChevronDown size={15} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              </div>
+              <div className="relative">
+                <select value={selectedSC ?? ""} onChange={(e) => { setSelectedSC(e.target.value || null); setPage(0); }} className={cn(selectCls, "w-full")}>
+                  <option value="">ทุกอนุกรรมการ</option>
+                  {data.subCommittees.map((sc) => (
+                    <option key={sc.id} value={sc.id}>{scShort(sc.name)}</option>
+                  ))}
+                </select>
+                <ChevronDown size={15} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              </div>
+              <a
+                href={`/api/public/export?type=detail${selectedFestival !== "all" ? `&festivalId=${selectedFestival}` : ""}`}
+                className="flex items-center justify-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+              >
+                <Download size={16} /> ดาวน์โหลด
+              </a>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[960px] text-sm">
+              <thead>
+                <tr className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
+                  <th className="px-4 py-3 w-10">#</th>
+                  <th className="px-3 py-3">ชื่อข้อเสนอ</th>
+                  <th className="px-3 py-3">วาระ</th>
+                  <th className="px-3 py-3">อนุกรรมการ</th>
+                  <th className="px-3 py-3">หน่วยงานที่รับผิดชอบ</th>
+                  <th className="px-3 py-3">สถานะ</th>
+                  <th className="px-3 py-3 w-40">ความคืบหน้า</th>
+                  <th className="px-3 py-3">อัปเดตล่าสุด</th>
+                  <th className="px-3 py-3 text-center">รายละเอียด</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {pageRows.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="py-12 text-center text-slate-400">
+                      {q ? <>ไม่พบข้อเสนอที่ตรงกับ &ldquo;{searchQuery}&rdquo;</> : "ยังไม่มีข้อเสนอ"}
+                    </td>
+                  </tr>
+                )}
+                {pageRows.map((p, idx) => {
+                  const s = computeProgress([p]);
+                  const st = statusOf.get(p.id)!;
+                  const open = expandedProposal === p.id;
+                  const theme = festTheme(p.festival.type);
+                  const updated = p.implementations.map((i) => i.updatedAt).sort().at(-1);
+                  const firstAgency = p.expectedAgencyIds.map((id) => agencyName.get(id)).find(Boolean);
                   return (
-                    <button
-                      key={sc.id}
-                      onClick={() => setSelectedSC(selectedSC === sc.id ? null : sc.id)}
-                      title={sc.name}
-                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
-                        selectedSC === sc.id
-                          ? "bg-indigo-600 text-white border-indigo-600"
-                          : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
-                      }`}
-                    >
-                      {short}
-                    </button>
+                    <Fragment key={p.id}>
+                      <tr
+                        className={cn("cursor-pointer transition-colors hover:bg-blue-50/40", open && "bg-blue-50/40")}
+                        onClick={() => setExpandedProposal(open ? null : p.id)}
+                      >
+                        <td className="px-4 py-3 text-slate-500 tabular-nums">{curPage * PAGE_SIZE + idx + 1}</td>
+                        <td className="px-3 py-3">
+                          <div className="flex items-start gap-2">
+                            <FileText size={16} className="mt-0.5 shrink-0 text-blue-500" />
+                            <div className="min-w-0">
+                              <p className="font-semibold text-blue-800 line-clamp-2">{p.title}</p>
+                              <p className="text-xs text-slate-400">ข้อ {p.orderNumber}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3">
+                          <span className={`whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-medium ${theme.badge}`}>
+                            {FESTIVAL_TYPE_LABELS[p.festival.type] ?? p.festival.name} {p.festival.year}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="flex flex-wrap gap-1">
+                            {p.subCommittees.map(({ subCommittee }) => (
+                              <span key={subCommittee.id} title={subCommittee.name} className="whitespace-nowrap rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600">
+                                {scShort(subCommittee.name)}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-slate-600">
+                          {firstAgency ? (
+                            <span className="line-clamp-1 max-w-[14rem]" title={p.expectedAgencyIds.map((id) => agencyName.get(id)).filter(Boolean).join(", ")}>
+                              {firstAgency}
+                              {p.expectedAgencyIds.length > 1 && (
+                                <span className="text-slate-400"> +{p.expectedAgencyIds.length - 1}</span>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-slate-300">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-3">
+                          <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${STATUS_PILL[st].cls}`}>
+                            <span className={`h-2 w-2 rounded-full ${STATUS_PILL[st].dot}`} />
+                            {STATUS_LABELS[st]}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                              <div className="h-full bg-emerald-500" style={{ width: `${s.completedPct}%` }} />
+                              <div className="h-full bg-amber-400" style={{ width: `${Math.max(s.activePct - s.completedPct, 0)}%` }} />
+                            </div>
+                            <span className="w-9 text-right text-xs tabular-nums text-slate-600">{s.activePct}%</span>
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-3 text-slate-500">{updated ? thDate(updated) : "—"}</td>
+                        <td className="px-3 py-3 text-center">
+                          {open ? <ChevronUp size={16} className="mx-auto text-blue-500" /> : <ChevronDown size={16} className="mx-auto text-slate-400" />}
+                        </td>
+                      </tr>
+                      {open && (
+                        <tr className="bg-slate-50/70">
+                          <td />
+                          <td colSpan={8} className="px-3 py-3">
+                            <ProposalDetail proposal={p} agencies={data.agencies} />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   );
                 })}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
+            <span>
+              แสดง {tableRows.length === 0 ? 0 : curPage * PAGE_SIZE + 1}–{Math.min((curPage + 1) * PAGE_SIZE, tableRows.length)} จาก {tableRows.length} ข้อเสนอ
+            </span>
+            {pageCount > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  disabled={curPage === 0}
+                  onClick={() => setPage(curPage - 1)}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 disabled:opacity-40"
+                >
+                  ก่อนหน้า
+                </button>
+                <span className="px-2 tabular-nums">{curPage + 1} / {pageCount}</span>
+                <button
+                  disabled={curPage >= pageCount - 1}
+                  onClick={() => setPage(curPage + 1)}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 disabled:opacity-40"
+                >
+                  ถัดไป
+                </button>
               </div>
             )}
           </div>
-        )}
-      </div>
-
-      {/* Proposals Tab */}
-      {activeTab === "proposals" && (
-        <div className="space-y-3">
-          {(() => {
-            const proposalsForTab = selectedSC
-              ? filteredProposals.filter((p) => p.subCommittees.some((s) => s.subCommittee.id === selectedSC))
-              : filteredProposals;
-            const q = searchQuery.trim().toLowerCase();
-            const results = q
-              ? proposalsForTab.filter(
-                  (p) =>
-                    p.title.toLowerCase().includes(q) ||
-                    (p.description ?? "").toLowerCase().includes(q)
-                )
-              : null;
-            return results !== null ? (() => {
-            if (results.length === 0) {
-              return (
-                <Card>
-                  <CardContent className="py-12 text-center text-gray-400">
-                    ไม่พบข้อเสนอที่ตรงกับ &ldquo;{searchQuery}&rdquo;
-                  </CardContent>
-                </Card>
-              );
-            }
-            return (
-              <>
-                <p className="text-xs text-gray-400">พบ {results.length} ข้อเสนอ</p>
-                {results.map((proposal) => {
-                  const allImpls = proposal.implementations;
-                  const s = computeProgress([proposal]);
-                  const { completed: done, inProgress: inProg, total, activePct: pct, completedPct } = s;
-                  const isOpen = expandedProposal === `search-${proposal.id}`;
-                  return (
-                    <div key={proposal.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                      <div
-                        className="px-5 py-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                        onClick={() => setExpandedProposal(isOpen ? null : `search-${proposal.id}`)}
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap mb-1">
-                              <span className="text-xs text-gray-400">ข้อ {proposal.orderNumber}</span>
-                              <Badge variant={festTheme(proposal.festival.type).badgeVariant}>
-                                {festIcon(proposal.festival.type)} {FESTIVAL_TYPE_LABELS[proposal.festival.type]} {proposal.festival.year}
-                              </Badge>
-                              {proposal.subCommittees.map(({ subCommittee }) => {
-                                const n = subCommittee.name.match(/^C(\d+)/)?.[1];
-                                return <Badge key={subCommittee.id} variant="gray">{n ? `อนุฯ ${n}` : subCommittee.name}</Badge>;
-                              })}
-                            </div>
-                            <p className="font-medium text-gray-900">{proposal.title}</p>
-                            {proposal.description && (
-                              <p className="text-sm text-gray-500 mt-0.5">{proposal.description}</p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <div className="text-right">
-                              <p className="text-base font-bold text-gray-900">{pct}%</p>
-                              <p className="text-xs text-green-600">เสร็จ {done}/{total}</p>
-                              {inProg > 0 && <p className="text-xs text-yellow-600">กำลังทำ {inProg}</p>}
-                            </div>
-                            {isOpen ? <ChevronUp size={15} className="text-gray-400" /> : <ChevronDown size={15} className="text-gray-400" />}
-                          </div>
-                        </div>
-                        <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden flex">
-                          <div className="h-full bg-emerald-500 transition-all" style={{ width: `${completedPct}%` }} />
-                          <div className="h-full bg-amber-400 transition-all" style={{ width: `${Math.max(pct - completedPct, 0)}%` }} />
-                        </div>
-                      </div>
-                      {isOpen && (
-                        <div className="bg-gray-50 px-5 py-3 border-t border-gray-100 space-y-2">
-                          {allImpls.map((impl) => (
-                            <div key={impl.id} className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gray-100">
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-800">{impl.agency.name}</p>
-                                {impl.content
-                                  ? <p className="text-sm text-gray-600 mt-0.5 whitespace-pre-wrap break-words">{impl.content}</p>
-                                  : <p className="text-sm text-gray-400 italic mt-0.5">ยังไม่ได้กรอกข้อมูล</p>
-                                }
-                                {impl.content && (
-                                  <p className="text-[10px] text-gray-400 mt-1">
-                                    อัปเดตล่าสุด: {new Date(impl.updatedAt).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" })}
-                                  </p>
-                                )}
-                              </div>
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0 ${STATUS_COLORS[impl.status as keyof typeof STATUS_COLORS]}`}>
-                                {STATUS_LABELS[impl.status as keyof typeof STATUS_LABELS]}
-                              </span>
-                            </div>
-                          ))}
-                          <PendingAgenciesList proposal={proposal} agencies={data.agencies} />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </>
-            );
-          })() : proposalsForTab.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center text-gray-400">
-                ยังไม่มีข้อเสนอ
-              </CardContent>
-            </Card>
-          ) : (() => {
-            // Group proposals by sub-committee
-            const scMap = new Map<string, { sc: SubCommittee; proposals: Proposal[] }>();
-            proposalsForTab.forEach((p) => {
-              p.subCommittees.forEach(({ subCommittee }) => {
-                if (!scMap.has(subCommittee.id)) {
-                  scMap.set(subCommittee.id, { sc: subCommittee, proposals: [] });
-                }
-                scMap.get(subCommittee.id)!.proposals.push(p);
-              });
-            });
-
-            return Array.from(scMap.values()).map(({ sc, proposals }) => {
-              // Aggregate stats for this SC group
-              const scStats = computeProgress(proposals);
-              const { completed: scDone, total: scTotal, activePct: scPct, completedPct: scDonePct } = scStats;
-              const isOpen = expandedSubCommittees.has(sc.id);
-
-              return (
-                <div key={sc.id} className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
-                  {/* SC Header */}
-                  <button
-                    onClick={() => toggleSC(sc.id)}
-                    className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors text-left"
-                  >
-                    <div className="flex items-center gap-3">
-                      {isOpen
-                        ? <ChevronUp size={18} className="text-blue-500 shrink-0" />
-                        : <ChevronDown size={18} className="text-gray-400 shrink-0" />}
-                      <div>
-                        <p className="font-semibold text-gray-900">{sc.name.replace(/^C(\d+):/, (_, n) => `อนุฯ ${n}:`)}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{proposals.length} ข้อเสนอ</p>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-xl font-bold text-blue-600">{scPct}%</p>
-                      <p className="text-xs text-gray-400">เสร็จ {scDone}/{scTotal}</p>
-                    </div>
-                  </button>
-
-                  {/* SC Progress bar (stacked) */}
-                  <div className="h-1 bg-gray-100 flex">
-                    <div className="h-full bg-emerald-500 transition-all" style={{ width: `${scDonePct}%` }} />
-                    <div className="h-full bg-amber-400 transition-all" style={{ width: `${Math.max(scPct - scDonePct, 0)}%` }} />
-                  </div>
-
-                  {/* Festival sub-groups inside each SC */}
-                  {isOpen && (() => {
-                    // Group proposals in this SC by festival
-                    const festMap = new Map<string, { festival: Festival; proposals: Proposal[] }>();
-                    proposals.forEach((p) => {
-                      if (!festMap.has(p.festivalId)) {
-                        festMap.set(p.festivalId, { festival: p.festival, proposals: [] });
-                      }
-                      festMap.get(p.festivalId)!.proposals.push(p);
-                    });
-
-                    return Array.from(festMap.values()).map(({ festival, proposals: festProposals }) => {
-                      const festKey = `${sc.id}-${festival.id}`;
-                      const isFestOpen = expandedFestivals.has(festKey);
-
-                      const fStats = computeProgress(festProposals);
-                      const { completed: fDone, total: fTotal, activePct: fPct, completedPct: fDonePct } = fStats;
-                      const festColor = festTheme(festival.type).text;
-                      const festBg = festTheme(festival.type).bgSoft;
-
-                      return (
-                        <div key={festKey} className="border-t border-gray-100">
-                          {/* Festival header */}
-                          <button
-                            onClick={() => toggleFestival(festKey)}
-                            className={`w-full flex items-center justify-between px-6 py-3 transition-colors text-left ${festBg}`}
-                          >
-                            <div className="flex items-center gap-2">
-                              {isFestOpen
-                                ? <ChevronUp size={15} className={festColor} />
-                                : <ChevronDown size={15} className="text-gray-400" />}
-                              <span className={`text-sm font-semibold ${festColor}`}>
-                                {FESTIVAL_TYPE_LABELS[festival.type]} {festival.year}
-                              </span>
-                              <span className="text-xs text-gray-400">{festProposals.length} ข้อ</span>
-                            </div>
-                            <div className="text-right">
-                              <span className={`text-sm font-bold ${festColor}`}>{fPct}%</span>
-                              <span className="text-xs text-gray-400 ml-1">({fDone}/{fTotal})</span>
-                            </div>
-                          </button>
-
-                          {/* Thin festival progress bar (stacked) */}
-                          <div className="h-0.5 bg-gray-100 flex">
-                            <div className="h-full bg-emerald-500 transition-all" style={{ width: `${fDonePct}%` }} />
-                            <div className="h-full bg-amber-400 transition-all" style={{ width: `${Math.max(fPct - fDonePct, 0)}%` }} />
-                          </div>
-
-                          {/* Proposals under this festival */}
-                          {isFestOpen && (
-                            <div className="divide-y divide-gray-100">
-                              {festProposals.map((proposal) => {
-                                const allImpls = proposal.implementations;
-                                const ps = computeProgress([proposal]);
-                                const { completed: done, inProgress: inProg, notRelevant, notStarted: notAnswered, total, activePct: pct, completedPct: donePct } = ps;
-                                const proposalKey = `${sc.id}-${festival.id}-${proposal.id}`;
-
-                                return (
-                                  <div key={proposalKey}>
-                                    <div
-                                      className="px-4 sm:px-8 py-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                                      onClick={() =>
-                                        setExpandedProposal(expandedProposal === proposalKey ? null : proposalKey)
-                                      }
-                                    >
-                                      <div className="flex items-start justify-between gap-4">
-                                        <div className="flex-1 min-w-0">
-                                          <span className="text-xs font-medium text-gray-400">ข้อ {proposal.orderNumber}</span>
-                                          <p className="mt-0.5 font-medium text-gray-900">{proposal.title}</p>
-                                          {proposal.description && (
-                                            <p className="text-sm text-gray-500 mt-0.5">{proposal.description}</p>
-                                          )}
-                                        </div>
-                                        <div className="flex items-center gap-2 shrink-0">
-                                          <div className="text-right space-y-0.5">
-                                            <p className="text-base font-bold text-gray-900">{pct}%</p>
-                                            <p className="text-xs text-green-600">เสร็จ {done}/{total}</p>
-                                            {inProg > 0 && <p className="text-xs text-yellow-600">กำลังทำ {inProg}</p>}
-                                            {notAnswered > 0 && <p className="text-xs text-gray-400">ยังไม่ตอบ {notAnswered}</p>}
-                                            {notRelevant > 0 && <p className="text-xs text-slate-400">ไม่เกี่ยวข้อง {notRelevant}</p>}
-                                          </div>
-                                          {expandedProposal === proposalKey
-                                            ? <ChevronUp size={15} className="text-gray-400" />
-                                            : <ChevronDown size={15} className="text-gray-400" />}
-                                        </div>
-                                      </div>
-                                      <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden flex">
-                                        <div className="h-full bg-emerald-500 transition-all" style={{ width: `${donePct}%` }} />
-                                        <div className="h-full bg-amber-400 transition-all" style={{ width: `${Math.max(pct - donePct, 0)}%` }} />
-                                      </div>
-                                    </div>
-
-                                    {expandedProposal === proposalKey && (
-                                      <div className="bg-gray-50 px-4 sm:px-8 py-3 space-y-2">
-                                        {allImpls.map((impl) => (
-                                          <div
-                                            key={impl.id}
-                                            className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gray-100"
-                                          >
-                                            <div className="flex-1 min-w-0">
-                                              <p className="text-sm font-medium text-gray-800">{impl.agency.name}</p>
-                                              {impl.content ? (
-                                                <p className="text-sm text-gray-600 mt-0.5 whitespace-pre-wrap break-words">{impl.content}</p>
-                                              ) : (
-                                                <p className="text-sm text-gray-400 italic mt-0.5">ยังไม่ได้กรอกข้อมูล</p>
-                                              )}
-                                              {impl.content && (
-                                                <p className="text-[10px] text-gray-400 mt-1">
-                                                  อัปเดตล่าสุด: {new Date(impl.updatedAt).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" })}
-                                                </p>
-                                              )}
-                                            </div>
-                                            <span
-                                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0 ${STATUS_COLORS[impl.status as keyof typeof STATUS_COLORS]}`}
-                                            >
-                                              {STATUS_LABELS[impl.status as keyof typeof STATUS_LABELS]}
-                                            </span>
-                                          </div>
-                                        ))}
-                                        <PendingAgenciesList proposal={proposal} agencies={data.agencies} />
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-              );
-            });
-          })()})()}
-        </div>
+        </Panel>
       )}
 
       {/* Sub-committee Tab */}
@@ -1041,14 +1010,14 @@ export function PublicDashboard() {
           })}
         </div>
       )}
-
+      </div>
     </div>
 
       <FAQSection />
 
       {data.siteConfig.site_footnote && (
-        <footer className="border-t border-gray-100 py-5 text-center bg-white">
-          <p className="text-xs text-gray-400 whitespace-pre-wrap max-w-3xl mx-auto px-4">{data.siteConfig.site_footnote}</p>
+        <footer className="border-t border-slate-100 py-5 text-center bg-white">
+          <p className="text-xs text-slate-400 whitespace-pre-wrap max-w-3xl mx-auto px-4">{data.siteConfig.site_footnote}</p>
         </footer>
       )}
     </div>
