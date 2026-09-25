@@ -8,14 +8,36 @@ export async function GET() {
   if (!staff) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const proposals = await prisma.proposal.findMany({
-    where: staff.kind === "secretary" ? { festival: { subCommitteeId: staff.subCommitteeId } } : {},
+    // เลขาฯ เห็นเรื่องใต้ที่มาของอนุฯ ตัวเอง + เรื่องอื่นที่ผูกกับอนุฯ (เช่น ข้อเสนอเทศกาล) เพื่อหยอดความคืบหน้าได้
+    // แก้/ลบได้เฉพาะเรื่องใต้ที่มาของตัวเอง (ตรวจที่ PUT/DELETE)
+    where:
+      staff.kind === "secretary"
+        ? {
+            OR: [
+              { festival: { subCommitteeId: staff.subCommitteeId } },
+              { subCommittees: { some: { subCommitteeId: staff.subCommitteeId } } },
+            ],
+          }
+        : {},
     orderBy: [{ festival: { year: "desc" } }, { orderNumber: "asc" }],
     include: {
       festival: true,
       subCommittees: { include: { subCommittee: true } },
       assignees: { include: { agency: { select: { id: true, name: true } } } },
       tags: { include: { tag: { select: { id: true, name: true } } } },
-      implementations: { select: { agencyId: true, status: true, content: true } },
+      implementations: {
+        select: {
+          agencyId: true,
+          status: true,
+          content: true,
+          evidenceUrl: true,
+          progressEntries: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: { reportedBy: true, contactTitle: true, createdAt: true },
+          },
+        },
+      },
       _count: { select: { implementations: true } },
     },
   });

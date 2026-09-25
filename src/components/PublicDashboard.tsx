@@ -78,6 +78,7 @@ interface Implementation {
   status: string;
   updatedAt: string;
   agency: Agency;
+  progressEntries?: { staffLabel: string | null }[];
 }
 
 interface Proposal {
@@ -198,7 +199,14 @@ function ProposalDetail({ proposal, agencies }: { proposal: Proposal; agencies: 
       {proposal.implementations.map((impl) => (
         <div key={impl.id} className="flex items-start gap-3 p-3 bg-white rounded-lg border border-slate-100">
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-800">{impl.agency.name}</p>
+            <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-slate-800">
+              {impl.agency.name}
+              {impl.progressEntries?.[0]?.staffLabel && (
+                <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">
+                  {`${impl.progressEntries[0].staffLabel} บันทึกให้ · รอหน่วยงานยืนยัน`}
+                </span>
+              )}
+            </p>
             {impl.content ? (
               <p className="text-sm text-slate-600 mt-0.5 whitespace-pre-wrap break-words">{impl.content}</p>
             ) : (

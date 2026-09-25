@@ -135,7 +135,14 @@ export function ItemRow({
         {item.implementations.map((impl) => (
           <div key={impl.agencyId} className="flex items-start gap-3 rounded-lg border border-slate-100 bg-white p-3">
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-slate-800">{impl.agency.name}</p>
+              <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-slate-800">
+                {impl.agency.name}
+                {impl.progressEntries[0]?.reportedBy && (
+                  <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">
+                    {`${impl.progressEntries[0].contactTitle} บันทึกให้ · รอหน่วยงานยืนยัน`}
+                  </span>
+                )}
+              </p>
               {impl.content ? (
                 <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-slate-600">{impl.content}</p>
               ) : (

@@ -70,12 +70,25 @@ export async function GET(req: NextRequest) {
           where: { agency: { isVisible: true } },
           include: {
             agency: { select: { name: true } },
-            progressEntries: true,
+            // ไม่อ่านชื่อ/เบอร์ผู้รายงาน — contactTitle ใช้เฉพาะทำป้ายรายการที่เลขาฯ บันทึกให้
+            progressEntries: {
+              select: { status: true, content: true, createdAt: true, reportedBy: true, contactTitle: true },
+            },
           },
         },
       },
     });
-    csv = buildHistoryCsv(proposals);
+    // contactTitle ของรายการที่หน่วยงานรายงานเอง = ตำแหน่งผู้รายงาน → ไม่ส่งต่อ
+    csv = buildHistoryCsv(
+      proposals.map((p) => ({
+        ...p,
+        implementations: p.implementations.map((i) => ({
+          ...i,
+          progressEntries: i.progressEntries.map((e) => ({ ...e, contactTitle: e.reportedBy ? e.contactTitle : undefined })),
+        })),
+      })),
+      { includePrivate: false }
+    );
   } else {
     const proposals = await prisma.proposal.findMany({
       where: proposalWhere,
@@ -85,11 +98,12 @@ export async function GET(req: NextRequest) {
         subCommittees: { include: { subCommittee: true } },
         implementations: {
           where: { agency: { isVisible: true } },
+          omit: { contactName: true, contactTitle: true, contactPhone: true, evidenceUrl: true },
           include: { agency: { select: { name: true } } },
         },
       },
     });
-    csv = buildDetailCsv(proposals);
+    csv = buildDetailCsv(proposals, { includePrivate: false });
   }
 
   const date = new Date().toISOString().slice(0, 10);

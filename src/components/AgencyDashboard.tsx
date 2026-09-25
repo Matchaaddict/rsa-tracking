@@ -58,6 +58,8 @@ interface ProgressEntry {
   id: string;
   content: string;
   status: string;
+  reportedBy?: string | null;
+  evidenceUrl?: string | null;
   contactName: string;
   contactTitle: string;
   contactPhone: string;
@@ -848,7 +850,7 @@ function ProposalProgressCard({
                       <div className="flex items-center gap-2 flex-wrap text-xs text-gray-500 mb-1">
                         <Clock size={11} />
                         <span>{formatThaiDate(entry.createdAt)}</span>
-                        {entry.updatedAt !== entry.createdAt && (
+                        {new Date(entry.updatedAt).getTime() - new Date(entry.createdAt).getTime() > 60_000 && (
                           <span className="text-gray-400">(แก้ไข {formatThaiDate(entry.updatedAt)})</span>
                         )}
                         <span
@@ -857,9 +859,24 @@ function ProposalProgressCard({
                           {STATUS_LABELS[entry.status]}
                         </span>
                       </div>
+                      {entry.reportedBy && (
+                        <p className="mb-1 inline-block rounded bg-violet-50 px-1.5 py-0.5 text-[11px] font-medium text-violet-700">
+                          {`${entry.contactTitle} บันทึกให้จากข้อมูลที่พบ — ตรวจสอบแล้วกด “เพิ่มรายงาน” เพื่อยืนยันหรือแก้ไข`}
+                        </p>
+                      )}
                       <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">
                         {entry.content || <span className="italic text-gray-400">(ไม่เกี่ยวข้อง)</span>}
                       </p>
+                      {entry.evidenceUrl && (
+                        <a
+                          href={entry.evidenceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-blue-600 hover:underline"
+                        >
+                          <Link2 size={10} /> หลักฐาน
+                        </a>
+                      )}
                       {entry.contactName && (
                         <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
                           <User size={10} />
@@ -869,7 +886,7 @@ function ProposalProgressCard({
                         </p>
                       )}
                     </div>
-                    {!editingId && !adding && (
+                    {!editingId && !adding && !entry.reportedBy && (
                       <div className="flex gap-1 shrink-0">
                         <Button variant="ghost" size="sm" onClick={() => openEdit(entry)} title="แก้ไข">
                           <Pencil size={12} />
@@ -898,13 +915,13 @@ function ProposalProgressCard({
           <label className="text-sm font-medium text-gray-700 flex items-center gap-1.5 mb-1">
             <Link2 size={13} className="text-gray-400" />
             ลิงก์หลักฐาน
-            <span className="text-xs font-normal text-gray-400">(ไม่บังคับ — Google Drive, OneDrive ฯลฯ)</span>
+            <span className="text-xs font-normal text-gray-400">(ไม่บังคับ — โพสต์ Facebook, Google Drive, OneDrive, เว็บไซต์หน่วยงาน ฯลฯ)</span>
           </label>
           <input
             type="url"
             value={evidenceUrl}
             onChange={(e) => onEvidenceChange(e.target.value)}
-            placeholder="https://drive.google.com/..."
+            placeholder="https://www.facebook.com/... หรือ https://drive.google.com/..."
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>
