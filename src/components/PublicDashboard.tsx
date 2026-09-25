@@ -738,7 +738,7 @@ export function PublicDashboard() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
-                placeholder="ค้นหาข้อเสนอ หน่วยงาน วาระ"
+                placeholder={`ค้นหา${noun} หน่วยงาน ที่มา ประเด็น`}
                 className="w-full rounded-xl border border-slate-200 py-2 pl-9 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
               {searchQuery && (
@@ -948,12 +948,13 @@ export function PublicDashboard() {
                         </td>
                         <td className="hidden px-3 py-3 text-slate-600 min-[1400px]:table-cell">
                           {firstAgency ? (
-                            <span className="line-clamp-1 max-w-[14rem]" title={p.expectedAgencyIds.map((id) => agencyName.get(id)).filter(Boolean).join(", ")}>
-                              {firstAgency}
-                              {p.expectedAgencyIds.length > 1 && (
-                                <span className="text-slate-400"> +{p.expectedAgencyIds.length - 1}</span>
-                              )}
-                            </span>
+                            <div className="max-w-[12rem]" title={p.expectedAgencyIds.map((id) => agencyName.get(id)).filter(Boolean).join(", ")}>
+                              <p className="whitespace-nowrap font-medium text-slate-700">{p.expectedAgencyIds.length} หน่วยงาน</p>
+                              <p className="truncate text-xs text-slate-400">
+                                {firstAgency}
+                                {p.expectedAgencyIds.length > 1 && " ฯลฯ"}
+                              </p>
+                            </div>
                           ) : (
                             <span className="text-slate-300">—</span>
                           )}
@@ -1004,7 +1005,7 @@ export function PublicDashboard() {
 
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
             <span>
-              แสดง {tableRows.length === 0 ? 0 : curPage * PAGE_SIZE + 1}–{Math.min((curPage + 1) * PAGE_SIZE, tableRows.length)} จาก {tableRows.length} ข้อเสนอ
+              แสดง {tableRows.length === 0 ? 0 : curPage * PAGE_SIZE + 1}–{Math.min((curPage + 1) * PAGE_SIZE, tableRows.length)} จาก {tableRows.length} {noun}
             </span>
             {pageCount > 1 && (
               <div className="flex items-center gap-1">
