@@ -379,10 +379,6 @@ export function PublicDashboard() {
   ];
   const piePct = (v: number) => (overall.total > 0 ? ((v / overall.total) * 100).toFixed(1) : "0.0");
 
-  const proposalBarData = filteredProposals.map((p) => {
-    const s = computeProgress([p]);
-    return { name: `ข้อ ${p.orderNumber}`, completed: s.completed, inProgress: s.inProgress, notStarted: s.notStarted };
-  });
 
   // เปรียบเทียบที่มาในประเภทเดียวกัน (ล่าสุด 8 รายการ)
   const festivalBarData = kindFestivals.slice(0, 8).map((f) => {
@@ -432,6 +428,27 @@ export function PublicDashboard() {
     filteredProposals.flatMap((p) => [...p.expectedAgencyIds, ...p.implementations.map((i) => i.agencyId)])
   );
   const scList = data.subCommittees.filter((sc) => involvedScIds.has(sc.id));
+
+  // เลือกที่มาเดียว: แท่งแนวนอนแทนกราฟแท่งตั้ง (ข้อเสนอ 60 ข้อ ป้ายชนกันอ่านไม่ออก)
+  //  - มีหลายอนุฯ → แถวละอนุฯ (ไม่เกิน 8 แถว)
+  //  - อนุฯ เดียว (เช่น ประชุมของอนุฯ หนึ่ง) → แถวละเรื่อง พร้อมชื่อเต็ม
+  const rowsBySC = scList.length >= 2;
+  const progressRows = rowsBySC
+    ? scList.map((sc) => {
+        const list = filteredProposals.filter((p) => p.subCommittees.some((x) => x.subCommittee.id === sc.id));
+        return {
+          id: sc.id,
+          label: sc.name.replace(/^C(\d+):\s*/, "อนุฯ $1 · "),
+          sub: `${list.length} ${noun}`,
+          s: computeProgress(list),
+        };
+      })
+    : filteredProposals.map((p) => ({
+        id: p.id,
+        label: p.title,
+        sub: `ข้อ ${p.orderNumber}`,
+        s: computeProgress([p]),
+      }));
   const agencyList = data.agencies.filter((a) => involvedAgencyIds.has(a.id));
 
   const selectCls =
@@ -613,52 +630,86 @@ export function PublicDashboard() {
         <Panel>
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <p className="font-bold text-slate-800">{showCompare ? (kind === "FESTIVAL" ? "เปรียบเทียบรายวาระ" : `เปรียบเทียบราย${KIND_META[kind].label}`) : `ความคืบหน้าราย${noun}`}</p>
+              <p className="font-bold text-slate-800">
+                {showCompare
+                  ? kind === "FESTIVAL" ? "เปรียบเทียบรายวาระ" : `เปรียบเทียบราย${KIND_META[kind].label}`
+                  : rowsBySC ? "ความคืบหน้ารายอนุกรรมการ" : `ความคืบหน้าราย${noun}`}
+              </p>
               <p className="text-xs text-slate-500">
-                {showCompare ? "จำนวนหน่วยงานต่อสถานะในแต่ละที่มา" : `จำนวนหน่วยงานต่อสถานะในแต่ละ${noun}`}
+                {showCompare
+                  ? "จำนวนหน่วยงานต่อสถานะในแต่ละที่มา"
+                  : "% หน่วยงานที่ดำเนินการแล้ว (เสร็จ + กำลังทำ)"}
               </p>
             </div>
             <div className="flex flex-wrap gap-3 text-[11px] text-slate-500">
               {pieData.map((d) => (
                 <span key={d.key} className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: d.color }} />
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ background: !showCompare && d.key === "notStarted" ? "#e2e8f0" : d.color }}
+                  />
                   {d.name}
                 </span>
               ))}
             </div>
           </div>
-          <div className="mt-3 h-52">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={showCompare ? festivalBarData : proposalBarData}
-                margin={{ top: 4, right: 4, left: -12, bottom: 0 }}
-                barGap={4}
-                barCategoryGap={showCompare ? "22%" : "18%"}
-              >
-                <CartesianGrid vertical={false} stroke="#eef2f7" />
-                <XAxis dataKey="name" interval={0} tick={{ fontSize: 11, fill: "#334155" }} axisLine={{ stroke: "#cbd5e1" }} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={tooltipStyle}
-                  cursor={{ fill: "rgba(15,23,42,0.04)" }}
-                  formatter={(value, name) => [`${value} หน่วยงาน`, seriesLabels[name as string] || name]}
-                />
-                {showCompare ? (
-                  <>
-                    <Bar dataKey="completed" fill={C_DONE} radius={[4, 4, 0, 0]} maxBarSize={26} />
-                    <Bar dataKey="inProgress" fill={C_PROG} radius={[4, 4, 0, 0]} maxBarSize={26} />
-                    <Bar dataKey="notStarted" fill={C_NONE} radius={[4, 4, 0, 0]} maxBarSize={26} />
-                  </>
-                ) : (
-                  <>
-                    <Bar dataKey="completed" stackId="a" fill={C_DONE} maxBarSize={22} />
-                    <Bar dataKey="inProgress" stackId="a" fill={C_PROG} maxBarSize={22} />
-                    <Bar dataKey="notStarted" stackId="a" fill={C_NONE} radius={[4, 4, 0, 0]} maxBarSize={22} />
-                  </>
-                )}
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {showCompare ? (
+            <div className="mt-3 h-52">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={festivalBarData} margin={{ top: 4, right: 4, left: -12, bottom: 0 }} barGap={4} barCategoryGap="22%">
+                  <CartesianGrid vertical={false} stroke="#eef2f7" />
+                  <XAxis dataKey="name" interval={0} tick={{ fontSize: 11, fill: "#334155" }} axisLine={{ stroke: "#cbd5e1" }} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={tooltipStyle}
+                    cursor={{ fill: "rgba(15,23,42,0.04)" }}
+                    formatter={(value, name) => [`${value} หน่วยงาน`, seriesLabels[name as string] || name]}
+                  />
+                  <Bar dataKey="completed" fill={C_DONE} radius={[4, 4, 0, 0]} maxBarSize={26} />
+                  <Bar dataKey="inProgress" fill={C_PROG} radius={[4, 4, 0, 0]} maxBarSize={26} />
+                  <Bar dataKey="notStarted" fill={C_NONE} radius={[4, 4, 0, 0]} maxBarSize={26} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : progressRows.length === 0 ? (
+            <p className="mt-6 text-center text-sm text-slate-400">ยังไม่มี{noun}</p>
+          ) : (
+            <ul className="-mx-2 mt-3 max-h-[17rem] space-y-0.5 overflow-y-auto pr-1">
+              {progressRows.map((r) => {
+                const w = (n: number) => (r.s.total > 0 ? (n / r.s.total) * 100 : 0);
+                return (
+                  <li
+                    key={r.id}
+                    title={`${r.label}\nดำเนินการแล้ว ${r.s.completed} · กำลังดำเนินการ ${r.s.inProgress} · ยังไม่ดำเนินการ ${r.s.notStarted} (จาก ${r.s.total} หน่วยงาน)`}
+                    className="rounded-lg px-2 py-1.5 hover:bg-slate-50"
+                  >
+                    <div className="flex items-baseline justify-between gap-3">
+                      <p className="min-w-0 line-clamp-2 text-[13px] leading-snug text-slate-700">
+                        {!rowsBySC && <span className="mr-1.5 text-xs text-slate-400">{r.sub}</span>}
+                        {r.label}
+                      </p>
+                      <p className="shrink-0 text-xs tabular-nums text-slate-500">
+                        <span className="font-semibold text-slate-700">{r.s.activePct}%</span>
+                        <span className="ml-1.5 hidden sm:inline">{r.s.active}/{r.s.total}</span>
+                      </p>
+                    </div>
+                    {/* แท่ง 100%: เสร็จ | กำลังทำ | ยังไม่ทำ — เว้นช่อง 2px ระหว่างส่วน */}
+                    <div className="mt-1 flex h-2 gap-[2px] overflow-hidden rounded-full">
+                      {r.s.total === 0 ? (
+                        <div className="h-full w-full rounded-full bg-slate-100" />
+                      ) : (
+                        <>
+                          {r.s.completed > 0 && <div className="h-full" style={{ width: `${w(r.s.completed)}%`, background: C_DONE }} />}
+                          {r.s.inProgress > 0 && <div className="h-full" style={{ width: `${w(r.s.inProgress)}%`, background: C_PROG }} />}
+                          {r.s.notStarted > 0 && <div className="h-full flex-1" style={{ background: "#e2e8f0" }} />}
+                        </>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </Panel>
 
         <Panel className="relative overflow-hidden lg:col-span-2 2xl:col-span-1">
