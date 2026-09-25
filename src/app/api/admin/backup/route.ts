@@ -27,6 +27,7 @@ export async function GET() {
     siteConfig,
     faqs,
     agencyMessages,
+    siteImagesRaw,
   ] = await Promise.all([
     prisma.admin.findMany(),
     prisma.festival.findMany(),
@@ -44,7 +45,10 @@ export async function GET() {
     prisma.siteConfig.findMany(),
     prisma.fAQ.findMany(),
     prisma.agencyMessage.findMany(),
+    prisma.siteImage.findMany(),
   ]);
+  // รูปเก็บเป็นไบต์ — แปลงเป็น base64 เพื่อให้อยู่ใน JSON ได้
+  const siteImages = siteImagesRaw.map((i) => ({ ...i, data: Buffer.from(i.data).toString("base64") }));
 
   const exportedAt = new Date().toISOString();
   const backup = {
@@ -67,6 +71,7 @@ export async function GET() {
       siteConfig: siteConfig.length,
       faqs: faqs.length,
       agencyMessages: agencyMessages.length,
+      siteImages: siteImages.length,
     },
     tables: {
       admins,
@@ -85,6 +90,7 @@ export async function GET() {
       siteConfig,
       faqs,
       agencyMessages,
+      siteImages,
     },
   };
 

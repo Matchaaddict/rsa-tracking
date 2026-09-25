@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { ShieldCheck, UsersRound, ChartNoAxesColumnIncreasing } from "lucide-react";
 
 // ตึกแบบ deterministic — ไม่สุ่มตอน render เพื่อให้ SSR/CSR ตรงกัน
@@ -130,10 +131,14 @@ export function HeroBanner({
   label,
   title,
   tagline,
+  image,
+  imagePosition = "center",
 }: {
   label: string;
   title: string;
   tagline: string;
+  image?: string;
+  imagePosition?: string;
 }) {
   const pillars = [
     { icon: ShieldCheck, label: "ลดอุบัติเหตุ" },
@@ -147,7 +152,15 @@ export function HeroBanner({
   const phrases = tagline.split(/\s*·\s*/).filter(Boolean);
   return (
     <section className="@container relative overflow-hidden rounded-2xl sm:rounded-3xl bg-[#0b1d4d] text-white shadow-xl shadow-blue-950/10">
-      <Scene />
+      {image ? (
+        <>
+          {/* รูปที่แอดมินอัปโหลด + ไล่เฉดทางซ้ายให้ตัวอักษรอ่านง่ายเสมอ */}
+          <Image src={image} alt="" fill unoptimized priority className="object-cover" style={{ objectPosition: imagePosition }} />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0b1d4d]/85 via-[#0b1d4d]/45 to-transparent" />
+        </>
+      ) : (
+        <Scene />
+      )}
       {/* ทับภาพให้ตัวอักษรอ่านง่ายเมื่อแบนเนอร์แคบ ข้อความจะกินพื้นที่เกินครึ่งซ้าย */}
       <div className="absolute inset-0 bg-gradient-to-r from-[#0b1d4d]/80 via-[#0b1d4d]/55 to-[#0b1d4d]/10 @3xl:hidden" />
       <div className="relative flex min-h-[170px] items-center justify-between gap-6 px-5 py-6 @md:min-h-[200px] @md:px-8 @3xl:px-10">

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { LoginBackdrop } from "@/components/LoginBackdrop";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, HelpCircle, LogIn } from "lucide-react";
 import Link from "next/link";
@@ -52,8 +53,9 @@ export default function AgencyLoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <Card className="w-full max-w-md">
+    <div className="relative min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <LoginBackdrop />
+      <Card className="relative w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-3">
             <div className="w-12 h-12 bg-emerald-600 rounded-xl flex items-center justify-center">

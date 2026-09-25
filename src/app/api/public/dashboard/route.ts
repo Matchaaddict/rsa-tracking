@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { expectedAgencyIdsFor } from "@/lib/tracking";
+import { getSiteImageUrls } from "@/lib/siteImages";
 
 export async function GET(req: NextRequest) {
   // หน้าแรกใช้ default — ไม่ต้องส่ง progressEntries มาด้วย เพราะใช้แค่ status/content ปัจจุบัน
@@ -99,7 +100,7 @@ export async function GET(req: NextRequest) {
   }));
 
   return NextResponse.json(
-    { festivals, proposals, agencies, subCommittees, siteConfig },
+    { festivals, proposals, agencies, subCommittees, siteConfig, images: await getSiteImageUrls() },
     {
       headers: {
         "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",

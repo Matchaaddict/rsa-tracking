@@ -8,6 +8,7 @@ import { ProposalManager } from "./admin/ProposalManager";
 import { AccountSettings } from "./admin/AccountSettings";
 import { AnalysisPanel } from "./admin/AnalysisPanel";
 import { SiteConfigManager } from "./admin/SiteConfigManager";
+import { SiteImageManager } from "./admin/SiteImageManager";
 import { FAQManager } from "./admin/FAQManager";
 import { MessagesManager } from "./admin/MessagesManager";
 import { AdminManager } from "./admin/AdminManager";
@@ -129,7 +130,14 @@ export function AdminPanel({
           </div>
         )}
         {activeTab === "analysis" && <AnalysisPanel />}
-        {activeTab === "siteconfig" && <SiteConfigManager />}
+        {activeTab === "siteconfig" && (
+          <div className="space-y-10">
+            <SiteImageManager />
+            <div className="border-t border-gray-200 pt-8">
+              <SiteConfigManager />
+            </div>
+          </div>
+        )}
         {activeTab === "faq" && <FAQManager />}
         {activeTab === "messages" && (
           <MessagesManager onReply={() =>
