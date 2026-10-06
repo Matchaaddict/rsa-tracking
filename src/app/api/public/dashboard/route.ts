@@ -56,6 +56,8 @@ export async function GET(req: NextRequest) {
         subCommittees: { include: { subCommittee: true } },
         assignees: { select: { agencyId: true } },
         tags: { include: { tag: { select: { id: true, name: true } } } },
+        // บันทึกความเคลื่อนไหวจากฝ่ายเลขานุการฯ — แสดงประกอบ ไม่นับ %
+        notes: { orderBy: { createdAt: "desc" }, select: { id: true, content: true, sourceUrl: true, authorLabel: true, createdAt: true } },
         implementations: implementationsInclude,
       },
     }),

@@ -39,6 +39,7 @@ function AutoResizeTextarea({
   );
 }
 import { AgencyMessages } from "./AgencyMessages";
+import { SecretariatNotes, type SecretariatNote } from "./tracking/SecretariatNotes";
 import { AgencyPasswordChange } from "./AgencyPasswordChange";
 
 interface Festival {
@@ -81,6 +82,7 @@ interface Proposal {
   description: string | null;
   orderNumber: number;
   dueDate?: string | Date | null;
+  notes?: SecretariatNote[];
   festival: Festival;
   subCommittees: { subCommittee: SubCommittee }[];
   implementations: Implementation[];
@@ -697,6 +699,11 @@ function ProposalProgressCard({
             <CardTitle className="text-base">{proposal.title}</CardTitle>
             {proposal.description && (
               <p className="text-sm text-gray-500 mt-1">{proposal.description}</p>
+            )}
+            {proposal.notes && proposal.notes.length > 0 && (
+              <div className="mt-2">
+                <SecretariatNotes notes={proposal.notes} />
+              </div>
             )}
           </div>
         </div>

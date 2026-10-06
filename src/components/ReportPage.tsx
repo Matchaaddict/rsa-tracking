@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { STATUS_LABELS, festIcon, festTheme } from "@/lib/utils";
 import { KIND_META, SOURCE_KINDS, sourceKind, sourceLabel, type SourceKind } from "@/lib/tracking";
+import { SecretariatNotes, type SecretariatNote } from "./tracking/SecretariatNotes";
 import { Loader2, Printer, Search, X } from "lucide-react";
 import { Button } from "./ui/button";
 
@@ -20,6 +21,7 @@ interface Implementation {
 }
 interface Proposal {
   id: string; title: string; description: string | null; orderNumber: number;
+  notes?: SecretariatNote[];
   festival: Festival; festivalId: string;
   subCommittees: { subCommittee: SubCommittee }[];
   implementations: Implementation[];
@@ -626,6 +628,11 @@ export function ReportPage() {
                               <p className="font-medium text-gray-900">{p.title}</p>
                               {p.description && p.description.trim() !== p.title.trim() && (
                                 <p className="text-xs text-gray-600 mt-1 leading-relaxed whitespace-pre-wrap">{p.description}</p>
+                              )}
+                              {p.notes && p.notes.length > 0 && (
+                                <div className="mt-2 print:break-inside-avoid">
+                                  <SecretariatNotes notes={p.notes} />
+                                </div>
                               )}
                               <div className="flex gap-1 mt-1.5 flex-wrap">
                                 {!multiGroup && (

@@ -37,6 +37,7 @@ export async function loadItems(where: Record<string, unknown>, viewer: Viewer) 
         subCommittees: { include: { subCommittee: { select: { id: true, name: true } } } },
         assignees: { select: { agencyId: true } },
         tags: { include: { tag: { select: { id: true, name: true } } } },
+        notes: { orderBy: { createdAt: "desc" }, select: { id: true, content: true, sourceUrl: true, authorLabel: true, createdAt: true } },
         implementations: {
           where: { agency: { isVisible: true } },
           select: {

@@ -16,7 +16,8 @@ import { MarkdownImporter } from "./admin/MarkdownImporter";
 import { DemoSeeder } from "./admin/DemoSeeder";
 import { BackupPanel } from "./admin/BackupPanel";
 import { TagManager } from "./admin/TagManager";
-import { CalendarDays, Users, Building2, FileText, KeyRound, BarChart2, Globe, HelpCircle, MessageCircle, ShieldCheck, Upload, Hash } from "lucide-react";
+import { NotesManager } from "./admin/NotesManager";
+import { CalendarDays, Users, Building2, FileText, KeyRound, BarChart2, Globe, HelpCircle, MessageCircle, ShieldCheck, Upload, Hash, NotebookPen } from "lucide-react";
 
 const ALL_TABS = [
   { id: "festivals",     label: "ที่มา",        icon: CalendarDays },
@@ -24,6 +25,7 @@ const ALL_TABS = [
   { id: "agencies",      label: "หน่วยงาน",     icon: Building2 },
   { id: "proposals",     label: "เรื่องที่ติดตาม", icon: FileText },
   { id: "tags",          label: "ประเด็น",       icon: Hash },
+  { id: "notes",         label: "บันทึกความเคลื่อนไหว", icon: NotebookPen },
   { id: "import",        label: "นำเข้า",       icon: Upload },
   { id: "analysis",      label: "วิเคราะห์",    icon: BarChart2 },
   { id: "siteconfig",    label: "หน้าเว็บ",      icon: Globe },
@@ -45,17 +47,24 @@ export function AdminPanel({
   permissions,
   adminId,
   secretaryOf = null,
+  division = null,
 }: {
   isSuperAdmin: boolean;
   permissions: string;
   adminId: string;
   secretaryOf?: SecretaryScope;
+  division?: string | null;
 }) {
   const allowedTabIds: Set<string> = secretaryOf
     ? SECRETARY_TABS
     : isSuperAdmin
     ? new Set(ALL_TABS.map((t) => t.id))
-    : new Set([...(JSON.parse(permissions) as string[]), "account"]);
+    : new Set([
+        ...(JSON.parse(permissions) as string[]),
+        // ผอ.ส่วน ได้แท็บบันทึกความเคลื่อนไหวเสมอ (+ สิทธิ์อื่นที่แอดมินใหญ่ติ๊กให้)
+        ...(division ? ["notes"] : []),
+        "account",
+      ]);
 
   const TABS = ALL_TABS.filter((t) => allowedTabIds.has(t.id));
 
@@ -122,6 +131,7 @@ export function AdminPanel({
         {activeTab === "agencies" && <AgencyManager />}
         {activeTab === "proposals" && <ProposalManager secretaryOf={secretaryOf} />}
         {activeTab === "tags" && <TagManager />}
+        {activeTab === "notes" && <NotesManager adminId={adminId} isSuperAdmin={isSuperAdmin} />}
         {activeTab === "import" && (
           <div className="space-y-8">
             <BackupPanel />

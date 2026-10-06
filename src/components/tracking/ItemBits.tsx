@@ -13,6 +13,7 @@ import {
   type SourceKind,
 } from "@/lib/tracking";
 import type { TrackedItem } from "@/lib/trackingData";
+import { SecretariatNotes } from "./SecretariatNotes";
 
 // ชิ้นส่วน UI ที่ใช้ร่วมกันในหน้าคณะกรรมการ/ประเด็น (render ฝั่ง server ได้)
 
@@ -108,6 +109,9 @@ export function ItemRow({
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex flex-wrap items-center gap-1.5">
             <span className="text-xs text-slate-400">ข้อ {item.orderNumber}</span>
+            {item.notes.length > 0 && (
+              <span className="rounded-md bg-teal-50 px-2 py-0.5 text-[11px] font-medium text-teal-700">📝 บันทึก {item.notes.length}</span>
+            )}
             {showSource && <SourceBadge source={item.festival} />}
             <TagChips tags={item.tags} />
             {item.dueDate && (
@@ -132,6 +136,7 @@ export function ItemRow({
       </summary>
       <div className="space-y-2 bg-slate-50/70 px-4 pb-4 pt-1">
         {item.description && <p className="break-words text-sm text-slate-600">{item.description}</p>}
+        <SecretariatNotes notes={item.notes} />
         {item.implementations.map((impl) => (
           <div key={impl.agencyId} className="flex items-start gap-3 rounded-lg border border-slate-100 bg-white p-3">
             <div className="min-w-0 flex-1">

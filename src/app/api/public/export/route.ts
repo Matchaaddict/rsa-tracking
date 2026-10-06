@@ -66,6 +66,7 @@ export async function GET(req: NextRequest) {
       orderBy: [{ festival: { year: "desc" } }, { orderNumber: "asc" }],
       include: {
         festival: true,
+        notes: { select: { content: true, sourceUrl: true, authorLabel: true, createdAt: true } },
         implementations: {
           where: { agency: { isVisible: true } },
           include: {
@@ -95,6 +96,7 @@ export async function GET(req: NextRequest) {
       orderBy: [{ festival: { year: "desc" } }, { orderNumber: "asc" }],
       include: {
         festival: true,
+        notes: { select: { content: true, sourceUrl: true, authorLabel: true, createdAt: true } },
         subCommittees: { include: { subCommittee: true } },
         implementations: {
           where: { agency: { isVisible: true } },
