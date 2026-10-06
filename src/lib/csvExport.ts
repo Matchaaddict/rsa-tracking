@@ -19,11 +19,32 @@ function thaiDate(d: Date): string {
 
 // ---- types matching prisma include shapes ----
 
+// บันทึกความเคลื่อนไหวจากฝ่ายเลขานุการฯ — ข้อมูลประกอบ ไม่นับ % (ไม่มี authorId)
+export interface CsvNote {
+  content: string;
+  sourceUrl: string | null;
+  authorLabel: string;
+  createdAt: Date;
+}
+
+export const NOTE_STATUS = "บันทึกความเคลื่อนไหว (ไม่นับ %)";
+
+const oldestFirst = (notes: CsvNote[] = []) =>
+  [...notes].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+// รวมทุกบันทึกของข้อนั้นไว้ในช่องเดียว เรียงเก่า→ใหม่
+function notesCell(notes?: CsvNote[]): string {
+  return oldestFirst(notes)
+    .map((n) => `[${thaiDate(n.createdAt)}] ${n.authorLabel}: ${n.content}${n.sourceUrl ? ` (${n.sourceUrl})` : ""}`)
+    .join("\n");
+}
+
 export interface DetailProposal {
   orderNumber: number;
   title: string;
   festival: { type: string; name: string; year: number };
   subCommittees: { subCommittee: { name: string } }[];
+  notes?: CsvNote[];
   implementations: {
     status: string;
     content: string | null;
@@ -44,18 +65,21 @@ export function buildDetailCsv(proposals: DetailProposal[], { includePrivate = t
     "หน่วยงาน", "สถานะ", "รายละเอียดล่าสุด",
     ...(includePrivate ? ["ผู้รายงาน", "ตำแหน่ง", "เบอร์", "ลิงก์หลักฐาน"] : []),
     "วันที่อัพเดต",
+    "บันทึกจากฝ่ายเลขานุการฯ (ไม่นับ %)",
   ].join(",") + "\n";
 
   for (const p of proposals) {
     const fest = sourceLabel(p.festival);
     const yr = String(p.festival.year);
     const scs = p.subCommittees.map((s) => s.subCommittee.name).join("; ");
+    const notes = csvEscape(notesCell(p.notes));
     if (p.implementations.length === 0) {
       csv += [
         csvEscape(fest), yr, csvEscape(scs), p.orderNumber, csvEscape(p.title),
         csvEscape("(ยังไม่มีหน่วยงาน)"), "", "",
         ...(includePrivate ? ["", "", "", ""] : []),
         "",
+        notes,
       ].join(",") + "\n";
       continue;
     }
@@ -71,6 +95,7 @@ export function buildDetailCsv(proposals: DetailProposal[], { includePrivate = t
             ]
           : []),
         csvEscape(thaiDate(impl.updatedAt)),
+        notes,
       ].join(",") + "\n";
     }
   }
@@ -163,6 +188,7 @@ export interface HistoryProposal {
   orderNumber: number;
   title: string;
   festival: { type: string; name: string; year: number };
+  notes?: CsvNote[];
   implementations: {
     agency: { name: string };
     progressEntries: {
@@ -205,6 +231,16 @@ export function buildHistoryCsv(proposals: HistoryProposal[], { includePrivate =
             : [csvEscape(e.reportedBy ? `${e.contactTitle ?? "เจ้าหน้าที่"} (บันทึกให้)` : "หน่วยงาน")]),
         ].join(",") + "\n";
       }
+    }
+    // บันทึกจากฝ่ายเลขาฯ ต่อท้ายข้อนั้น — สถานะระบุชัดว่าไม่นับ %
+    for (const n of oldestFirst(p.notes)) {
+      csv += [
+        csvEscape(fest), yr, p.orderNumber, csvEscape(p.title),
+        csvEscape(n.authorLabel),
+        csvEscape(thaiDate(n.createdAt)), csvEscape(NOTE_STATUS),
+        csvEscape(n.sourceUrl ? `${n.content} (${n.sourceUrl})` : n.content),
+        ...(includePrivate ? [csvEscape(n.authorLabel), "", ""] : [csvEscape(n.authorLabel)]),
+      ].join(",") + "\n";
     }
   }
   return csv;
