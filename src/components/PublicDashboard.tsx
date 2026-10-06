@@ -48,6 +48,7 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import { FAQSection } from "./FAQSection";
+import { SecretariatNotes, type SecretariatNote } from "./tracking/SecretariatNotes";
 import { HeroBanner } from "./HeroBanner";
 import { SEARCH_EVENT, FOCUS_SEARCH_EVENT } from "./AppShell";
 
@@ -90,6 +91,7 @@ interface Proposal {
   dueDate: string | null;
   createdAt: string;
   tags: { tag: { id: string; name: string } }[];
+  notes?: SecretariatNote[];
   festival: Festival;
   festivalId: string;
   subCommittees: { subCommittee: SubCommittee }[];
@@ -192,6 +194,7 @@ function ProposalDetail({ proposal, agencies }: { proposal: Proposal; agencies: 
   return (
     <div className="space-y-2">
       {proposal.description && <p className="break-words text-sm text-slate-600">{proposal.description}</p>}
+      <SecretariatNotes notes={proposal.notes} />
       {proposal.subCommittees.length > 0 && (
         <p className="text-xs text-slate-500">
           อนุกรรมการ:{" "}
@@ -929,6 +932,7 @@ export function PublicDashboard() {
                         </span>
                       )}
                       {updated && <> · อัปเดต {thDate(updated)}</>}
+                      {p.notes && p.notes.length > 0 && <span className="text-teal-700"> · 📝 บันทึก {p.notes.length}</span>}
                     </p>
                   </button>
                   {p.tags.length > 0 && (
@@ -1016,6 +1020,9 @@ export function PublicDashboard() {
                                 {isOverdue(p, now) && (
                                   <span className="rounded bg-red-50 px-1.5 py-px text-[10px] font-semibold text-red-600">เลยกำหนด</span>
                                 )}
+                                {p.notes?.length ? (
+                                  <span className="rounded bg-teal-50 px-1.5 py-px text-[10px] font-semibold text-teal-700">📝 บันทึก {p.notes?.length}</span>
+                                ) : null}
                               </p>
                             </div>
                           </div>

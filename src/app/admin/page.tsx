@@ -12,6 +12,11 @@ export default async function AdminPage() {
     redirect("/login");
   }
 
+  const me =
+    staff.kind === "admin"
+      ? await prisma.admin.findUnique({ where: { id: staff.id }, select: { division: true } })
+      : null;
+
   const secretary =
     staff.kind === "secretary"
       ? await prisma.subCommittee.findUnique({
@@ -28,6 +33,7 @@ export default async function AdminPage() {
           permissions={session.user.permissions ?? "[]"}
           adminId={session.user.id ?? ""}
           secretaryOf={secretary}
+          division={me?.division ?? null}
         />
       </main>
     </AppShell>

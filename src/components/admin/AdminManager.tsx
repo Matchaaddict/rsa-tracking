@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
+import { DIVISIONS, noteAuthorLabel, type Division } from "@/lib/divisions";
 import { Plus, Trash2, Loader2, Check, X, RefreshCw, ShieldCheck } from "lucide-react";
 
 const ALL_TABS = [
@@ -11,6 +12,7 @@ const ALL_TABS = [
   { id: "agencies",      label: "จัดการหน่วยงาน" },
   { id: "proposals",     label: "จัดการเรื่องที่ติดตาม" },
   { id: "tags",          label: "จัดการประเด็น (แท็ก)" },
+  { id: "notes",         label: "บันทึกความเคลื่อนไหว (ไม่นับ %)" },
   { id: "import",        label: "นำเข้าจาก Markdown" },
   { id: "analysis",      label: "วิเคราะห์ความคืบหน้า" },
   { id: "siteconfig",    label: "ตั้งค่าหน้าเว็บ" },
@@ -30,6 +32,7 @@ interface AdminUser {
   permissions: string;
   subCommitteeId: string | null;
   subCommittee: { name: string } | null;
+  division: string | null;
   createdAt: string;
 }
 
@@ -38,6 +41,7 @@ const emptyForm = () => ({
   password: generatePassword(),
   permissions: [] as string[],
   subCommitteeId: "",
+  division: "",
 });
 
 export function AdminManager({ currentAdminId }: { currentAdminId: string }) {
@@ -63,6 +67,15 @@ export function AdminManager({ currentAdminId }: { currentAdminId: string }) {
       .then((d) => setSubCommittees(d.subCommittees ?? []));
   }, []);
   const isSecretaryForm = form.subCommitteeId !== "";
+  // ประเภทบัญชีในตัวเลือกเดียว: "" = แอดมิน, "sc:<id>" = เลขาฯ อนุฯ, "div:<ส่วน>" = ผอ.ส่วน
+  const accountType = form.subCommitteeId ? `sc:${form.subCommitteeId}` : form.division ? `div:${form.division}` : "";
+  function setAccountType(v: string) {
+    setForm((f) => ({
+      ...f,
+      subCommitteeId: v.startsWith("sc:") ? v.slice(3) : "",
+      division: v.startsWith("div:") ? v.slice(4) : "",
+    }));
+  }
 
   function togglePerm(tabId: string) {
     setForm((f) => ({
@@ -80,7 +93,7 @@ export function AdminManager({ currentAdminId }: { currentAdminId: string }) {
       await fetch(`/api/admin/admins/${editId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ permissions: form.permissions, subCommitteeId: form.subCommitteeId }),
+        body: JSON.stringify({ permissions: form.permissions, subCommitteeId: form.subCommitteeId, division: form.division }),
       });
     } else {
       await fetch("/api/admin/admins", {
@@ -114,7 +127,7 @@ export function AdminManager({ currentAdminId }: { currentAdminId: string }) {
 
   function startEdit(a: AdminUser) {
     const perms = JSON.parse(a.permissions) as string[];
-    setForm({ username: a.username, password: "", permissions: perms, subCommitteeId: a.subCommitteeId ?? "" });
+    setForm({ username: a.username, password: "", permissions: perms, subCommitteeId: a.subCommitteeId ?? "", division: a.division ?? "" });
     setEditId(a.id);
     setShowForm(true);
   }
@@ -160,15 +173,28 @@ export function AdminManager({ currentAdminId }: { currentAdminId: string }) {
               <div>
                 <label className="text-sm font-medium text-gray-700 block mb-1">ประเภทบัญชี</label>
                 <select
-                  value={form.subCommitteeId}
-                  onChange={(e) => setForm({ ...form, subCommitteeId: e.target.value })}
+                  value={accountType}
+                  onChange={(e) => setAccountType(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">แอดมิน (กำหนดสิทธิ์รายส่วน)</option>
-                  {subCommittees.map((sc) => (
-                    <option key={sc.id} value={sc.id}>เลขาฯ อนุกรรมการ — {sc.name}</option>
-                  ))}
+                  <optgroup label="ผอ.ส่วน กองบูรณาการความปลอดภัยทางถนน">
+                    {(Object.keys(DIVISIONS) as Division[]).map((d) => (
+                      <option key={d} value={`div:${d}`}>{DIVISIONS[d]}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="เลขาฯ อนุกรรมการ">
+                    {subCommittees.map((sc) => (
+                      <option key={sc.id} value={`sc:${sc.id}`}>เลขาฯ อนุกรรมการ — {sc.name}</option>
+                    ))}
+                  </optgroup>
                 </select>
+                {form.division && (
+                  <p className="text-xs text-gray-500 mt-1.5">
+                    บันทึกความเคลื่อนไหวได้ทุกเรื่อง (แสดงบนหน้าสาธารณะในนาม &ldquo;{noteAuthorLabel(form.division)}&rdquo;)
+                    ไม่เปลี่ยนสถานะและไม่นับรวมใน % — ติ๊กสิทธิ์ด้านล่างเพิ่มได้ เช่น จัดการที่มา หรือเรื่องที่ติดตาม
+                  </p>
+                )}
                 {isSecretaryForm && (
                   <p className="text-xs text-gray-500 mt-1.5">
                     เลขาฯ อนุกรรมการสร้าง/แก้ไขได้เฉพาะการประชุมและโครงการเฉพาะของอนุฯ นี้
@@ -233,6 +259,13 @@ export function AdminManager({ currentAdminId }: { currentAdminId: string }) {
                         <span className="text-xs text-gray-400">(คุณ)</span>
                       )}
                     </div>
+                    {a.division && (
+                      <p className="mt-1">
+                        <span className="text-xs bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-medium">
+                          {DIVISIONS[a.division as Division] ?? a.division}
+                        </span>
+                      </p>
+                    )}
                     {a.subCommittee && (
                       <p className="mt-1">
                         <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full font-medium">

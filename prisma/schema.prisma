@@ -15,6 +15,9 @@ model Admin {
   // ตั้งค่าเมื่อเป็นเลขาฯ อนุกรรมการ — จัดการได้เฉพาะเรื่องของอนุฯ นี้ (role = "secretary")
   subCommittee   SubCommittee? @relation(fields: [subCommitteeId], references: [id], onDelete: SetNull)
   subCommitteeId String?
+  // ผอ.ส่วนในกองบูรณาการฯ: DATA (ข้อมูล) / POLICY (นโยบาย) / COORD (ประสาน) — บันทึกความเคลื่อนไหวได้ทุกเรื่อง
+  division       String?
+  notes          ItemNote[]
   createdAt      DateTime      @default(now())
 }
 
@@ -85,6 +88,7 @@ model Proposal {
   // ถ้ามี = หน่วยงานที่ต้องรายงานคือรายชื่อนี้เท่านั้น, ถ้าว่าง = ทุกหน่วยงานในอนุฯ ของเรื่อง
   assignees       ProposalAgency[]
   tags            ProposalTag[]
+  notes           ItemNote[]
   implementations Implementation[]
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
@@ -215,4 +219,21 @@ model SiteImage {
   width     Int?
   height    Int?
   updatedAt DateTime @updatedAt
+}
+
+// บันทึกความเคลื่อนไหวจากฝ่ายเลขานุการฯ (ผอ.ส่วน/แอดมิน) — ไม่เปลี่ยนสถานะ และไม่นับรวมใน % ความคืบหน้า
+model ItemNote {
+  id          String   @id @default(cuid())
+  proposal    Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  proposalId  String
+  content     String
+  sourceUrl   String?
+  // ป้ายผู้บันทึกตอนบันทึก เช่น "ฝ่ายเลขานุการฯ ปภ. (ผอ.ส่วนข้อมูลฯ)"
+  authorLabel String
+  author      Admin?   @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  authorId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([proposalId, createdAt])
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { isDivision } from "@/lib/divisions";
 
 async function requireSuper() {
   const session = await auth();
@@ -13,14 +14,14 @@ export async function GET() {
   if (!await requireSuper()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const admins = await prisma.admin.findMany({
     orderBy: { createdAt: "asc" },
-    select: { id: true, username: true, isSuperAdmin: true, permissions: true, subCommitteeId: true, subCommittee: { select: { name: true } }, createdAt: true },
+    select: { id: true, username: true, isSuperAdmin: true, permissions: true, subCommitteeId: true, subCommittee: { select: { name: true } }, division: true, createdAt: true },
   });
   return NextResponse.json(admins);
 }
 
 export async function POST(req: NextRequest) {
   if (!await requireSuper()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { username, password, permissions, subCommitteeId } = await req.json();
+  const { username, password, permissions, subCommitteeId, division } = await req.json();
   if (!username || !password) return NextResponse.json({ error: "ข้อมูลไม่ครบ" }, { status: 400 });
   const existing = await prisma.admin.findUnique({ where: { username } });
   if (existing) return NextResponse.json({ error: "Username นี้มีอยู่แล้ว" }, { status: 400 });
@@ -33,8 +34,10 @@ export async function POST(req: NextRequest) {
       isSuperAdmin: false,
       permissions: JSON.stringify(subCommitteeId ? [] : permissions ?? []),
       subCommitteeId: subCommitteeId || null,
+      // ผอ.ส่วน = แอดมินที่สังกัดส่วน (ไม่ใช่เลขาฯ อนุฯ) — ยังได้รับสิทธิ์รายแท็บเพิ่มได้
+      division: !subCommitteeId && isDivision(division) ? division : null,
     },
-    select: { id: true, username: true, isSuperAdmin: true, permissions: true, subCommitteeId: true, subCommittee: { select: { name: true } }, createdAt: true },
+    select: { id: true, username: true, isSuperAdmin: true, permissions: true, subCommitteeId: true, subCommittee: { select: { name: true } }, division: true, createdAt: true },
   });
   return NextResponse.json(admin);
 }
