@@ -152,6 +152,16 @@ export default async function CommitteePage({ params }: { params: Promise<{ id: 
                               {g.list.map((a) => a.name).join(", ")}
                             </p>
                           ))}
+                        {item.notes[0] && (
+                          // ความเคลื่อนไหวล่าสุดจากฝ่ายเลขาฯ — ช่วยรายงานในวาระสืบเนื่อง (ไม่นับ %)
+                          <p className="mt-1.5 break-words text-xs leading-relaxed text-slate-600">
+                            <span className="font-medium text-teal-700">
+                              📝 {item.notes[0].authorLabel} · {thDate(item.notes[0].createdAt)}:
+                            </span>{" "}
+                            {item.notes[0].content}
+                            {item.notes.length > 1 && <span className="text-slate-400"> (และอีก {item.notes.length - 1} บันทึก)</span>}
+                          </p>
+                        )}
                       </div>
                       <div className="flex shrink-0 items-center gap-2 sm:w-44">
                         <ProgressBar activePct={s.activePct} completedPct={s.completedPct} className="flex-1" />

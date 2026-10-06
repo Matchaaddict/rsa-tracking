@@ -19,6 +19,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (permissions !== undefined) data.permissions = JSON.stringify(permissions);
   if (subCommitteeId !== undefined) data.subCommitteeId = subCommitteeId || null;
   if (division !== undefined) data.division = !subCommitteeId && isDivision(division) ? division : null;
+  // ย้ายไปเป็นเลขาฯ อนุฯ แล้วต้องไม่มีป้าย ผอ.ส่วนติดค้าง
+  if (subCommitteeId) data.division = null;
   if (password) data.password = await bcrypt.hash(password, 10);
   const admin = await prisma.admin.update({
     where: { id },
