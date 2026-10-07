@@ -472,8 +472,18 @@ export function PublicDashboard() {
 
   // เลือกที่มาเดียว: แท่งแนวนอนแทนกราฟแท่งตั้ง (ข้อเสนอ 60 ข้อ ป้ายชนกันอ่านไม่ออก)
   //  - มีหลายอนุฯ → แถวละอนุฯ (ไม่เกิน 8 แถว)
-  //  - อนุฯ เดียว (เช่น ประชุมของอนุฯ หนึ่ง) → แถวละเรื่อง พร้อมชื่อเต็ม
+  //  - อนุฯ เดียว (เช่น ประชุมของอนุฯ หนึ่ง) → จำนวนเรื่องตามระดับความคืบหน้า
+  //    รายเรื่องดูได้ในตารางข้างล่างอยู่แล้ว และไม่จัดอันดับหน่วยงานบนหน้าสาธารณะ
   const rowsBySC = scList.length >= 2;
+  const itemPcts = filteredProposals.map((p) => computeProgress([p]).activePct);
+  const levelBins = [
+    { key: "none", name: "ยังไม่เริ่ม", count: itemPcts.filter((v) => v === 0).length, color: "#cbd5e1" },
+    { key: "low", name: "1–49%", count: itemPcts.filter((v) => v > 0 && v < 50).length, color: "#fcd34d" },
+    { key: "mid", name: "50–99%", count: itemPcts.filter((v) => v >= 50 && v < 100).length, color: C_PROG },
+    { key: "full", name: "100%", count: itemPcts.filter((v) => v === 100).length, color: C_DONE },
+  ];
+  const itemsDone = filteredProposals.filter((p) => proposalStatus(p) === "COMPLETED").length;
+  const itemsOverdue = filteredProposals.filter((p) => isOverdue(p, now)).length;
   const progressRows = rowsBySC
     ? scList.map((sc) => {
         const list = filteredProposals.filter((p) => p.subCommittees.some((x) => x.subCommittee.id === sc.id));
@@ -711,15 +721,17 @@ export function PublicDashboard() {
               <p className="font-bold text-slate-800">
                 {showCompare
                   ? kind === "FESTIVAL" ? "เปรียบเทียบรายวาระ" : `เปรียบเทียบราย${KIND_META[kind].label}`
-                  : rowsBySC ? "ความคืบหน้ารายอนุกรรมการ" : `ความคืบหน้าราย${noun}`}
+                  : rowsBySC ? "ความคืบหน้ารายอนุกรรมการ" : `${noun}ตามระดับความคืบหน้า`}
               </p>
               <p className="text-xs text-slate-500">
                 {showCompare
                   ? "จำนวนหน่วยงานต่อสถานะในแต่ละที่มา"
-                  : "% หน่วยงานที่ดำเนินการแล้ว (เสร็จ + กำลังทำ)"}
+                  : rowsBySC
+                    ? "% หน่วยงานที่ดำเนินการแล้ว (เสร็จ + กำลังทำ)"
+                    : `จำนวน${noun} แบ่งตาม % หน่วยงานที่ดำเนินการแล้ว (เสร็จ + กำลังทำ)`}
               </p>
             </div>
-            <div className="flex flex-wrap gap-3 text-[11px] text-slate-500">
+            <div className={cn("flex flex-wrap gap-3 text-[11px] text-slate-500", !showCompare && !rowsBySC && "hidden")}>
               {pieData.map((d) => (
                 <span key={d.key} className="flex items-center gap-1.5">
                   <span
@@ -749,6 +761,40 @@ export function PublicDashboard() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
+          ) : !rowsBySC ? (
+            filteredProposals.length === 0 ? (
+              <p className="mt-6 text-center text-sm text-slate-400">ยังไม่มี{noun}</p>
+            ) : (
+              <>
+                <div className="mt-3 h-44">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={levelBins} margin={{ top: 16, right: 4, left: -20, bottom: 0 }} barCategoryGap="25%">
+                      <CartesianGrid vertical={false} stroke="#eef2f7" />
+                      <XAxis dataKey="name" interval={0} tick={{ fontSize: 12, fill: "#334155" }} axisLine={{ stroke: "#cbd5e1" }} tickLine={false} />
+                      <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                      <Tooltip
+                        contentStyle={tooltipStyle}
+                        cursor={{ fill: "rgba(15,23,42,0.04)" }}
+                        formatter={(value) => [`${value} ${noun}`, "จำนวน"]}
+                      />
+                      <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={56} label={{ position: "top", fontSize: 12, fill: "#334155" }}>
+                        {levelBins.map((b) => (
+                          <Cell key={b.key} fill={b.color} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">
+                    เสร็จสมบูรณ์ {itemsDone} จาก {filteredProposals.length} {noun}
+                  </span>
+                  {itemsOverdue > 0 && (
+                    <span className="rounded-full bg-red-50 px-2.5 py-1 font-medium text-red-600">เลยกำหนด {itemsOverdue} {noun}</span>
+                  )}
+                </div>
+              </>
+            )
           ) : progressRows.length === 0 ? (
             <p className="mt-6 text-center text-sm text-slate-400">ยังไม่มี{noun}</p>
           ) : (
