@@ -7,6 +7,7 @@ import { Badge } from "../ui/badge";
 import { festIcon, festTheme, cn } from "@/lib/utils";
 import { KIND_META, SOURCE_KINDS, sourceKind, sourceLabel, type SourceKind } from "@/lib/tracking";
 import { Check, ChevronDown, ChevronUp, ExternalLink, Loader2, NotebookPen, Pencil, Search, Trash2, X } from "lucide-react";
+import { YearFilter, effectiveYear, yearsOf, type YearValue } from "../YearFilter";
 
 interface Source {
   id: string;
@@ -58,6 +59,7 @@ export function NotesManager({ adminId, isSuperAdmin }: { adminId: string; isSup
 
   const [kind, setKind] = useState<SourceKind | "ALL">("ALL");
   const [sourceId, setSourceId] = useState("all");
+  const [yearFilter, setYearFilter] = useState<YearValue>("all");
   const [query, setQuery] = useState("");
   const [onlyWithNotes, setOnlyWithNotes] = useState(false);
   const [page, setPage] = useState(0);
@@ -86,9 +88,14 @@ export function NotesManager({ adminId, isSuperAdmin }: { adminId: string; isSup
 
   const notesOf = (id: string) => notes.filter((n) => n.proposalId === id);
   const kinds = SOURCE_KINDS.filter((k) => sources.some((s) => sourceKind(s.type) === k));
+  const allInKind = sources.filter((s) => kind === "ALL" || sourceKind(s.type) === kind);
+  const years = yearsOf(allInKind);
+  const year = effectiveYear(yearFilter, years);
+  const sourcesShown = year === "all" ? allInKind : allInKind.filter((s) => s.year === year);
   const q = query.trim().toLowerCase();
   const filtered = items.filter((it) => {
     if (kind !== "ALL" && sourceKind(it.festival.type) !== kind) return false;
+    if (year !== "all" && it.festival.year !== year) return false;
     if (sourceId !== "all" && it.festivalId !== sourceId) return false;
     if (onlyWithNotes && notesOf(it.id).length === 0) return false;
     if (q && !it.title.toLowerCase().includes(q) && !sourceLabel(it.festival).toLowerCase().includes(q)) return false;
@@ -165,11 +172,13 @@ export function NotesManager({ adminId, isSuperAdmin }: { adminId: string; isSup
           onChange={(e) => { setSourceId(e.target.value); setPage(0); }}
           className="max-w-full rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm"
         >
-          <option value="all">ทุกที่มา</option>
-          {sources
-            .filter((s) => kind === "ALL" || sourceKind(s.type) === kind)
-            .map((s) => (
-              <option key={s.id} value={s.id}>{sourceLabel(s)}</option>
+          <option value="all">ทุกที่มา{year !== "all" ? ` ปี ${year}` : ""}</option>
+          {yearsOf(sourcesShown).map((y) => (
+              <optgroup key={y} label={`ปี ${y}`}>
+                {sourcesShown.filter((s) => s.year === y).map((s) => (
+                  <option key={s.id} value={s.id}>{sourceLabel(s)}</option>
+                ))}
+              </optgroup>
             ))}
         </select>
         <label className="flex items-center gap-1.5 text-sm text-gray-600">
@@ -177,6 +186,7 @@ export function NotesManager({ adminId, isSuperAdmin }: { adminId: string; isSup
           เฉพาะเรื่องที่มีบันทึก
         </label>
       </div>
+      <YearFilter years={years} value={year} onChange={(y) => { setYearFilter(y); setSourceId("all"); setPage(0); }} />
       <div className="relative">
         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
