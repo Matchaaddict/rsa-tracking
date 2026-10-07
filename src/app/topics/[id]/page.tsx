@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { getViewer, loadItems } from "@/lib/trackingData";
 import { KIND_META, SOURCE_KINDS, currentTime, sourceKind } from "@/lib/tracking";
 import { ItemRow, KindSummary } from "@/components/tracking/ItemBits";
+import { TapHint } from "@/components/tracking/ExpandHint";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +65,7 @@ export default async function TopicPage({ params }: { params: Promise<{ id: stri
         ) : (
           <>
             <KindSummary items={items} now={now} />
+            <TapHint>กด &ldquo;ดูรายละเอียด&rdquo; ที่แต่ละเรื่อง เพื่อดูผลที่หน่วยงานรายงานและบันทึกจากฝ่ายเลขาฯ</TapHint>
 
             {kinds.map((k) => {
               const list = items.filter((i) => sourceKind(i.festival.type) === k);

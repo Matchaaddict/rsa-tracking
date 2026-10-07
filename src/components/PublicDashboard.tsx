@@ -29,7 +29,6 @@ import {
   CheckCircle2,
   Clock,
   ChevronDown,
-  ChevronUp,
   Loader2,
   Search,
   X,
@@ -49,6 +48,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { FAQSection } from "./FAQSection";
 import { SecretariatNotes, type SecretariatNote } from "./tracking/SecretariatNotes";
+import { ExpandHint, TapHint } from "./tracking/ExpandHint";
 import { HeroBanner } from "./HeroBanner";
 import { SEARCH_EVENT, FOCUS_SEARCH_EVENT } from "./AppShell";
 
@@ -923,6 +923,11 @@ export function PublicDashboard() {
               </a>
             </div>
           </div>
+          {pageRows.length > 0 && (
+            <div className="border-b border-slate-100 px-4 py-2">
+              <TapHint>กดที่แต่ละข้อ เพื่อดูผลที่หน่วยงานรายงานและบันทึกจากฝ่ายเลขาฯ</TapHint>
+            </div>
+          )}
 
           {/* มือถือ: การ์ด */}
           <ul className="divide-y divide-slate-100 md:hidden">
@@ -945,7 +950,7 @@ export function PublicDashboard() {
                     <div className="flex items-start gap-2">
                       <span className="mt-0.5 w-5 shrink-0 text-xs tabular-nums text-slate-400">{curPage * PAGE_SIZE + idx + 1}</span>
                       <p className="min-w-0 flex-1 text-pretty break-words text-[15px] font-semibold leading-snug text-blue-800">{p.title}</p>
-                      {open ? <ChevronUp size={18} className="shrink-0 text-blue-500" /> : <ChevronDown size={18} className="shrink-0 text-slate-400" />}
+                      <ExpandHint open={open} label="ดู" />
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-7">
                       <span className={`whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-medium ${festTheme(p.festival.type).badge}`}>
@@ -1016,13 +1021,12 @@ export function PublicDashboard() {
                   <th className="whitespace-nowrap px-3 py-3">สถานะ</th>
                   <th className="min-w-[7.5rem] whitespace-nowrap px-3 py-3 xl:min-w-[10rem]">ความคืบหน้า</th>
                   <th className="hidden whitespace-nowrap px-3 py-3 xl:table-cell">กำหนดเสร็จ / อัปเดต</th>
-                  <th className="w-10 px-3 py-3"><span className="sr-only">รายละเอียด</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {pageRows.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="py-12 text-center text-slate-400">
+                    <td colSpan={8} className="py-12 text-center text-slate-400">
                       {q ? <>ไม่พบรายการที่ตรงกับ &ldquo;{searchQuery}&rdquo;</> : `ยังไม่มี${noun}`}
                     </td>
                   </tr>
@@ -1068,6 +1072,7 @@ export function PublicDashboard() {
                                 {p.notes?.length ? (
                                   <span className="rounded bg-teal-50 px-1.5 py-px text-[10px] font-semibold text-teal-700">📝 บันทึก {p.notes?.length}</span>
                                 ) : null}
+                                <ExpandHint open={open} className="!px-2 !py-0.5 !text-[11px]" />
                               </p>
                             </div>
                           </div>
@@ -1124,14 +1129,11 @@ export function PublicDashboard() {
                             {p.dueDate ? "อัปเดต " : ""}{updated ? thDate(updated) : "—"}
                           </p>
                         </td>
-                        <td className="px-3 py-3 text-center">
-                          {open ? <ChevronUp size={16} className="mx-auto text-blue-500" /> : <ChevronDown size={16} className="mx-auto text-slate-400" />}
-                        </td>
                       </tr>
                       {open && (
                         <tr className="bg-slate-50/70">
                           <td />
-                          <td colSpan={8} className="px-3 py-3">
+                          <td colSpan={7} className="px-3 py-3">
                             <ProposalDetail proposal={p} agencies={data.agencies} />
                           </td>
                         </tr>
@@ -1199,7 +1201,6 @@ export function PublicDashboard() {
                     onClick={() => setExpandedSCTab(isOpen ? null : sc.id)}
                     className="w-full px-5 py-4 flex items-center gap-4 hover:bg-gray-50 transition-colors text-left"
                   >
-                    {isOpen ? <ChevronUp size={15} className="text-gray-400 shrink-0" /> : <ChevronDown size={15} className="text-gray-400 shrink-0" />}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <p className="font-semibold text-gray-900 text-sm">{sc.name.replace(/^C(\d+):/, (_, n) => `อนุฯ ${n}:`)}</p>
@@ -1213,6 +1214,7 @@ export function PublicDashboard() {
                       </div>
                       <p className="text-xs text-gray-400 mt-1">{proposals.length} {noun} · กำลังทำ {inProg} · เสร็จ {done}</p>
                     </div>
+                    <ExpandHint open={isOpen} label="ดู" />
                   </button>
                   {isOpen && (
                     <div className="border-t border-gray-100 divide-y divide-gray-100">
@@ -1295,7 +1297,7 @@ export function PublicDashboard() {
                           <span className={`text-sm font-bold ${donePct >= 80 ? "text-emerald-600" : pct >= 50 ? "text-amber-500" : "text-gray-400"}`}>
                             {done}/{total} ({pct}%)
                           </span>
-                          {isOpen ? <ChevronUp size={15} className="text-gray-400" /> : <ChevronDown size={15} className="text-gray-400" />}
+                          <ExpandHint open={isOpen} label="ดู" />
                         </div>
                       </div>
                       <div className="mt-1.5 h-1.5 bg-gray-100 rounded-full overflow-hidden flex">

@@ -14,6 +14,7 @@ import {
 } from "@/lib/tracking";
 import type { TrackedItem } from "@/lib/trackingData";
 import { SecretariatNotes } from "./SecretariatNotes";
+import { DetailsHint } from "./ExpandHint";
 
 // ชิ้นส่วน UI ที่ใช้ร่วมกันในหน้าคณะกรรมการ/ประเด็น (render ฝั่ง server ได้)
 
@@ -104,7 +105,7 @@ export function ItemRow({
   const silent = item.expectedAgencyIds.filter((id) => !reported.has(id));
 
   return (
-    <details className="group border-b border-slate-100 last:border-0">
+    <details className="group/item border-b border-slate-100 last:border-0">
       <summary className="flex cursor-pointer list-none flex-col gap-2 px-4 py-3 hover:bg-slate-50 sm:flex-row sm:items-center sm:gap-4 [&::-webkit-details-marker]:hidden">
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex flex-wrap items-center gap-1.5">
@@ -128,10 +129,11 @@ export function ItemRow({
           </div>
           <p className="text-pretty break-words font-semibold leading-snug text-slate-800">{item.title}</p>
         </div>
-        <div className="flex shrink-0 items-center gap-3 sm:w-64">
+        <div className="flex shrink-0 items-center gap-3 sm:w-[23rem]">
           <StatusPill status={st} />
           <ProgressBar activePct={s.activePct} completedPct={s.completedPct} className="flex-1" />
           <span className="w-9 text-right text-xs tabular-nums text-slate-600">{s.activePct}%</span>
+          <DetailsHint group="item" />
         </div>
       </summary>
       <div className="space-y-2 bg-slate-50/70 px-4 pb-4 pt-1">

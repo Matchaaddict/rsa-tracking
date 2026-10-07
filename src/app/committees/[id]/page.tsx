@@ -17,6 +17,7 @@ import {
   thDate,
 } from "@/components/tracking/ItemBits";
 import { PrintCarryOverButton } from "@/components/tracking/PrintCarryOverButton";
+import { DetailsHint, TapHint } from "@/components/tracking/ExpandHint";
 
 export const dynamic = "force-dynamic";
 
@@ -178,6 +179,7 @@ export default async function CommitteePage({ params }: { params: Promise<{ id: 
         {/* การประชุม */}
         <section data-print-skip className="space-y-3">
           <h2 className="font-bold text-slate-800">การประชุม</h2>
+          {meetings.length > 0 && <TapHint>กด &ldquo;ดูรายละเอียด&rdquo; ที่แต่ละมติ เพื่อดูผลที่หน่วยงานรายงานและบันทึกจากฝ่ายเลขาฯ</TapHint>}
           {meetings.length === 0 ? (
             <p className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-400">
               ยังไม่มีการบันทึกการประชุม{canManage ? " — เพิ่มได้ที่แผงควบคุม แท็บ \"ที่มา\"" : ""}
@@ -262,7 +264,7 @@ export default async function CommitteePage({ params }: { params: Promise<{ id: 
                 const s = computeProgress(list);
                 const open = list.filter(isUnresolved).length;
                 return (
-                  <details key={source.id} className="group">
+                  <details key={source.id} className="group/src">
                     <summary className="flex cursor-pointer list-none flex-wrap items-center gap-3 px-4 py-3 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
                       <span className="min-w-0 flex-1 font-medium text-slate-800">
                         {festIcon(source.type)} {sourceLabel(source)}
@@ -272,6 +274,7 @@ export default async function CommitteePage({ params }: { params: Promise<{ id: 
                         <ProgressBar activePct={s.activePct} completedPct={s.completedPct} className="flex-1" />
                         <span className="w-9 text-right text-xs tabular-nums text-slate-600">{s.activePct}%</span>
                       </span>
+                      <DetailsHint group="src" label={`ดู ${list.length} ข้อ`} />
                     </summary>
                     <div className="border-t border-slate-100">
                       {list.map((item) => (
