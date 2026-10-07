@@ -10,6 +10,7 @@ import {
   Plus, Pencil, Trash2, Loader2, X, Check, ChevronDown, ChevronUp, CalendarClock, Lock, Search, Users, Hash,
 } from "lucide-react";
 import type { SecretaryScope } from "../AdminPanel";
+import { YearFilter, effectiveYear, yearsOf, type YearValue } from "../YearFilter";
 
 interface Source {
   id: string;
@@ -101,6 +102,7 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [kindFilter, setKindFilter] = useState<SourceKind | "ALL">("ALL");
   const [filterSource, setFilterSource] = useState("all");
+  const [yearFilter, setYearFilter] = useState<YearValue>("all");
   const [agencyQuery, setAgencyQuery] = useState("");
   const [allTags, setAllTags] = useState<{ id: string; name: string }[]>([]);
   const [tagDraft, setTagDraft] = useState("");
@@ -259,11 +261,15 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
   }
 
   const kindsPresent = SOURCE_KINDS.filter((k) => sources.some((s) => sourceKind(s.type) === k));
-  const sourcesInKind = kindFilter === "ALL" ? sources : sources.filter((s) => sourceKind(s.type) === kindFilter);
+  const allInKind = kindFilter === "ALL" ? sources : sources.filter((s) => sourceKind(s.type) === kindFilter);
+  // หลายปี → เลือกปีก่อน แล้วค่อยเลือกที่มา
+  const years = yearsOf(allInKind);
+  const year = effectiveYear(yearFilter, years);
+  const sourcesInKind = year === "all" ? allInKind : allInKind.filter((s) => s.year === year);
   const filtered = proposals.filter((p) =>
     filterSource !== "all"
       ? p.festivalId === filterSource
-      : kindFilter === "ALL" || sourceKind(p.festival.type) === kindFilter
+      : (kindFilter === "ALL" || sourceKind(p.festival.type) === kindFilter) && (year === "all" || p.festival.year === year)
   );
   // จัดกลุ่มตามที่มา (ปีล่าสุดก่อน) แล้วเรียงตามเลขข้อในกลุ่ม — ข้อ 1 ของต่างวาระจะไม่ปนกัน
   const groups = sources
@@ -563,13 +569,20 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
             onChange={(e) => setFilterSource(e.target.value)}
             className="px-3 py-1.5 border border-gray-200 rounded-full text-sm bg-white max-w-full"
           >
-            <option value="all">ทุกที่มา{kindFilter !== "ALL" ? `ใน${KIND_META[kindFilter].label}` : ""}</option>
-            {sourcesInKind.map((s) => (
-              <option key={s.id} value={s.id}>{sourceLabel(s)}</option>
+            <option value="all">
+              ทุกที่มา{kindFilter !== "ALL" ? `ใน${KIND_META[kindFilter].label}` : ""}{year !== "all" ? ` ปี ${year}` : ""}
+            </option>
+            {yearsOf(sourcesInKind).map((y) => (
+              <optgroup key={y} label={`ปี ${y}`}>
+                {sourcesInKind.filter((s) => s.year === y).map((s) => (
+                  <option key={s.id} value={s.id}>{sourceLabel(s)}</option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>
       )}
+      <YearFilter years={years} value={year} onChange={(y) => { setYearFilter(y); setFilterSource("all"); }} />
 
       {loading ? (
         <div className="flex justify-center py-8">

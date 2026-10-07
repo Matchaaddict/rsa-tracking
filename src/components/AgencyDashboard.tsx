@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { Fragment, useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -41,6 +41,7 @@ function AutoResizeTextarea({
 import { AgencyMessages } from "./AgencyMessages";
 import { SecretariatNotes, type SecretariatNote } from "./tracking/SecretariatNotes";
 import { AgencyPasswordChange } from "./AgencyPasswordChange";
+import { YearFilter, effectiveYear, yearsOf, type YearValue } from "./YearFilter";
 
 interface Festival {
   id: string;
@@ -176,6 +177,7 @@ export function AgencyDashboard({
   const [saveError, setSaveError] = useState<Record<string, boolean>>({});
   const [savingCount, setSavingCount] = useState(0);
   const [selectedFestival, setSelectedFestival] = useState<string>("all");
+  const [yearFilter, setYearFilter] = useState<YearValue>("all");
   const [showOnlyPending, setShowOnlyPending] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -337,7 +339,12 @@ export function AgencyDashboard({
     }
   }
 
-  const festivals = Array.from(new Map(proposals.map((p) => [p.festival.id, p.festival])).values());
+  const allFestivals = Array.from(new Map(proposals.map((p) => [p.festival.id, p.festival])).values());
+  // หลายปี → เลือกปีก่อน แล้วค่อยเลือกวาระ/ที่มา
+  const years = yearsOf(allFestivals);
+  const year = effectiveYear(yearFilter, years);
+  const festivals = year === "all" ? allFestivals : allFestivals.filter((f) => f.year === year);
+  const festivalSel = festivals.some((f) => f.id === selectedFestival) ? selectedFestival : "all";
 
   function isPending(p: Proposal) {
     const m = meta[p.id];
@@ -346,7 +353,14 @@ export function AgencyDashboard({
     return status === "NOT_STARTED" && entryCount === 0;
   }
 
-  const byFestival = selectedFestival === "all" ? proposals : proposals.filter((p) => p.festival.id === selectedFestival);
+  const byFestival =
+    festivalSel !== "all"
+      ? proposals.filter((p) => p.festival.id === festivalSel)
+      : year === "all"
+        ? proposals
+        : proposals.filter((p) => p.festival.year === year);
+  // หัวกลุ่มเมื่อแสดงหลายที่มาพร้อมกัน — ข้อ 1 ของต่างวาระจะไม่ปนกัน
+  const multiSource = new Set(byFestival.map((p) => p.festival.id)).size > 1;
   const filtered = showOnlyPending ? byFestival.filter(isPending) : byFestival;
   const pendingCount = byFestival.filter(isPending).length;
 
@@ -470,12 +484,30 @@ export function AgencyDashboard({
             </div>
           </div>
 
-          {/* วาระ filter */}
+          <YearFilter years={years} value={year} onChange={(y) => { setYearFilter(y); setSelectedFestival("all"); }} />
+
+          {/* วาระ filter — ที่มาเยอะใช้ dropdown */}
+          {festivals.length > 6 ? (
+            <select
+              value={festivalSel}
+              onChange={(e) => setSelectedFestival(e.target.value)}
+              className="w-full max-w-md rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700"
+            >
+              <option value="all">ทั้งหมด{year !== "all" ? ` ปี ${year}` : ""} ({festivals.length} ที่มา)</option>
+              {yearsOf(festivals).map((y) => (
+                <optgroup key={y} label={`ปี ${y}`}>
+                  {festivals.filter((f) => f.year === y).map((f) => (
+                    <option key={f.id} value={f.id}>{sourceLabel(f)}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          ) : (
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setSelectedFestival("all")}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                selectedFestival === "all" ? "bg-emerald-600 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+                festivalSel === "all" ? "bg-emerald-600 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
               }`}
             >
               ทั้งหมด
@@ -485,7 +517,7 @@ export function AgencyDashboard({
                 key={f.id}
                 onClick={() => setSelectedFestival(f.id)}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                  selectedFestival === f.id
+                  festivalSel === f.id
                     ? `${festTheme(f.type).bgSolid} text-white`
                     : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
                 }`}
@@ -494,6 +526,7 @@ export function AgencyDashboard({
               </button>
             ))}
           </div>
+          )}
 
           {/* Pending-only toggle */}
           {byFestival.length > 0 && (
@@ -533,9 +566,14 @@ export function AgencyDashboard({
             </Card>
           ) : (
             <div className="space-y-4">
-              {filtered.map((proposal) => (
+              {filtered.map((proposal, idx) => (
+                <Fragment key={proposal.id}>
+                {multiSource && (idx === 0 || filtered[idx - 1].festival.id !== proposal.festival.id) && (
+                  <div className={`rounded-xl px-4 py-2 text-sm font-semibold ${festTheme(proposal.festival.type).pill}`}>
+                    {festIcon(proposal.festival.type)} {sourceLabel(proposal.festival)}
+                  </div>
+                )}
                 <ProposalProgressCard
-                  key={proposal.id}
                   proposal={proposal}
                   status={meta[proposal.id]?.status ?? "NOT_STARTED"}
                   evidenceUrl={meta[proposal.id]?.evidenceUrl ?? ""}
@@ -548,6 +586,7 @@ export function AgencyDashboard({
                   onDelete={(id) => deleteEntry(proposal.id, id)}
                   onEvidenceChange={(v) => handleEvidenceChange(proposal.id, v)}
                 />
+                </Fragment>
               ))}
             </div>
           )}

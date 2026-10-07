@@ -31,7 +31,7 @@ export default async function CommitteePage({ params }: { params: Promise<{ id: 
       agencies: { where: { agency: { isVisible: true } }, select: { agencyId: true } },
       sources: {
         where: visibleSourceWhere(viewer),
-        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        orderBy: [{ year: "desc" }, { date: "desc" }, { createdAt: "desc" }],
       },
     },
   });
@@ -50,6 +50,10 @@ export default async function CommitteePage({ params }: { params: Promise<{ id: 
 
   const meetings = sc.sources.filter((s) => s.type === "MEETING");
   const projects = sc.sources.filter((s) => s.type === "PROJECT");
+  const meetingYears = [...new Set(meetings.map((m) => m.year))].map((year) => ({
+    year,
+    list: meetings.filter((m) => m.year === year),
+  }));
   const itemsOf = (sourceId: string) => items.filter((i) => i.festivalId === sourceId);
 
   // เรื่องสืบเนื่อง: มติจากการประชุมของอนุฯ ที่ยังไม่แล้วเสร็จ — เลยกำหนดขึ้นก่อน แล้วเรียงตามกำหนดเสร็จ
@@ -185,44 +189,66 @@ export default async function CommitteePage({ params }: { params: Promise<{ id: 
               ยังไม่มีการบันทึกการประชุม{canManage ? " — เพิ่มได้ที่แผงควบคุม แท็บ \"ที่มา\"" : ""}
             </p>
           ) : (
-            <ol className="relative space-y-4 border-l-2 border-violet-100 pl-4 sm:pl-6">
-              {meetings.map((m) => {
-                const list = itemsOf(m.id);
-                const s = computeProgress(list);
-                return (
-                  <li key={m.id} className="relative">
-                    <span className="absolute -left-[23px] top-4 h-3 w-3 rounded-full border-2 border-white bg-violet-500 ring-2 ring-violet-100 sm:-left-[31px]" />
-                    <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-slate-800">
-                            {festIcon(m.type)} {m.name}
-                            {!m.isPublic && (
-                              <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 align-middle text-[11px] font-normal text-slate-600">
-                                <Lock size={10} /> ภายใน
-                              </span>
-                            )}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            {m.date ? `ประชุมวันที่ ${thDate(m.date)}` : `ปี ${m.year}`} · {list.length} มติ
-                            {m.docUrl && <> · <DocLink href={m.docUrl} /></>}
-                          </p>
-                        </div>
-                        {list.length > 0 && (
-                          <div className="flex w-full items-center gap-2 sm:w-48">
-                            <ProgressBar activePct={s.activePct} completedPct={s.completedPct} className="flex-1" />
-                            <span className="w-9 text-right text-xs tabular-nums text-slate-600">{s.activePct}%</span>
+            // แยกตามปี: ปีล่าสุดแสดงเลย ปีก่อน ๆ พับไว้ — ประชุมสะสมหลายปีจะไม่ยาวจนหาไม่เจอ
+            <div className="space-y-4">
+              {meetingYears.map(({ year, list }, yi) => {
+                const timeline = (
+                  <ol className="relative space-y-4 border-l-2 border-violet-100 pl-4 sm:pl-6">
+                                  {list.map((m) => {
+                      const mItems = itemsOf(m.id);
+                      const s = computeProgress(mItems);
+                      return (
+                        <li key={m.id} className="relative">
+                          <span className="absolute -left-[23px] top-4 h-3 w-3 rounded-full border-2 border-white bg-violet-500 ring-2 ring-violet-100 sm:-left-[31px]" />
+                          <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+                              <div className="min-w-0">
+                                <p className="font-semibold text-slate-800">
+                                  {festIcon(m.type)} {m.name}
+                                  {!m.isPublic && (
+                                    <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 align-middle text-[11px] font-normal text-slate-600">
+                                      <Lock size={10} /> ภายใน
+                                    </span>
+                                  )}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  {m.date ? `ประชุมวันที่ ${thDate(m.date)}` : `ปี ${m.year}`} · {mItems.length} มติ
+                                  {m.docUrl && <> · <DocLink href={m.docUrl} /></>}
+                                </p>
+                              </div>
+                              {mItems.length > 0 && (
+                                <div className="flex w-full items-center gap-2 sm:w-48">
+                                  <ProgressBar activePct={s.activePct} completedPct={s.completedPct} className="flex-1" />
+                                  <span className="w-9 text-right text-xs tabular-nums text-slate-600">{s.activePct}%</span>
+                                </div>
+                              )}
+                            </div>
+                            {mItems.map((item) => (
+                              <ItemRow key={item.id} item={item} agencyNames={agencyNames} now={now} showSource={false} />
+                            ))}
                           </div>
-                        )}
-                      </div>
-                      {list.map((item) => (
-                        <ItemRow key={item.id} item={item} agencyNames={agencyNames} now={now} showSource={false} />
-                      ))}
-                    </div>
-                  </li>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                );
+                if (meetingYears.length === 1) return <div key={year}>{timeline}</div>;
+                return yi === 0 ? (
+                  <div key={year} className="space-y-2">
+                    <p className="text-sm font-bold text-slate-700">ปี {year} · {list.length} ครั้ง</p>
+                    {timeline}
+                  </div>
+                ) : (
+                  <details key={year} className="group/src rounded-2xl border border-slate-100 bg-white">
+                    <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+                      <span className="flex-1">ปี {year} · {list.length} ครั้ง</span>
+                      <DetailsHint group="src" label="ดูการประชุมปีนี้" />
+                    </summary>
+                    <div className="px-2 pb-4 pt-1 sm:px-4">{timeline}</div>
+                  </details>
                 );
               })}
-            </ol>
+            </div>
           )}
         </section>
 

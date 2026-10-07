@@ -7,6 +7,7 @@ import { FESTIVAL_TYPE_LABELS, festIcon, festTheme, cn } from "@/lib/utils";
 import { KIND_META, SECRETARY_SOURCE_TYPES, SOURCE_KINDS, sourceKind, type SourceKind } from "@/lib/tracking";
 import { Plus, Pencil, Trash2, Loader2, X, Check, Lock, Globe, ExternalLink } from "lucide-react";
 import type { SecretaryScope } from "../AdminPanel";
+import { YearFilter, effectiveYear, yearsOf, type YearValue } from "../YearFilter";
 
 // "ที่มา" ของเรื่องที่ติดตาม: เทศกาล / การประชุม / โครงการเฉพาะ / มติ ครม.
 interface Source {
@@ -70,6 +71,7 @@ export function FestivalManager({ secretaryOf = null }: { secretaryOf?: Secretar
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState("");
   const [kindFilter, setKindFilter] = useState<SourceKind | "ALL">("ALL");
+  const [yearFilter, setYearFilter] = useState<YearValue>("all");
 
   const [version, setVersion] = useState(0);
   const load = () => setVersion((v) => v + 1);
@@ -149,7 +151,12 @@ export function FestivalManager({ secretaryOf = null }: { secretaryOf?: Secretar
   }
 
   const kindsPresent = SOURCE_KINDS.filter((k) => sources.some((s) => sourceKind(s.type) === k));
-  const shown = kindFilter === "ALL" ? sources : sources.filter((s) => sourceKind(s.type) === kindFilter);
+  const inKind = kindFilter === "ALL" ? sources : sources.filter((s) => sourceKind(s.type) === kindFilter);
+  const years = yearsOf(inKind);
+  const year = effectiveYear(yearFilter, years);
+  const shown = year === "all" ? inKind : inKind.filter((s) => s.year === year);
+  // หัวปีคั่นรายการ เมื่อแสดงหลายปีพร้อมกัน
+  const yearStart = (i: number) => year === "all" && years.length > 1 && (i === 0 || shown[i - 1].year !== shown[i].year);
 
   return (
     <div className="space-y-4">
@@ -345,6 +352,8 @@ export function FestivalManager({ secretaryOf = null }: { secretaryOf?: Secretar
         </div>
       )}
 
+      <YearFilter years={years} value={year} onChange={setYearFilter} />
+
       {loading ? (
         <div className="flex justify-center py-8"><Loader2 className="animate-spin text-blue-600" size={24} /></div>
       ) : shown.length === 0 ? (
@@ -355,8 +364,10 @@ export function FestivalManager({ secretaryOf = null }: { secretaryOf?: Secretar
         </Card>
       ) : (
         <div className="space-y-2">
-          {shown.map((s) => (
-            <Card key={s.id}>
+          {shown.map((s, i) => (
+            <div key={s.id} className="space-y-2">
+            {yearStart(i) && <p className="pt-2 text-sm font-bold text-gray-700">ปี {s.year}</p>}
+            <Card>
               <CardContent className="py-3 flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -399,6 +410,7 @@ export function FestivalManager({ secretaryOf = null }: { secretaryOf?: Secretar
                 </div>
               </CardContent>
             </Card>
+            </div>
           ))}
         </div>
       )}
