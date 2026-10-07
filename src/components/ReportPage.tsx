@@ -92,6 +92,7 @@ export function ReportPage() {
   const [loading, setLoading] = useState(true);
   const [selectedKind, setSelectedKind] = useState<SourceKind | null>(null);
   const [selectedFestival, setSelectedFestival] = useState<string>("all");
+  const [selectedYear, setSelectedYear] = useState<number | "all">("all");
   const [selectedSC, setSelectedSC] = useState<string>("all");
   const [selectedAgency, setSelectedAgency] = useState<string>("all");
   const [keyword, setKeyword] = useState("");
@@ -117,7 +118,12 @@ export function ReportPage() {
   const autoKind = latest ? sourceKind(latest.proposal.festival.type) : kinds[0];
   const wanted = selectedKind ?? autoKind;
   const kind: SourceKind = wanted && kinds.includes(wanted) ? wanted : kinds[0] ?? "FESTIVAL";
-  const kindFestivals = data.festivals.filter(f => sourceKind(f.type) === kind);
+  const allKindFestivals = data.festivals.filter(f => sourceKind(f.type) === kind);
+  // เลือกปีก่อน แล้วค่อยเลือกครั้ง/วาระ — ที่มาหลายปีจะไม่ปนกัน
+  const years = [...new Set(allKindFestivals.map(f => f.year))].sort((a, b) => b - a);
+  const year = selectedYear !== "all" && years.includes(selectedYear) ? selectedYear : "all";
+  const kindFestivals = year === "all" ? allKindFestivals : allKindFestivals.filter(f => f.year === year);
+  const festivalSel = kindFestivals.some(f => f.id === selectedFestival) ? selectedFestival : "all";
 
   const allSubCommittees = [...new Map(
     data.proposals
@@ -132,7 +138,8 @@ export function ReportPage() {
   const kwTokens = kw.split(/\s+/).filter(Boolean);
   const proposalsRaw = data.proposals.filter(p => {
     if (sourceKind(p.festival.type) !== kind) return false;
-    if (selectedFestival !== "all" && p.festivalId !== selectedFestival) return false;
+    if (year !== "all" && p.festival.year !== year) return false;
+    if (festivalSel !== "all" && p.festivalId !== festivalSel) return false;
     if (selectedSC !== "all" && !p.subCommittees.some(s => s.subCommittee.id === selectedSC)) return false;
     if (selectedAgency !== "all" && !p.expectedAgencyIds.includes(selectedAgency)) return false;
     if (kwTokens.length > 0) {
@@ -154,8 +161,8 @@ export function ReportPage() {
 
   // When "ทั้งหมด", group by source (year desc) so ข้อ numbers from different sources don't mix
   const festivalGroups: { festival: Festival; proposals: Proposal[] }[] = (() => {
-    if (selectedFestival !== "all") {
-      const f = data.festivals.find(f => f.id === selectedFestival);
+    if (festivalSel !== "all") {
+      const f = data.festivals.find(f => f.id === festivalSel);
       return f ? [{ festival: f, proposals }] : [];
     }
     const map = new Map<string, { festival: Festival; proposals: Proposal[] }>();
@@ -165,7 +172,7 @@ export function ReportPage() {
     });
     return [...map.values()].sort((a, b) => b.festival.year - a.festival.year || a.festival.type.localeCompare(b.festival.type));
   })();
-  const multiGroup = selectedFestival === "all" && festivalGroups.length > 1;
+  const multiGroup = festivalSel === "all" && festivalGroups.length > 1;
 
   const today = new Date().toLocaleDateString("th-TH", { year: "numeric", month: "long", day: "numeric" });
 
@@ -183,15 +190,15 @@ export function ReportPage() {
   const activity = activitiesOf(proposals);
   const shownActivity = showAllActivity ? activity.slice(0, 50) : activity.slice(0, 6);
 
-  const festivalLabel = selectedFestival === "all"
-    ? (kind === "FESTIVAL" ? "ข้อเสนอเทศกาลทุกวาระ" : `${KIND_META[kind].label}ทั้งหมด`)
-    : (() => { const f = data.festivals.find(f => f.id === selectedFestival); return f ? `${sourceLabel(f)}` : ""; })();
+  const festivalLabel = festivalSel === "all"
+    ? (kind === "FESTIVAL" ? "ข้อเสนอเทศกาลทุกวาระ" : `${KIND_META[kind].label}ทั้งหมด`) + (year !== "all" ? ` ปี ${year}` : "")
+    : (() => { const f = data.festivals.find(f => f.id === festivalSel); return f ? `${sourceLabel(f)}` : ""; })();
   const scLabel = selectedSC === "all" ? "" : scShort(allSubCommittees.find(s => s.id === selectedSC)?.name ?? "");
   const agencyLabel = selectedAgency === "all" ? "" : (agencyName.get(selectedAgency) ?? "");
   const keywordLabel = kw ? `ค้นหา: "${keyword.trim()}"` : "";
   const reportLabel = [festivalLabel, scLabel, agencyLabel, keywordLabel].filter(Boolean).join(" · ");
 
-  const hasFilters = selectedFestival !== "all" || selectedSC !== "all" || selectedAgency !== "all" || kw !== "";
+  const hasFilters = year !== "all" || festivalSel !== "all" || selectedSC !== "all" || selectedAgency !== "all" || kw !== "";
   const selectCls = (active: boolean) =>
     `w-full min-w-0 px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
       active ? "bg-blue-50 text-blue-700 border-blue-300 font-medium" : "bg-white text-gray-700 border-gray-200"
@@ -218,7 +225,7 @@ export function ReportPage() {
         {kinds.length > 1 && (
           <div className="flex flex-wrap gap-1 rounded-xl bg-gray-100 p-1 w-fit max-w-full">
             {kinds.map(k => (
-              <button key={k} onClick={() => { setSelectedKind(k); setSelectedFestival("all"); setSelectedSC("all"); }}
+              <button key={k} onClick={() => { setSelectedKind(k); setSelectedYear("all"); setSelectedFestival("all"); setSelectedSC("all"); }}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${k === kind ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
                 {KIND_META[k].icon} {KIND_META[k].label}
               </button>
@@ -226,10 +233,27 @@ export function ReportPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <select value={selectedFestival} onChange={(e) => setSelectedFestival(e.target.value)} className={selectCls(selectedFestival !== "all")} aria-label="ที่มา">
-            <option value="all">{kind === "FESTIVAL" ? "ทุกวาระ" : `ทุก${KIND_META[kind].label}`}</option>
-            {kindFestivals.map(f => <option key={f.id} value={f.id}>{sourceLabel(f)}</option>)}
+        <div className={`grid grid-cols-1 gap-2 sm:grid-cols-2 ${years.length > 1 ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
+          {years.length > 1 && (
+            <select
+              value={year}
+              onChange={(e) => { setSelectedYear(e.target.value === "all" ? "all" : Number(e.target.value)); setSelectedFestival("all"); }}
+              className={selectCls(year !== "all")}
+              aria-label="ปี"
+            >
+              <option value="all">ทุกปี</option>
+              {years.map(y => <option key={y} value={y}>ปี {y}</option>)}
+            </select>
+          )}
+          <select value={festivalSel} onChange={(e) => setSelectedFestival(e.target.value)} className={selectCls(festivalSel !== "all")} aria-label="ที่มา">
+            <option value="all">
+              {kind === "FESTIVAL" ? "ทุกวาระ" : `ทุก${KIND_META[kind].label}`}{year !== "all" ? ` ปี ${year}` : ""}
+            </option>
+            {[...new Set(kindFestivals.map(f => f.year))].map(y => (
+              <optgroup key={y} label={`ปี ${y}`}>
+                {kindFestivals.filter(f => f.year === y).map(f => <option key={f.id} value={f.id}>{sourceLabel(f)}</option>)}
+              </optgroup>
+            ))}
           </select>
           <select value={selectedSC} onChange={(e) => setSelectedSC(e.target.value)} className={selectCls(selectedSC !== "all")} aria-label="อนุกรรมการ">
             <option value="all">ทุกอนุกรรมการ</option>
@@ -272,7 +296,7 @@ export function ReportPage() {
           {hasFilters && (
             <button
               type="button"
-              onClick={() => { setSelectedFestival("all"); setSelectedSC("all"); setSelectedAgency("all"); setKeyword(""); }}
+              onClick={() => { setSelectedYear("all"); setSelectedFestival("all"); setSelectedSC("all"); setSelectedAgency("all"); setKeyword(""); }}
               className="text-sm text-gray-500 underline hover:text-gray-700"
             >
               ล้างตัวกรอง

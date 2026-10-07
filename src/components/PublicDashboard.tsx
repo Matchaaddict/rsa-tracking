@@ -305,6 +305,7 @@ export function PublicDashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedKind, setSelectedKind] = useState<SourceKind>("FESTIVAL");
   const [selectedFestival, setSelectedFestival] = useState<string>("all");
+  const [selectedYear, setSelectedYear] = useState<number | "all">("all");
   const [expandedProposal, setExpandedProposal] = useState<string | null>(null);
   const [expandedAgency, setExpandedAgency] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("proposals");
@@ -381,10 +382,15 @@ export function PublicDashboard() {
   const noun = KIND_NOUN[kind];
   const kindFestivals = data.festivals.filter((f) => sourceKind(f.type) === kind);
   const kindProposals = data.proposals.filter((p) => sourceKind(p.festival.type) === kind);
-  const festivalId = kindFestivals.some((f) => f.id === selectedFestival) ? selectedFestival : "all";
+  // ที่มามีหลายปี (เช่น ประชุมทุกปี) → เลือกปีก่อน แล้วค่อยเลือกครั้ง/วาระ จะได้ไม่ปนกัน
+  const years = [...new Set(kindFestivals.map((f) => f.year))].sort((a, b) => b - a);
+  const year = selectedYear !== "all" && years.includes(selectedYear) ? selectedYear : "all";
+  const yearFestivals = year === "all" ? kindFestivals : kindFestivals.filter((f) => f.year === year);
+  const yearProposals = year === "all" ? kindProposals : kindProposals.filter((p) => p.festival.year === year);
+  const festivalId = yearFestivals.some((f) => f.id === selectedFestival) ? selectedFestival : "all";
 
   const filteredProposals =
-    festivalId === "all" ? kindProposals : kindProposals.filter((p) => p.festivalId === festivalId);
+    festivalId === "all" ? yearProposals : yearProposals.filter((p) => p.festivalId === festivalId);
 
   const overall = computeProgress(filteredProposals);
 
@@ -407,8 +413,8 @@ export function PublicDashboard() {
 
 
   // เปรียบเทียบที่มาในประเภทเดียวกัน (ล่าสุด 8 รายการ)
-  const festivalBarData = kindFestivals.slice(0, 8).map((f) => {
-    const s = computeProgress(kindProposals.filter((p) => p.festivalId === f.id));
+  const festivalBarData = yearFestivals.slice(0, 8).map((f) => {
+    const s = computeProgress(yearProposals.filter((p) => p.festivalId === f.id));
     return {
       name: `${sourceLabel(f)}`,
       completed: s.completed,
@@ -416,11 +422,15 @@ export function PublicDashboard() {
       notStarted: s.notStarted,
     };
   });
-  const showCompare = festivalId === "all" && kindFestivals.length > 1;
+  const showCompare = festivalId === "all" && yearFestivals.length > 1;
 
-  const latestUpdate = filteredProposals
-    .flatMap((p) => p.implementations.map((i) => i.updatedAt))
-    .sort()
+  // วันที่มีความเคลื่อนไหวล่าสุดของทั้งระบบ — รวมรายงานหน่วยงานและบันทึกจากฝ่ายเลขาฯ ทุกประเภทที่มา
+  const latestUpdate = data.proposals
+    .flatMap((p) => [
+      ...p.implementations.map((i) => i.updatedAt),
+      ...(p.notes ?? []).map((n) => String(n.createdAt)),
+    ])
+    .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
     .at(-1);
 
   const ringR = 52;
@@ -503,7 +513,7 @@ export function PublicDashboard() {
                 return (
                   <button
                     key={k}
-                    onClick={() => { setSelectedKind(k); setSelectedFestival("all"); setSelectedSC(null); setPage(0); }}
+                    onClick={() => { setSelectedKind(k); setSelectedYear("all"); setSelectedFestival("all"); setSelectedSC(null); setPage(0); }}
                     className={cn(
                       "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-3.5 py-1.5 text-[13px] font-semibold transition-all sm:gap-2 sm:px-4 sm:py-2 sm:text-sm",
                       active
@@ -521,18 +531,43 @@ export function PublicDashboard() {
           </div>
         )}
 
+        {years.length > 1 && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span className="text-sm text-slate-500">ปี:</span>
+            <div className="no-scrollbar -mx-3 flex min-w-0 basis-full gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:basis-0 sm:flex-1 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+              {(["all", ...years] as const).map((y) => {
+                const active = year === y;
+                const pct = computeProgress(y === "all" ? kindProposals : kindProposals.filter((p) => p.festival.year === y)).activePct;
+                return (
+                  <button
+                    key={y}
+                    onClick={() => { setSelectedYear(y); setSelectedFestival("all"); setSelectedSC(null); setPage(0); }}
+                    className={cn(
+                      "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1 text-[13px] font-semibold transition-all sm:text-sm",
+                      active ? "border-slate-700 bg-slate-700 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"
+                    )}
+                  >
+                    {y === "all" ? "ทุกปี" : `ปี ${y}`}
+                    <span className={cn("text-xs font-medium", active ? "text-slate-300" : "text-slate-400")}>{pct}%</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <span className="text-sm text-slate-500">{kind === "FESTIVAL" ? "วาระ:" : "ที่มา:"}</span>
-          {kindFestivals.length <= 6 ? (
+          {yearFestivals.length <= 6 ? (
             <div className="no-scrollbar -mx-3 flex min-w-0 basis-full gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:basis-0 sm:flex-1 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
-              {[{ id: "all", label: `ทุก${kind === "FESTIVAL" ? "วาระ" : KIND_META[kind].label}`, icon: "✅", type: "" }, ...kindFestivals.map((f) => ({
+              {[{ id: "all", label: `ทุก${kind === "FESTIVAL" ? "วาระ" : KIND_META[kind].label}`, icon: "✅", type: "" }, ...yearFestivals.map((f) => ({
                 id: f.id,
                 label: sourceLabel(f),
                 icon: festIcon(f.type),
                 type: f.type,
               }))].map((f) => {
                 const pct = computeProgress(
-                  f.id === "all" ? kindProposals : kindProposals.filter((p) => p.festivalId === f.id)
+                  f.id === "all" ? yearProposals : yearProposals.filter((p) => p.festivalId === f.id)
                 ).activePct;
                 const active = festivalId === f.id;
                 return (
@@ -561,11 +596,17 @@ export function PublicDashboard() {
                 onChange={(e) => { setSelectedFestival(e.target.value); setSelectedSC(null); setPage(0); }}
                 className="w-full appearance-none rounded-full border border-slate-200 bg-white py-2 pl-4 pr-9 text-sm font-semibold text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 sm:w-auto sm:min-w-[18rem]"
               >
-                <option value="all">ทุก{KIND_META[kind].label} ({computeProgress(kindProposals).activePct}%)</option>
-                {kindFestivals.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {sourceLabel(f)} ({computeProgress(kindProposals.filter((p) => p.festivalId === f.id)).activePct}%)
-                  </option>
+                <option value="all">
+                  ทุก{KIND_META[kind].label}{year !== "all" ? ` ปี ${year}` : ""} ({computeProgress(yearProposals).activePct}%)
+                </option>
+                {[...new Set(yearFestivals.map((f) => f.year))].map((y) => (
+                  <optgroup key={y} label={`ปี ${y}`}>
+                    {yearFestivals.filter((f) => f.year === y).map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {sourceLabel(f)} ({computeProgress(yearProposals.filter((p) => p.festivalId === f.id)).activePct}%)
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
               <ChevronDown size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -846,8 +887,12 @@ export function PublicDashboard() {
               <div className="relative">
                 <select value={festivalId} onChange={(e) => { setSelectedFestival(e.target.value); setSelectedSC(null); setPage(0); }} className={cn(selectCls, "w-full")}>
                   <option value="all">ทุก{kind === "FESTIVAL" ? "วาระ" : "ที่มา"}</option>
-                  {kindFestivals.map((f) => (
-                    <option key={f.id} value={f.id}>{sourceLabel(f)}</option>
+                  {[...new Set(yearFestivals.map((f) => f.year))].map((y) => (
+                    <optgroup key={y} label={`ปี ${y}`}>
+                      {yearFestivals.filter((f) => f.year === y).map((f) => (
+                        <option key={f.id} value={f.id}>{sourceLabel(f)}</option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
                 <ChevronDown size={15} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
