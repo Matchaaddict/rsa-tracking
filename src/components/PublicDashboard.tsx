@@ -472,10 +472,18 @@ export function PublicDashboard() {
 
   // เลือกที่มาเดียว: แท่งแนวนอนแทนกราฟแท่งตั้ง (ข้อเสนอ 60 ข้อ ป้ายชนกันอ่านไม่ออก)
   //  - มีหลายอนุฯ → แถวละอนุฯ (ไม่เกิน 8 แถว)
-  //  - อนุฯ เดียว (เช่น ประชุมของอนุฯ หนึ่ง) → หน่วยงานที่ยังค้างมากที่สุด 8 อันดับ
-  //    (รายเรื่องดูได้ในตารางข้างล่างอยู่แล้ว — กราฟนี้ตอบว่า "ใครต้องตามต่อ")
+  //  - อนุฯ เดียว (เช่น ประชุมของอนุฯ หนึ่ง) → จำนวนเรื่องตามระดับความคืบหน้า
+  //    รายเรื่องดูได้ในตารางข้างล่างอยู่แล้ว และไม่จัดอันดับหน่วยงานบนหน้าสาธารณะ
   const rowsBySC = scList.length >= 2;
-  const LAGGARD_LIMIT = 8;
+  const itemPcts = filteredProposals.map((p) => computeProgress([p]).activePct);
+  const levelBins = [
+    { key: "none", name: "ยังไม่เริ่ม", count: itemPcts.filter((v) => v === 0).length, color: "#cbd5e1" },
+    { key: "low", name: "1–49%", count: itemPcts.filter((v) => v > 0 && v < 50).length, color: "#fcd34d" },
+    { key: "mid", name: "50–99%", count: itemPcts.filter((v) => v >= 50 && v < 100).length, color: C_PROG },
+    { key: "full", name: "100%", count: itemPcts.filter((v) => v === 100).length, color: C_DONE },
+  ];
+  const itemsDone = filteredProposals.filter((p) => proposalStatus(p) === "COMPLETED").length;
+  const itemsOverdue = filteredProposals.filter((p) => isOverdue(p, now)).length;
   const progressRows = rowsBySC
     ? scList.map((sc) => {
         const list = filteredProposals.filter((p) => p.subCommittees.some((x) => x.subCommittee.id === sc.id));
@@ -486,23 +494,12 @@ export function PublicDashboard() {
           s: computeProgress(list),
         };
       })
-    : data.agencies
-        .map((a) => {
-          const mine = filteredProposals
-            .filter((p) => p.expectedAgencyIds.includes(a.id))
-            .map((p) => ({ expectedAgencyIds: [a.id], implementations: p.implementations.filter((i) => i.agencyId === a.id) }));
-          const s = computeProgress(mine);
-          return { id: a.id, label: a.name, sub: `ค้าง ${s.notStarted + s.inProgress} จาก ${s.total}`, s };
-        })
-        .filter((r) => r.s.total > 0)
-        .sort(
-          (x, y) =>
-            y.s.notStarted - x.s.notStarted ||
-            y.s.notStarted + y.s.inProgress - (x.s.notStarted + x.s.inProgress) ||
-            x.label.localeCompare(y.label, "th")
-        );
-  const agencyRowsTotal = rowsBySC ? 0 : progressRows.length;
-  const shownProgressRows = rowsBySC ? progressRows : progressRows.slice(0, LAGGARD_LIMIT);
+    : filteredProposals.map((p) => ({
+        id: p.id,
+        label: p.title,
+        sub: `ข้อ ${p.orderNumber}`,
+        s: computeProgress([p]),
+      }));
   const agencyList = data.agencies.filter((a) => involvedAgencyIds.has(a.id));
 
   const selectCls =
@@ -724,17 +721,17 @@ export function PublicDashboard() {
               <p className="font-bold text-slate-800">
                 {showCompare
                   ? kind === "FESTIVAL" ? "เปรียบเทียบรายวาระ" : `เปรียบเทียบราย${KIND_META[kind].label}`
-                  : rowsBySC ? "ความคืบหน้ารายอนุกรรมการ" : "หน่วยงานที่ยังค้างมากที่สุด"}
+                  : rowsBySC ? "ความคืบหน้ารายอนุกรรมการ" : `${noun}ตามระดับความคืบหน้า`}
               </p>
               <p className="text-xs text-slate-500">
                 {showCompare
                   ? "จำนวนหน่วยงานต่อสถานะในแต่ละที่มา"
                   : rowsBySC
                     ? "% หน่วยงานที่ดำเนินการแล้ว (เสร็จ + กำลังทำ)"
-                    : `นับจากทุก${noun}ที่แสดง · เรียงจากยังไม่ดำเนินการมากไปน้อย`}
+                    : `จำนวน${noun} แบ่งตาม % หน่วยงานที่ดำเนินการแล้ว (เสร็จ + กำลังทำ)`}
               </p>
             </div>
-            <div className="flex flex-wrap gap-3 text-[11px] text-slate-500">
+            <div className={cn("flex flex-wrap gap-3 text-[11px] text-slate-500", !showCompare && !rowsBySC && "hidden")}>
               {pieData.map((d) => (
                 <span key={d.key} className="flex items-center gap-1.5">
                   <span
@@ -764,11 +761,45 @@ export function PublicDashboard() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          ) : shownProgressRows.length === 0 ? (
+          ) : !rowsBySC ? (
+            filteredProposals.length === 0 ? (
+              <p className="mt-6 text-center text-sm text-slate-400">ยังไม่มี{noun}</p>
+            ) : (
+              <>
+                <div className="mt-3 h-44">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={levelBins} margin={{ top: 16, right: 4, left: -20, bottom: 0 }} barCategoryGap="25%">
+                      <CartesianGrid vertical={false} stroke="#eef2f7" />
+                      <XAxis dataKey="name" interval={0} tick={{ fontSize: 12, fill: "#334155" }} axisLine={{ stroke: "#cbd5e1" }} tickLine={false} />
+                      <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                      <Tooltip
+                        contentStyle={tooltipStyle}
+                        cursor={{ fill: "rgba(15,23,42,0.04)" }}
+                        formatter={(value) => [`${value} ${noun}`, "จำนวน"]}
+                      />
+                      <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={56} label={{ position: "top", fontSize: 12, fill: "#334155" }}>
+                        {levelBins.map((b) => (
+                          <Cell key={b.key} fill={b.color} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">
+                    เสร็จสมบูรณ์ {itemsDone} จาก {filteredProposals.length} {noun}
+                  </span>
+                  {itemsOverdue > 0 && (
+                    <span className="rounded-full bg-red-50 px-2.5 py-1 font-medium text-red-600">เลยกำหนด {itemsOverdue} {noun}</span>
+                  )}
+                </div>
+              </>
+            )
+          ) : progressRows.length === 0 ? (
             <p className="mt-6 text-center text-sm text-slate-400">ยังไม่มี{noun}</p>
           ) : (
             <ul className="-mx-2 mt-3 max-h-[17rem] space-y-0.5 overflow-y-auto pr-1">
-              {shownProgressRows.map((r) => {
+              {progressRows.map((r) => {
                 const w = (n: number) => (r.s.total > 0 ? (n / r.s.total) * 100 : 0);
                 return (
                   <li
@@ -778,17 +809,12 @@ export function PublicDashboard() {
                   >
                     <div className="flex items-baseline justify-between gap-3">
                       <p className="min-w-0 line-clamp-2 text-[13px] leading-snug text-slate-700">
+                        {!rowsBySC && <span className="mr-1.5 text-xs text-slate-400">{r.sub}</span>}
                         {r.label}
                       </p>
                       <p className="shrink-0 text-xs tabular-nums text-slate-500">
-                        {rowsBySC ? (
-                          <>
-                            <span className="font-semibold text-slate-700">{r.s.activePct}%</span>
-                            <span className="ml-1.5 hidden sm:inline">{r.s.active}/{r.s.total}</span>
-                          </>
-                        ) : (
-                          <span className={r.s.notStarted > 0 ? "font-semibold text-red-600" : "text-slate-600"}>{r.sub}</span>
-                        )}
+                        <span className="font-semibold text-slate-700">{r.s.activePct}%</span>
+                        <span className="ml-1.5 hidden sm:inline">{r.s.active}/{r.s.total}</span>
                       </p>
                     </div>
                     {/* แท่ง 100%: เสร็จ | กำลังทำ | ยังไม่ทำ — เว้นช่อง 2px ระหว่างส่วน */}
@@ -807,18 +833,6 @@ export function PublicDashboard() {
                 );
               })}
             </ul>
-          )}
-          {!showCompare && !rowsBySC && agencyRowsTotal > LAGGARD_LIMIT && (
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("agencies");
-                requestAnimationFrame(() => tabsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
-              }}
-              className="mt-2 text-xs font-semibold text-blue-600 hover:underline"
-            >
-              ดูครบทั้ง {agencyRowsTotal} หน่วยงาน →
-            </button>
           )}
         </Panel>
 
