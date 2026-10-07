@@ -43,6 +43,7 @@ import {
   Download,
   Landmark,
   UsersRound,
+  Activity,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -501,6 +502,19 @@ export function PublicDashboard() {
         s: computeProgress([p]),
       }));
   const agencyList = data.agencies.filter((a) => involvedAgencyIds.has(a.id));
+  // ตัวเลขสรุปในกล่องความคืบหน้ารวม — เป็นภาพรวม ไม่ระบุชื่อหน่วยงาน
+  const reportedAgencyCount = new Set(
+    filteredProposals.flatMap((p) => p.implementations.filter((i) => i.status !== "NOT_STARTED").map((i) => i.agencyId))
+  ).size;
+  const recentReports = filteredProposals
+    .flatMap((p) => p.implementations)
+    .filter((i) => i.status !== "NOT_STARTED" && new Date(i.updatedAt).getTime() >= monthAgo).length;
+  const summaryTiles = [
+    { icon: Landmark, value: scList.length, label: "อนุกรรมการ" },
+    { icon: UsersRound, value: agencyList.length, label: "หน่วยงานที่เกี่ยวข้อง" },
+    { icon: CheckCircle2, value: reportedAgencyCount, label: "หน่วยงานที่รายงานแล้ว" },
+    { icon: Activity, value: recentReports, label: "รายงานใน 30 วันล่าสุด" },
+  ];
 
   const selectCls =
     "appearance-none rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-8 text-sm text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400";
@@ -838,7 +852,8 @@ export function PublicDashboard() {
 
         <Panel className="relative overflow-hidden lg:col-span-2 2xl:col-span-1">
           <p className="font-bold text-slate-800">ความคืบหน้ารวม</p>
-          <div className="flex flex-col items-center sm:flex-row sm:justify-around 2xl:flex-col">
+          {/* จอกว้าง (กล่องยาวเต็มแถว) วางวง + ตัวเลขเรียงแนวนอน ไม่ให้เหลือที่ว่าง; จอ 2xl กล่องแคบ วางแนวตั้ง */}
+          <div className="mt-2 flex flex-col items-center gap-4 sm:flex-row sm:gap-6 2xl:flex-col 2xl:gap-3">
             <svg width={150} height={150} viewBox="0 0 130 130" className="shrink-0">
               <circle cx={65} cy={65} r={ringR} fill="none" stroke="#eef2f7" strokeWidth={10} />
               <circle cx={65} cy={65} r={ringR} fill="none" stroke={C_PROG} strokeWidth={10}
@@ -852,26 +867,23 @@ export function PublicDashboard() {
                 เสร็จ {overall.completedPct}%
               </text>
             </svg>
-            <div className="text-center">
-              <p className="font-semibold text-slate-800">มีการดำเนินการแล้ว</p>
-              <p className="text-xs text-slate-500">
-                {overall.active.toLocaleString()} จากทั้งหมด {overall.total.toLocaleString()} รายการ
-              </p>
-            </div>
-          </div>
-          <div className="mt-4 grid grid-cols-2 divide-x divide-slate-100 border-t border-slate-100 pt-3">
-            <div className="flex items-center justify-center gap-2">
-              <Landmark size={22} className="text-blue-600" />
-              <div className="leading-tight">
-                <p className="text-lg font-bold text-slate-800">{scList.length}</p>
-                <p className="text-[11px] text-slate-500">อนุกรรมการ</p>
+            <div className="w-full min-w-0 flex-1 space-y-3">
+              <div className="text-center sm:text-left 2xl:text-center">
+                <p className="font-semibold text-slate-800">มีการดำเนินการแล้ว</p>
+                <p className="text-xs text-slate-500">
+                  {overall.active.toLocaleString()} จากทั้งหมด {overall.total.toLocaleString()} รายการ (หน่วยงาน × {noun})
+                </p>
               </div>
-            </div>
-            <div className="flex items-center justify-center gap-2">
-              <UsersRound size={22} className="text-blue-600" />
-              <div className="leading-tight">
-                <p className="text-lg font-bold text-slate-800">{agencyList.length}</p>
-                <p className="text-[11px] text-slate-500">หน่วยงานที่เกี่ยวข้อง</p>
+              <div className="grid grid-cols-2 gap-2 lg:grid-cols-4 2xl:grid-cols-2">
+                {summaryTiles.map(({ icon: Icon, value, label }) => (
+                  <div key={label} className="flex items-center gap-2.5 rounded-xl bg-slate-50 px-3 py-2.5">
+                    <Icon size={20} className="shrink-0 text-blue-600" />
+                    <div className="min-w-0 leading-tight">
+                      <p className="text-lg font-bold tabular-nums text-slate-800">{value.toLocaleString()}</p>
+                      <p className="text-[11px] text-slate-500">{label}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
