@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { agencyProposalWhere } from "@/lib/tracking";
+import { agencyProposalWhere, ITEM_ORDER_BY } from "@/lib/tracking";
 
 async function requireAgency() {
   const session = await auth();
@@ -29,7 +29,7 @@ export async function GET() {
 
   const proposals = await prisma.proposal.findMany({
     where: agencyProposalWhere(agencyId, subCommitteeIds),
-    orderBy: [{ festival: { year: "desc" } }, { orderNumber: "asc" }],
+    orderBy: ITEM_ORDER_BY,
     include: {
       festival: true,
       subCommittees: { include: { subCommittee: true } },

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ITEM_ORDER_BY } from "@/lib/tracking";
 import {
   csvEscape,
   buildDetailCsv,
@@ -66,7 +67,7 @@ export async function GET(req: NextRequest) {
   } else if (type === "pending") {
     const [proposals, agencies] = await Promise.all([
       prisma.proposal.findMany({
-        orderBy: [{ festival: { year: "desc" } }, { orderNumber: "asc" }],
+        orderBy: ITEM_ORDER_BY,
         include: {
           festival: true,
           subCommittees: { include: { subCommittee: true } },
@@ -82,7 +83,7 @@ export async function GET(req: NextRequest) {
     csv = buildPendingCsv(proposals, agencies);
   } else if (type === "history") {
     const proposals = await prisma.proposal.findMany({
-      orderBy: [{ festival: { year: "desc" } }, { orderNumber: "asc" }],
+      orderBy: ITEM_ORDER_BY,
       include: {
         festival: true,
         notes: { select: { content: true, sourceUrl: true, authorLabel: true, createdAt: true } },
@@ -97,7 +98,7 @@ export async function GET(req: NextRequest) {
     csv = buildHistoryCsv(proposals);
   } else {
     const proposals = await prisma.proposal.findMany({
-      orderBy: [{ festival: { year: "desc" } }, { orderNumber: "asc" }],
+      orderBy: ITEM_ORDER_BY,
       include: {
         festival: true,
         notes: { select: { content: true, sourceUrl: true, authorLabel: true, createdAt: true } },

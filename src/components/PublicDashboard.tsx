@@ -456,6 +456,11 @@ export function PublicDashboard() {
   const pageCount = Math.max(1, Math.ceil(tableRows.length / PAGE_SIZE));
   const curPage = Math.min(page, pageCount - 1);
   const pageRows = tableRows.slice(curPage * PAGE_SIZE, (curPage + 1) * PAGE_SIZE);
+  // ดูหลายที่มาพร้อมกัน → คั่นหัวกลุ่มทุกครั้งที่เปลี่ยนที่มา (ข้อ 1 ของต่างวาระจะไม่ปนกัน)
+  const countBySource = new Map<string, number>();
+  tableRows.forEach((p) => countBySource.set(p.festivalId, (countBySource.get(p.festivalId) ?? 0) + 1));
+  const showGroups = countBySource.size > 1;
+  const groupStart = (idx: number) => showGroups && (idx === 0 || pageRows[idx - 1].festivalId !== pageRows[idx].festivalId);
   const agencyName = new Map(data.agencies.map((a) => [a.id, a.name]));
 
   // แสดงเฉพาะอนุฯ/หน่วยงานที่เกี่ยวข้องกับเรื่องที่กรองอยู่ — เช่น เลือกประชุมอนุฯ 1 ก็ไม่ควรเห็นอนุฯ อื่นที่ 0/0
@@ -942,7 +947,14 @@ export function PublicDashboard() {
               const open = expandedProposal === p.id;
               const updated = p.implementations.map((i) => i.updatedAt).sort().at(-1);
               return (
-                <li key={p.id} className={cn(open && "bg-blue-50/40")}>
+                <Fragment key={p.id}>
+                {groupStart(idx) && (
+                  <li className={cn("px-4 py-2 text-sm font-semibold", festTheme(p.festival.type).pill)}>
+                    {festIcon(p.festival.type)} {sourceLabel(p.festival)}
+                    <span className="ml-2 text-xs font-normal opacity-80">{countBySource.get(p.festivalId)} {noun}</span>
+                  </li>
+                )}
+                <li className={cn(open && "bg-blue-50/40")}>
                   <button
                     onClick={() => setExpandedProposal(open ? null : p.id)}
                     className="w-full px-4 py-3.5 text-left"
@@ -1004,6 +1016,7 @@ export function PublicDashboard() {
                     </div>
                   )}
                 </li>
+                </Fragment>
               );
             })}
           </ul>
@@ -1040,6 +1053,14 @@ export function PublicDashboard() {
                   const firstAgency = p.expectedAgencyIds.map((id) => agencyName.get(id)).find(Boolean);
                   return (
                     <Fragment key={p.id}>
+                      {groupStart(idx) && (
+                        <tr>
+                          <td colSpan={8} className={cn("px-4 py-2 text-sm font-semibold", theme.pill)}>
+                            {festIcon(p.festival.type)} {sourceLabel(p.festival)}
+                            <span className="ml-2 text-xs font-normal opacity-80">{countBySource.get(p.festivalId)} {noun}</span>
+                          </td>
+                        </tr>
+                      )}
                       <tr
                         className={cn("cursor-pointer transition-colors hover:bg-blue-50/40", open && "bg-blue-50/40")}
                         onClick={() => setExpandedProposal(open ? null : p.id)}

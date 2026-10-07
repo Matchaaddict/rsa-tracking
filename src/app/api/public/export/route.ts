@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { KIND_META, type SourceKind } from "@/lib/tracking";
+import { KIND_META, type SourceKind, ITEM_ORDER_BY } from "@/lib/tracking";
 import {
   buildDetailCsv,
   buildSummaryCsv,
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
     const [proposals, agencies] = await Promise.all([
       prisma.proposal.findMany({
         where: proposalWhere,
-        orderBy: [{ festival: { year: "desc" } }, { orderNumber: "asc" }],
+        orderBy: ITEM_ORDER_BY,
         include: {
           festival: true,
           subCommittees: { include: { subCommittee: true } },
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
   } else if (type === "history") {
     const proposals = await prisma.proposal.findMany({
       where: proposalWhere,
-      orderBy: [{ festival: { year: "desc" } }, { orderNumber: "asc" }],
+      orderBy: ITEM_ORDER_BY,
       include: {
         festival: true,
         notes: { select: { content: true, sourceUrl: true, authorLabel: true, createdAt: true } },
@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
   } else {
     const proposals = await prisma.proposal.findMany({
       where: proposalWhere,
-      orderBy: [{ festival: { year: "desc" } }, { orderNumber: "asc" }],
+      orderBy: ITEM_ORDER_BY,
       include: {
         festival: true,
         notes: { select: { content: true, sourceUrl: true, authorLabel: true, createdAt: true } },
