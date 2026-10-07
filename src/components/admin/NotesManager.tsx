@@ -94,6 +94,11 @@ export function NotesManager({ adminId, isSuperAdmin }: { adminId: string; isSup
     if (q && !it.title.toLowerCase().includes(q) && !sourceLabel(it.festival).toLowerCase().includes(q)) return false;
     return true;
   });
+  // เรียงตามที่มา (ปีล่าสุดก่อน) แล้วตามเลขข้อ — ข้อ 1 ของต่างวาระไม่ปนกัน
+  const sourceRank = new Map(sources.map((s, i) => [s.id, i]));
+  filtered.sort(
+    (a, b) => (sourceRank.get(a.festivalId) ?? 999) - (sourceRank.get(b.festivalId) ?? 999) || a.orderNumber - b.orderNumber
+  );
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const cur = Math.min(page, pageCount - 1);
   const rows = filtered.slice(cur * PAGE_SIZE, (cur + 1) * PAGE_SIZE);
