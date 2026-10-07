@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getStaff } from "@/lib/staff";
 import { parseProposalInput } from "@/lib/proposalInput";
+import { ITEM_ORDER_BY } from "@/lib/tracking";
 
 export async function GET() {
   const staff = await getStaff();
@@ -19,7 +20,7 @@ export async function GET() {
             ],
           }
         : {},
-    orderBy: [{ festival: { year: "desc" } }, { orderNumber: "asc" }],
+    orderBy: ITEM_ORDER_BY,
     include: {
       festival: true,
       subCommittees: { include: { subCommittee: true } },

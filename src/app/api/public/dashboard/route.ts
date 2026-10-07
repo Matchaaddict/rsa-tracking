@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { expectedAgencyIdsFor } from "@/lib/tracking";
+import { expectedAgencyIdsFor, ITEM_ORDER_BY } from "@/lib/tracking";
 import { getSiteImageUrls } from "@/lib/siteImages";
 
 export async function GET(req: NextRequest) {
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
     }),
     prisma.proposal.findMany({
       where: { festival: { isPublic: true } },
-      orderBy: [{ festival: { year: "desc" } }, { orderNumber: "asc" }],
+      orderBy: ITEM_ORDER_BY,
       include: {
         festival: true,
         subCommittees: { include: { subCommittee: true } },

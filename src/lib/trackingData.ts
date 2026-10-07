@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getStaff } from "@/lib/staff";
-import { expectedAgencyIdsFor } from "@/lib/tracking";
+import { expectedAgencyIdsFor, ITEM_ORDER_BY } from "@/lib/tracking";
 
 // ---- ใครกำลังดู: กำหนดว่าเห็นเรื่องภายในหรือไม่ ----
 //  - แอดมิน: เห็นทุกที่มา
@@ -31,7 +31,7 @@ export async function loadItems(where: Record<string, unknown>, viewer: Viewer) 
   const [rows, agencies] = await Promise.all([
     prisma.proposal.findMany({
       where: { AND: [where, { festival: visibleSourceWhere(viewer) }] },
-      orderBy: [{ festival: { year: "desc" } }, { orderNumber: "asc" }],
+      orderBy: ITEM_ORDER_BY,
       include: {
         festival: true,
         subCommittees: { include: { subCommittee: { select: { id: true, name: true } } } },

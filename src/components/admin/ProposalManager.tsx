@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -111,6 +111,8 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
   const [hintError, setHintError] = useState("");
   // เลขาฯ แก้/ลบได้เฉพาะเรื่องใต้ที่มาของอนุฯ ตัวเอง (เรื่องเทศกาลที่ผูกกับอนุฯ หยอดความคืบหน้าได้อย่างเดียว)
   const canManage = (p: Proposal) => !secretaryOf || p.festival.subCommitteeId === secretaryOf.id;
+  const canAddTo = (s: Source) => !secretaryOf || s.subCommitteeId === secretaryOf.id;
+  const formRef = useRef<HTMLDivElement>(null);
 
   const [version, setVersion] = useState(0);
   const load = () => setVersion((v) => v + 1);
@@ -196,12 +198,14 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
     load();
   }
 
-  function startCreate() {
-    const fid = filterSource !== "all" ? filterSource : sources[0]?.id ?? "";
+  // sourceId: กดจากหัวกลุ่มที่มา → ตั้งที่มาและเลขข้อถัดไปให้เลย
+  function startCreate(sourceId?: string) {
+    const fid = sourceId ?? (filterSource !== "all" ? filterSource : sources[0]?.id ?? "");
     setForm({ ...emptyForm(fid, fid ? nextOrder(fid) : 1), subCommitteeIds: scForSource(fid, []) });
     setEditId(null);
     setAgencyQuery("");
     setShowForm(true);
+    requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
   function startEdit(p: Proposal) {
@@ -219,6 +223,7 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
     setEditId(p.id);
     setAgencyQuery("");
     setShowForm(true);
+    requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
   function toggleIn(list: string[], id: string) {
@@ -260,6 +265,13 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
       ? p.festivalId === filterSource
       : kindFilter === "ALL" || sourceKind(p.festival.type) === kindFilter
   );
+  // จัดกลุ่มตามที่มา (ปีล่าสุดก่อน) แล้วเรียงตามเลขข้อในกลุ่ม — ข้อ 1 ของต่างวาระจะไม่ปนกัน
+  const groups = sources
+    .map((source) => ({
+      source,
+      list: filtered.filter((p) => p.festivalId === source.id).sort((a, b) => a.orderNumber - b.orderNumber),
+    }))
+    .filter((g) => g.list.length > 0);
 
   // ในฟอร์ม: หน่วยงานในอนุฯ ที่เลือกขึ้นก่อน เพื่อหาเจอง่าย
   const formScIds = secretaryOf ? [secretaryOf.id] : form.subCommitteeIds;
@@ -282,7 +294,7 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
             ข้อเสนอจากเทศกาล มติจากที่ประชุม หรือภารกิจของโครงการเฉพาะ — หน่วยงานรายงานความคืบหน้ารายเรื่อง
           </p>
         </div>
-        <Button size="sm" onClick={startCreate} disabled={sources.length === 0}>
+        <Button size="sm" onClick={() => startCreate()} disabled={sources.length === 0}>
           <Plus size={16} /> เพิ่มเรื่อง
         </Button>
       </div>
@@ -296,6 +308,7 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
       )}
 
       {showForm && (
+        <div ref={formRef} className="scroll-mt-4">
         <Card>
           <CardContent className="pt-4">
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -526,6 +539,7 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
             </form>
           </CardContent>
         </Card>
+        </div>
       )}
 
       {/* ตัวกรอง: ประเภท → ที่มา */}
@@ -564,8 +578,26 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
       ) : filtered.length === 0 ? (
         sources.length > 0 && <Card><CardContent className="py-10 text-center text-gray-400">ยังไม่มีเรื่องที่ติดตาม</CardContent></Card>
       ) : (
-        <div className="space-y-3">
-          {filtered.map((proposal) => {
+        <div className="space-y-6">
+          {groups.map(({ source, list }) => (
+          <section key={source.id} className="space-y-2">
+            <div className={cn("flex flex-wrap items-center gap-2 rounded-xl px-4 py-2.5", festTheme(source.type).pill)}>
+              <p className="min-w-0 flex-1 font-semibold">
+                {festIcon(source.type)} {sourceLabel(source)}
+                {!source.isPublic && <Lock size={12} className="ml-1.5 inline align-[-1px] opacity-70" aria-label="ภายใน" />}
+                <span className="ml-2 text-xs font-normal opacity-80">ปี {source.year} · {list.length} เรื่อง</span>
+              </p>
+              {canAddTo(source) && (
+                <button
+                  type="button"
+                  onClick={() => startCreate(source.id)}
+                  className="inline-flex items-center gap-1 rounded-lg bg-white/80 px-2.5 py-1 text-xs font-semibold text-gray-700 shadow-sm hover:bg-white"
+                >
+                  <Plus size={13} /> เพิ่มเรื่องในที่มานี้
+                </button>
+              )}
+            </div>
+          {list.map((proposal) => {
             const related = responsibleAgencies(proposal);
             const isExpanded = expandedId === proposal.id;
             const overdue =
@@ -579,13 +611,7 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                        <span className="text-xs text-gray-400">ข้อ {proposal.orderNumber}</span>
-                        <Badge variant={festTheme(proposal.festival.type).badgeVariant}>
-                          {festIcon(proposal.festival.type)} {sourceLabel(proposal.festival)}
-                        </Badge>
-                        {!proposal.festival.isPublic && (
-                          <Badge variant="gray"><Lock size={10} className="mr-1" />ภายใน</Badge>
-                        )}
+                        <span className="rounded-md bg-gray-800 px-2 py-0.5 text-xs font-semibold text-white">ข้อ {proposal.orderNumber}</span>
                         {proposal.subCommittees.map((sc) => (
                           <Badge key={sc.subCommittee.id} variant="gray">{scShort(sc.subCommittee.name)}</Badge>
                         ))}
@@ -714,6 +740,8 @@ export function ProposalManager({ secretaryOf = null }: { secretaryOf?: Secretar
               </Card>
             );
           })}
+          </section>
+          ))}
         </div>
       )}
     </div>

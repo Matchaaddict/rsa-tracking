@@ -121,3 +121,13 @@ export function isOverdue(p: ProgressItem & { dueDate: string | Date | null }, n
 export function currentTime() {
   return Date.now();
 }
+
+// ลำดับเรื่องที่ติดตามที่ใช้ทุกหน้า: ตามที่มา (ปีล่าสุด → วันที่ล่าสุด → ประเภท ตรงกับลำดับรายการที่มา)
+// แล้วจึงตามเลขข้อ — ข้อ 1 ของต่างที่มาจะไม่สลับปนกัน
+export const ITEM_ORDER_BY = [
+  { festival: { year: "desc" as const } },
+  { festival: { date: "desc" as const } },
+  { festival: { type: "asc" as const } },
+  { festivalId: "asc" as const },
+  { orderNumber: "asc" as const },
+];
