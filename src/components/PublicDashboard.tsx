@@ -472,8 +472,10 @@ export function PublicDashboard() {
 
   // เลือกที่มาเดียว: แท่งแนวนอนแทนกราฟแท่งตั้ง (ข้อเสนอ 60 ข้อ ป้ายชนกันอ่านไม่ออก)
   //  - มีหลายอนุฯ → แถวละอนุฯ (ไม่เกิน 8 แถว)
-  //  - อนุฯ เดียว (เช่น ประชุมของอนุฯ หนึ่ง) → แถวละเรื่อง พร้อมชื่อเต็ม
+  //  - อนุฯ เดียว (เช่น ประชุมของอนุฯ หนึ่ง) → หน่วยงานที่ยังค้างมากที่สุด 8 อันดับ
+  //    (รายเรื่องดูได้ในตารางข้างล่างอยู่แล้ว — กราฟนี้ตอบว่า "ใครต้องตามต่อ")
   const rowsBySC = scList.length >= 2;
+  const LAGGARD_LIMIT = 8;
   const progressRows = rowsBySC
     ? scList.map((sc) => {
         const list = filteredProposals.filter((p) => p.subCommittees.some((x) => x.subCommittee.id === sc.id));
@@ -484,12 +486,23 @@ export function PublicDashboard() {
           s: computeProgress(list),
         };
       })
-    : filteredProposals.map((p) => ({
-        id: p.id,
-        label: p.title,
-        sub: `ข้อ ${p.orderNumber}`,
-        s: computeProgress([p]),
-      }));
+    : data.agencies
+        .map((a) => {
+          const mine = filteredProposals
+            .filter((p) => p.expectedAgencyIds.includes(a.id))
+            .map((p) => ({ expectedAgencyIds: [a.id], implementations: p.implementations.filter((i) => i.agencyId === a.id) }));
+          const s = computeProgress(mine);
+          return { id: a.id, label: a.name, sub: `ค้าง ${s.notStarted + s.inProgress} จาก ${s.total}`, s };
+        })
+        .filter((r) => r.s.total > 0)
+        .sort(
+          (x, y) =>
+            y.s.notStarted - x.s.notStarted ||
+            y.s.notStarted + y.s.inProgress - (x.s.notStarted + x.s.inProgress) ||
+            x.label.localeCompare(y.label, "th")
+        );
+  const agencyRowsTotal = rowsBySC ? 0 : progressRows.length;
+  const shownProgressRows = rowsBySC ? progressRows : progressRows.slice(0, LAGGARD_LIMIT);
   const agencyList = data.agencies.filter((a) => involvedAgencyIds.has(a.id));
 
   const selectCls =
@@ -711,12 +724,14 @@ export function PublicDashboard() {
               <p className="font-bold text-slate-800">
                 {showCompare
                   ? kind === "FESTIVAL" ? "เปรียบเทียบรายวาระ" : `เปรียบเทียบราย${KIND_META[kind].label}`
-                  : rowsBySC ? "ความคืบหน้ารายอนุกรรมการ" : `ความคืบหน้าราย${noun}`}
+                  : rowsBySC ? "ความคืบหน้ารายอนุกรรมการ" : "หน่วยงานที่ยังค้างมากที่สุด"}
               </p>
               <p className="text-xs text-slate-500">
                 {showCompare
                   ? "จำนวนหน่วยงานต่อสถานะในแต่ละที่มา"
-                  : "% หน่วยงานที่ดำเนินการแล้ว (เสร็จ + กำลังทำ)"}
+                  : rowsBySC
+                    ? "% หน่วยงานที่ดำเนินการแล้ว (เสร็จ + กำลังทำ)"
+                    : `นับจากทุก${noun}ที่แสดง · เรียงจากยังไม่ดำเนินการมากไปน้อย`}
               </p>
             </div>
             <div className="flex flex-wrap gap-3 text-[11px] text-slate-500">
@@ -749,11 +764,11 @@ export function PublicDashboard() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          ) : progressRows.length === 0 ? (
+          ) : shownProgressRows.length === 0 ? (
             <p className="mt-6 text-center text-sm text-slate-400">ยังไม่มี{noun}</p>
           ) : (
             <ul className="-mx-2 mt-3 max-h-[17rem] space-y-0.5 overflow-y-auto pr-1">
-              {progressRows.map((r) => {
+              {shownProgressRows.map((r) => {
                 const w = (n: number) => (r.s.total > 0 ? (n / r.s.total) * 100 : 0);
                 return (
                   <li
@@ -763,12 +778,17 @@ export function PublicDashboard() {
                   >
                     <div className="flex items-baseline justify-between gap-3">
                       <p className="min-w-0 line-clamp-2 text-[13px] leading-snug text-slate-700">
-                        {!rowsBySC && <span className="mr-1.5 text-xs text-slate-400">{r.sub}</span>}
                         {r.label}
                       </p>
                       <p className="shrink-0 text-xs tabular-nums text-slate-500">
-                        <span className="font-semibold text-slate-700">{r.s.activePct}%</span>
-                        <span className="ml-1.5 hidden sm:inline">{r.s.active}/{r.s.total}</span>
+                        {rowsBySC ? (
+                          <>
+                            <span className="font-semibold text-slate-700">{r.s.activePct}%</span>
+                            <span className="ml-1.5 hidden sm:inline">{r.s.active}/{r.s.total}</span>
+                          </>
+                        ) : (
+                          <span className={r.s.notStarted > 0 ? "font-semibold text-red-600" : "text-slate-600"}>{r.sub}</span>
+                        )}
                       </p>
                     </div>
                     {/* แท่ง 100%: เสร็จ | กำลังทำ | ยังไม่ทำ — เว้นช่อง 2px ระหว่างส่วน */}
@@ -787,6 +807,18 @@ export function PublicDashboard() {
                 );
               })}
             </ul>
+          )}
+          {!showCompare && !rowsBySC && agencyRowsTotal > LAGGARD_LIMIT && (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("agencies");
+                requestAnimationFrame(() => tabsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+              }}
+              className="mt-2 text-xs font-semibold text-blue-600 hover:underline"
+            >
+              ดูครบทั้ง {agencyRowsTotal} หน่วยงาน →
+            </button>
           )}
         </Panel>
 
